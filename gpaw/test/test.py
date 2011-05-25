@@ -10,6 +10,7 @@ from optparse import OptionParser
 
 import gpaw.mpi as mpi
 from gpaw.hooks import hooks
+from gpaw import debug
 
 
 parser = OptionParser(usage='%prog [options] [tests]',
@@ -112,8 +113,9 @@ operating_system += ' ' + ' '.join(platform.dist())
 python = platform.python_version() + ' ' + platform.python_compiler()
 python += ' ' + ' '.join(platform.architecture())
 if mpi.rank == 0:
-    print 'python %s on %s' % (python, operating_system)
-    print 'Running tests in %s' % tmpdir
+    print('python %s on %s' % (python, operating_system))
+    print('Running tests in %s' % tmpdir)
+    print('Jobs: %d, Cores: %d, debug-mode: %r' % (opt.jobs, mpi.size, debug))
 failed = TestRunner(tests, jobs=opt.jobs, show_output=opt.show_output).run()
 os.chdir(cwd)
 if mpi.rank == 0:

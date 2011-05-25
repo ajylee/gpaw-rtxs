@@ -1,21 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-
-
-# XXX
-# XXX
-# XXX Use random number generator objects
-# XXX
-# XXX
-
-"""Main gpaw module.
-
-Use like this::
-
-  from gpaw import Calculator
-
-"""
+"""Main gpaw module."""
 
 import os
 import sys
@@ -28,6 +14,7 @@ except ImportError:
                   'Set the GPAW_GET_PLATFORM environment variable to '
                   'the architecture string printed during build.')
         raise ImportError(errmsg)
+
     def get_platform():
         return modulepath
 
@@ -79,7 +66,6 @@ while len(sys.argv) > i:
         trace = True
     elif arg == '--debug':
         debug = True
-        sys.stderr.write('gpaw-DEBUG mode\n')
     elif arg.startswith('--dry-run'):
         dry_run = 1
         if len(arg.split('=')) == 2:
@@ -103,7 +89,7 @@ while len(sys.argv) > i:
         sl_args = [n for n in arg.split('=')[1].split(',')]
         if len(sl_args) == 1:
             assert sl_args[0] == 'default'
-            sl_default = ['d']*3
+            sl_default = ['d'] * 3
         else:
             sl_default = []
             assert len(sl_args) == 3
@@ -121,7 +107,7 @@ while len(sys.argv) > i:
         sl_args = [n for n in arg.split('=')[1].split(',')]
         if len(sl_args) == 1:
             assert sl_args[0] == 'default'
-            sl_diagonalize = ['d']*3
+            sl_diagonalize = ['d'] * 3
         else:
             sl_diagonalize = []
             assert len(sl_args) == 3
@@ -139,7 +125,7 @@ while len(sys.argv) > i:
         sl_args = [n for n in arg.split('=')[1].split(',')]
         if len(sl_args) == 1:
             assert sl_args[0] == 'default'
-            sl_inverse_cholesky = ['d']*3
+            sl_inverse_cholesky = ['d'] * 3
         else:
             sl_inverse_cholesky = []
             assert len(sl_args) == 3
@@ -157,7 +143,7 @@ while len(sys.argv) > i:
         sl_args = [n for n in arg.split('=')[1].split(',')]
         if len(sl_args) == 1:
             assert sl_args[0] == 'default'
-            sl_lcao = ['d']*3
+            sl_lcao = ['d'] * 3
         else:
             sl_lcao = []
             assert len(sl_args) == 3
@@ -188,6 +174,7 @@ if debug:
     numpy.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
 
     oldempty = numpy.empty
+
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
         try:
@@ -200,6 +187,7 @@ if debug:
 if debug:
     import numpy
     olddot = numpy.dot
+
     def dot(a, b):
         a = numpy.asarray(a)
         b = numpy.asarray(b)
@@ -222,6 +210,7 @@ arch = '%s-%s' % (get_platform(), sys.version[0:3])
 # want to use the extension from the distutils build directory:
 sys.path.insert(0, join(build_path, 'lib.' + arch))
 
+
 def get_gpaw_python_path():
     paths = os.environ['PATH'].split(os.pathsep)
     paths.insert(0, join(build_path, 'bin.' + arch))
@@ -238,10 +227,12 @@ from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
 
+
 class Calculator(GPAW):
     def __init__(self, *args, **kwargs):
         sys.stderr.write('Please start using GPAW instead of Calculator!\n')
         GPAW.__init__(self, *args, **kwargs)
+
 
 def restart(filename, Class=GPAW, **kwargs):
     calc = Class(filename, **kwargs)
@@ -254,6 +245,7 @@ if trace:
     from gpaw.mpi import parallel, rank
     if parallel:
         indent = 'CPU%d    ' % rank
+
     def f(frame, event, arg):
         global indent
         f = frame.f_code.co_filename
@@ -261,8 +253,8 @@ if trace:
             return
 
         if event == 'call':
-            print '%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
-                                   frame.f_code.co_name)
+            print('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
+                                   frame.f_code.co_name))
             indent += '| '
         elif event == 'return':
             indent = indent[:-2]
@@ -273,6 +265,7 @@ if profile:
     from cProfile import Profile
     import atexit
     prof = Profile()
+
     def f(prof, filename):
         prof.disable()
         from gpaw.mpi import rank
@@ -282,4 +275,3 @@ if profile:
             prof.dump_stats(filename + '.%04d' % rank)
     atexit.register(f, prof, profile)
     prof.enable()
-
