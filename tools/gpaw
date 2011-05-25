@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+# Emacs: treat this as -*- python -*-
+
+import sys
+
+from gpaw.utilities.gpawscript import main
+
+main()

@@ -1,0 +1,653 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import sys
+from math import pi, log
+
+import numpy as np
+from numpy.linalg import eigh
+
+from scipy.special import gamma
+from scipy.integrate import odeint
+from scipy.interpolate import interp1d
+
+from ase.data import atomic_numbers, atomic_names, chemical_symbols
+from ase.utils import devnull, prnt
+import ase.units as units
+
+from gpaw.atom.configurations import configurations
+from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.xc import XC
+from gpaw.utilities.progressbar import ProgressBar
+
+
+# Velocity of light in atomic units:
+c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
+
+# Colors for s, p, d, f, g:
+colors = 'rgbky'
+
+
+class GaussianBasis:
+    def __init__(self, l, alpha_B, rgd, eps=1.0e-7):
+        """Guassian basis set for spherically symmetric atom.
+
+        l: int
+            Angular momentum quantum number.
+        alpha_B: ndarray
+            Exponents.
+        rgd: GridDescriptor
+            Grid descriptor.
+        eps: float
+            Cutoff for eigenvalues of overlap matrix."""
+        
+        self.l = l
+        self.alpha_B = alpha_B
+        self.rgd = rgd
+
+        A_BB = np.add.outer(alpha_B, alpha_B)
+        M_BB = np.multiply.outer(alpha_B, alpha_B)
+
+        # Overlap matrix:
+        S_BB = (2 * M_BB**0.5 / A_BB)**(l + 1.5)
+
+        # Kinetic energy matrix:
+        T_BB = 2**(l + 2.5) * M_BB**(0.5 * l + 0.75) / gamma(l + 1.5) * (
+            gamma(l + 2.5) * M_BB / A_BB**(l + 2.5) -
+            0.5 * (l + 1) * gamma(l + 1.5) / A_BB**(l + 0.5) +
+            0.25 * (l + 1) * (2 * l + 1) * gamma(l + 0.5) / A_BB**(l + 0.5))
+
+        # Derivative matrix:
+        D_BB = 2**(l + 2.5) * M_BB**(0.5 * l + 0.75) / gamma(l + 1.5) * (
+            0.5 * (l + 1) * gamma(l + 1) / A_BB**(l + 1) -
+            gamma(l + 2) * alpha_B / A_BB**(l + 2))
+
+        # 1/r matrix:
+        K_BB = 2**(l + 2.5) * M_BB**(0.5 * l + 0.75) / gamma(l + 1.5) * (
+            0.5 * gamma(l + 1) / A_BB**(l + 1))
+
+        # Find set of linearly independent functions.
+        # We have len(alpha_B) gaussians (index B) and self.nbasis
+        # linearly independent functions (index b).
+        s_B, U_BB = eigh(S_BB)
+        self.nbasis = int((s_B > eps).sum())
+
+        Q_Bb = np.dot(U_BB[:, -self.nbasis:],
+                      np.diag(s_B[-self.nbasis:]**-0.5))
+        
+        self.T_bb = np.dot(np.dot(Q_Bb.T, T_BB), Q_Bb)
+        self.D_bb = np.dot(np.dot(Q_Bb.T, D_BB), Q_Bb)
+        self.K_bb = np.dot(np.dot(Q_Bb.T, K_BB), Q_Bb)
+
+        r_g = rgd.r_g
+        # Avoid errors in debug mode from division by zero:
+        old_settings = np.seterr(divide='ignore')
+        self.basis_bg = (np.dot(
+                Q_Bb.T,
+                (2 * (2 * alpha_B[:, np.newaxis])**(l + 1.5) /
+                 gamma(l + 1.5))**0.5 *
+                np.exp(-np.multiply.outer(alpha_B, r_g**2))) * r_g**l)
+        np.seterr(**old_settings)
+        
+    def __len__(self):
+        return self.nbasis
+
+    def expand(self, C_xb):
+        return np.dot(C_xb, self.basis_bg)
+
+    def calculate_potential_matrix(self, vr_g):
+        vr2dr_g = vr_g * self.rgd.r_g * self.rgd.dr_g
+        V_bb = np.inner(self.basis_bg[:, 1:],
+                        self.basis_bg[:, 1:] * vr2dr_g[1:])
+        return V_bb
+
+
+class Channel:
+    def __init__(self, l, s=0, f_n=(), basis=None):
+        self.l = l
+        self.s = s
+        self.basis = basis
+
+        self.C_nb = None                       # eigenvectors
+        self.e_n = None                        # eigenvalues
+        self.f_n = np.array(f_n, dtype=float)  # occupation numbers
+        self.phi_ng = None                     # wave functions
+        
+        self.name = 'spdfg'[l]
+
+    def solve(self, vr_g):
+        """Diagonalize Schrödinger equation in basis set."""
+        H_bb = self.basis.calculate_potential_matrix(vr_g)
+        H_bb += self.basis.T_bb
+        self.e_n, C_bn = eigh(H_bb)
+        self.C_nb = C_bn.T
+        self.phi_ng = self.basis.expand(self.C_nb[:len(self.f_n)])
+
+    def solve2(self, vr_g):
+        rgd = self.basis.rgd
+        r_g = rgd.r_g
+        l = self.l
+        vr = interp1d(r_g, vr_g, 'cubic')
+        u_g = rgd.empty()
+        for n in range(len(self.f_n)):
+            e = self.e_n[n]
+            # Find classical turning point:
+            g = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()
+            r1_g = r_g[:g + 1]
+            r2_g = -r_g[:g - 1:-1]
+            #print g, r_g[g], e
+            iter = 0
+            while True:
+                u1_g, du1dr_g = self.integrate_outwards(vr, r1_g, e)
+                u2_g, du2dr_g = self.integrate_inwards(vr, r2_g, e)
+                A = du1dr_g[-1] / u1_g[-1] + du2dr_g[-1] / u2_g[-1]
+                u_g[:g + 1] = u1_g
+                u_g[g:] = u2_g[::-1] * u1_g[-1] / u2_g[-1]
+                u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
+                if abs(A) < 1e-5:
+                    break
+                e += 0.5 * A * u_g[g]**2
+                iter += 1
+                #print iter,e,A
+                assert iter < 20, (n,l,e)
+            self.e_n[n] = e
+            self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
+            if self.l == 0:
+                self.phi_ng[n, 0] = self.phi_ng[n, 1]
+            
+    def calculate_density(self, n=None):
+        """Calculate density."""
+        if n is None:
+            n_g = 0.0
+            for n, f in enumerate(self.f_n):
+                n_g += f * self.calculate_density(n)
+        else:
+            n_g = self.phi_ng[n]**2 / (4 * pi)
+        return n_g
+
+    def get_eigenvalue_sum(self):
+        f_n = self.f_n
+        return np.dot(f_n, self.e_n[:len(f_n)])
+
+    def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
+        l = self.l
+        def f(y, r):
+            return [y[1],
+                    2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0] -
+                    2 * p(r) * r]
+        u_g = np.zeros_like(r_g)
+        dudr_g = np.zeros_like(r_g)
+        r1 = r_g[1]
+        u_g[1:], dudr_g[1:] = odeint(f, [r1**(l + 1), (l + 1) * r1**l],
+                                     r_g[1:]).T
+        return u_g, dudr_g
+    
+    def integrate_inwards(self, vr, r_g, e):
+        l = self.l
+        def f(y, r):
+            r = -r
+            return [y[1],
+                    2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0]]
+        a = np.sqrt(-2 * e)
+        u = np.exp(a * r_g[0])
+        return odeint(f, [u, a * u], r_g, hmax=0.2).T
+    
+
+class DiracChannel(Channel):
+    def __init__(self, k, f_n, basis):
+        l = (abs(2 * k + 1) - 1) // 2
+        Channel.__init__(self, l, 0, f_n, basis)
+        self.k = k
+        self.j = abs(k) - 0.5
+        self.c_nb = None  # eigenvectors (small component)
+
+        self.name += '(%d/2)' % (2 * self.j)
+
+    def solve(self, vr_g):
+        """Solve Dirac equation in basis set."""
+        nb = len(self.basis)
+        V_bb = self.basis.calculate_potential_matrix(vr_g)
+        H_bb = np.zeros((2 * nb, 2 * nb))
+        H_bb[:nb, :nb] = V_bb
+        H_bb[nb:, nb:] = V_bb - 2 * c**2 * np.eye(nb)
+        H_bb[nb:, :nb] = -c * (-self.basis.D_bb.T + self.k * self.basis.K_bb)
+        e_n, C_bn = eigh(H_bb)
+        if self.k < 0:
+            n0 = nb
+        else:
+            n0 = nb + 1
+        self.e_n = e_n[n0:].copy()
+        self.C_nb = C_bn[:nb, n0:].T.copy()  # large component
+        self.c_nb = C_bn[nb:, n0:].T.copy()  # small component
+
+    def calculate_density(self, n=None):
+        """Calculate density."""
+        if n is None:
+            n_g = Channel.calculate_density(self)
+        else:
+            n_g = (self.basis.expand(self.C_nb[n])**2 +
+                   self.basis.expand(self.c_nb[n])**2) / (4 * pi)
+            if self.basis.l < 0:
+                n_g[0] = n_g[1]
+        return n_g
+
+        
+class AllElectronAtom:
+    def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
+                 log=sys.stdout):
+        """All-electron calculation for spherically symmetric atom.
+
+        symbol: str (or int)
+            Chemical symbol (or atomic number).
+        xc: str
+            Name of XC-functional.
+        spinpol: bool
+            If true, do spin-polarized calculation.  Default is spin-paired.
+        dirac: bool
+            Solve Dirac equation instead of Schrödinger equation.
+        log: stream
+            Text output."""
+
+        if isinstance(symbol, int):
+            symbol = chemical_symbols[symbol]
+        self.symbol = symbol
+        self.Z = atomic_numbers[symbol]
+
+        self.nspins = 1 + int(bool(spinpol))
+
+        self.dirac = bool(dirac)
+
+        if isinstance(xc, str):
+            self.xc = XC(xc)
+        else:
+            self.xc = xc
+
+        if log is None:
+            log = devnull
+        self.fd = log
+
+        self.vr_sg = None  # potential * r
+        self.n_sg = 0.0    # density
+        self.rgd = None     # radial grid descriptor
+
+        # Energies:
+        self.ekin = None
+        self.eeig = None
+        self.eH = None
+        self.eZ = None
+
+        self.channels = None
+
+        self.initialize_configuration()
+
+        self.log('Z:              ', self.Z)
+        self.log('Name:           ', atomic_names[self.Z])
+        self.log('Symbol:         ', symbol)
+        self.log('XC-functional:  ', self.xc.name)
+        self.log('Equation:       ', ['Schrödinger', 'Dirac'][self.dirac])
+
+        self.mode = 'gaussians'
+
+    def log(self, *args, **kwargs):
+        prnt(file=self.fd, *args, **kwargs)
+
+    def initialize_configuration(self):
+        self.f_lsn = {}
+        for n, l, f, e in configurations[self.symbol][1]:
+            
+            if l not in self.f_lsn:
+                self.f_lsn[l] = [[] for s in range(self.nspins)]
+            if self.nspins == 1:
+                self.f_lsn[l][0].append(f)
+            else:
+                # Use Hund's rule:
+                f0 = min(f, 2 * l + 1)
+                self.f_lsn[l][0].append(f0)
+                self.f_lsn[l][1].append(f - f0)
+
+    def add(self, n, l, df=+1, s=None):
+        """Add (remove) electrons."""
+        if s is None:
+            if self.nspins == 1:
+                s = 0
+            else:
+                self.add(n, l, 0.5 * df, 0)
+                self.add(n, l, 0.5 * df, 1)
+                return
+            
+        if l not in self.f_lsn:
+            self.f_lsn[l] = [[] for x in range(self.nspins)]
+            
+        f_n = self.f_lsn[l][s]
+        if len(f_n) < n - l:
+            f_n.extend([0] * (n - l - len(f_n)))
+        f_n[n - l - 1] += df
+
+    def initialize(self, ngpts=1000, rcut=50.0,
+                   alpha1=0.01, alpha2=None, ngauss=50,
+                   eps=1.0e-7):
+        """Initialize basis sets and radial grid.
+
+        ngpts: int
+            Number of grid points for radial grid.
+        rcut: float
+            Cutoff for radial grid.
+        alpha1: float
+            Smallest exponent for gaussian.
+        alpha2: float
+            Largest exponent for gaussian.
+        ngauss: int
+            Number of gaussians.
+        eps: float
+            Cutoff for eigenvalues of overlap matrix."""
+
+        if alpha2 is None:
+            alpha2 = 50.0 * self.Z**2
+
+        # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
+        a = 1 / alpha2**0.5 / 50        
+        b = (rcut - a * ngpts) / (rcut * ngpts)
+        self.rgd = AERadialGridDescriptor(a, b, ngpts)
+        
+        self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
+                 ((self.rgd.N,) + tuple(self.rgd.r_g[[0, 1, 2, -2, -1]])))
+
+        # Distribute exponents between alpha1 and alpha2:
+        alpha_B = alpha1 * (alpha2 / alpha1)**np.linspace(0, 1, ngauss)
+        self.log('Exponents:       %d (%.3f, %.3f, ..., %.3f, %.3f)' %
+                 ((ngauss,) + tuple(alpha_B[[0, 1, -2, -1]])))
+
+        # Maximum l value:
+        lmax = max(self.f_lsn.keys())
+
+        self.channels = []
+        nb_l = []
+        if not self.dirac:
+            for l in range(lmax + 1):
+                basis = GaussianBasis(l, alpha_B, self.rgd, eps)
+                nb_l.append(len(basis))
+                for s in range(self.nspins):
+                    self.channels.append(Channel(l, s, self.f_lsn[l][s],
+                                                 basis))
+        else:
+            for K in range(1, lmax + 2):
+                leff = (K**2 - (self.Z / c)**2)**0.5 - 1
+                basis = GaussianBasis(leff, alpha_B, self.rgd, eps)
+                nb_l.append(len(basis))
+                for k, l in [(-K, K - 1), (K, K)]:
+                    if l > lmax:
+                        continue
+                    f_n = self.f_lsn[l][0]
+                    j = abs(k) - 0.5
+                    f_n = (2 * j + 1) / (4 * l + 2) * np.array(f_n)
+                    self.channels.append(DiracChannel(k, f_n, basis))
+
+        self.log('Basis functions: %s (%s)' %
+                 (', '.join([str(nb) for nb in nb_l]),
+                  ', '.join('spdf'[:lmax + 1])))
+
+        self.vr_sg = self.rgd.zeros(self.nspins)
+        self.vr_sg[:] = -self.Z
+
+    def solve(self):
+        """Diagonalize Schrödinger equation."""
+        self.eeig = 0.0
+        for channel in self.channels:
+            if self.mode == 'gaussians':
+                channel.solve(self.vr_sg[channel.s])
+            else:
+                channel.solve2(self.vr_sg[channel.s])
+            self.eeig += channel.get_eigenvalue_sum()
+
+    def calculate_density(self):
+        """Calculate elctron density and kinetic energy."""
+        self.n_sg = self.rgd.zeros(self.nspins)
+        for channel in self.channels:
+            self.n_sg[channel.s] += channel.calculate_density()
+
+    def calculate_electrostatic_potential(self):
+        """Calculate electrostatic potential and energy."""
+        n_g = self.n_sg.sum(0)
+        self.vHr_g = self.rgd.poisson(n_g)        
+        self.eH = 0.5 * self.rgd.integrate(n_g * self.vHr_g, -1)
+        self.eZ = -self.Z * self.rgd.integrate(n_g, -1)
+        
+    def calculate_xc_potential(self):
+        self.vxc_sg = self.rgd.zeros(self.nspins)
+        self.exc = self.xc.calculate_spherical(self.rgd, self.n_sg, self.vxc_sg)
+
+    def step(self):
+        self.solve()
+        self.calculate_density()
+        self.calculate_electrostatic_potential()
+        self.calculate_xc_potential()
+        self.vr_sg = self.vxc_sg * self.rgd.r_g
+        self.vr_sg += self.vHr_g
+        self.vr_sg -= self.Z
+        self.ekin = (self.eeig -
+                     self.rgd.integrate((self.vr_sg * self.n_sg).sum(0), -1))
+        
+    def run(self, mix=0.4, maxiter=117, dnmax=1e-9):
+        if self.channels is None:
+            self.initialize()
+
+        dn = self.Z
+        pb = ProgressBar(log(dnmax / dn), 0, 53, self.fd)
+        self.log()
+        
+        for iter in range(maxiter):
+            if iter > 1:
+                self.vr_sg *= mix
+                self.vr_sg += (1 - mix) * vr_old_sg
+                dn = self.rgd.integrate(abs(self.n_sg - n_old_sg).sum(0))
+                pb(log(dnmax / dn))
+                if dn <= dnmax:
+                    break
+
+            vr_old_sg = self.vr_sg
+            n_old_sg = self.n_sg
+            self.step()
+
+        self.summary(iter)
+        if dn > dnmax:
+            raise RuntimeError('Did not converge!')
+
+    def refine(self):
+        self.mode = 'ode'
+        #self.step()
+        self.run(dnmax=1e-6, mix=0.7)
+        
+    def summary(self, iter=0):
+        self.write_states()
+        self.write_energies()
+        if iter > 0:
+            self.log('Converged in', iter, 'steps')
+            
+    def write_states(self):
+        self.log('\n state  occupation         eigenvalue          <r>')
+        if self.dirac:
+            self.log(' nl(j)               [Hartree]        [eV]    [Bohr]')
+        else:
+            self.log(' nl                  [Hartree]        [eV]    [Bohr]')
+        self.log('=====================================================')
+        states = []
+        for ch in self.channels:
+            for n, f in enumerate(ch.f_n):
+                states.append((ch.e_n[n], ch, n))
+        states.sort()
+        for e, ch, n in states:
+            name = str(n + ch.l + 1) + ch.name
+            if self.nspins == 2:
+                name += '(%s)' % '+-'[ch.s]    
+            n_g = ch.calculate_density(n)
+            rave = self.rgd.integrate(n_g, 1)
+            self.log(' %-7s  %6.3f %13.6f  %13.5f %6.3f' %
+                     (name, ch.f_n[n], e, e * units.Hartree, rave))
+        self.log('=====================================================')
+
+    def write_energies(self):
+        self.log('\nEnergies:          [Hartree]           [eV]')
+        self.log('============================================')
+        for text, e in [('kinetic      ', self.ekin),
+                        ('coulomb (e-e)', self.eH),
+                        ('coulomb (e-n)', self.eZ),
+                        ('xc           ', self.exc),
+                        ('total        ',
+                         self.ekin + self.eH + self.eZ + self.exc)]:
+            self.log(' %s %+13.6f  %+13.5f' % (text, e, units.Hartree * e))
+        self.log('============================================')
+
+    def get_channel(self, l=None, s=0, k=None):
+        if self.dirac:
+            for channel in self.channels:
+                if channel.k == k:
+                    return channel
+        else:
+            for channel in self.channels:
+                if channel.l == l and channel.s == s:
+                    return channel
+        raise ValueError
+
+    def get_orbital(self, n, l=None, s=0, k=None):
+        channel = self.get_channel(l, s, k)
+        return channel.basis.expand(channel.C_nb[n])
+
+    def plot_wave_functions(self, rc=4.0):
+        import matplotlib.pyplot as plt
+        colors = 'krgbycm'
+        for ch in self.channels:
+            for n in range(len(ch.f_n)):
+                fr_g = ch.basis.expand(ch.C_nb[n]) * self.rgd.r_g
+                name = str(n + ch.l + 1) + ch.name
+                lw = 2
+                if self.nspins == 2:
+                    name += '(%s)' % '+-'[ch.s]    
+                    if ch.s == 1:
+                        lw = 1
+                if self.dirac and ch.k > 0:
+                    lw = 1
+                ls = ['-', '--', '-.', ':'][ch.l]
+                n_g = ch.calculate_density(n)
+                rave = self.rgd.integrate(n_g, 1)
+                gave = self.rgd.round(rave)
+                fr_g *= cmp(fr_g[gave], 0)
+                plt.plot(self.rgd.r_g, fr_g,
+                         ls=ls, lw=lw, color=colors[n + ch.l], label=name)
+        plt.legend(loc='best')
+        plt.axis(xmax=rc)
+        plt.show()
+
+    def logarithmic_derivative(self, l, energies, rcut):
+        vr = interp1d(self.rgd.r_g, self.vr_sg[0], 'cubic')
+        ch = Channel(l)
+        gcut = self.rgd.round(rcut)
+        logderivs = []
+        for e in energies:
+            u, dudr = ch.integrate_outwards(vr, self.rgd.r_g[:gcut + 1], e)
+            logderivs.append(dudr[-1] / u[-1])
+        return logderivs
+            
+
+def build_parser(): 
+    from optparse import OptionParser
+
+    parser = OptionParser(usage='%prog [options] element',
+                          version='%prog 0.1')
+    parser.add_option('-f', '--xc-functional', type='string', default='LDA',
+                      help='Exchange-Correlation functional ' +
+                      '(default value LDA)',
+                      metavar='<XC>')
+    parser.add_option('-a', '--add', metavar='states',
+                      help='Add electron(s). Use "1s0.5a" to add 0.5 1s ' +
+                      'electrons to the alpha-spin channel (use "b" for ' +
+                      'beta-spin).  The number of electrons defaults to ' +
+                      'one. Examples: "1s", "2p2b", "4f0.1b,3d-0.1a".')
+    parser.add_option('-s', '--spin-polarized', action='store_true')
+    parser.add_option('-d', '--dirac', action='store_true')
+    parser.add_option('-p', '--plot', action='store_true')
+    parser.add_option('-e', '--exponents',
+                      help='Exponents a: exp(-a*r^2).  Use "-e 0.1:20.0:30" ' +
+                      'to get 30 exponents from 0.1 to 20.0.')
+    parser.add_option('-l', '--logarithmic-derivatives',
+                      metavar='spdfg,e1:e2:de,radius',
+                      help='Plot logarithmic derivatives. ' +
+                      'Example: -l spdf,-1:1:0.05,1.3. ' +
+                      'Energy range and/or radius can be left out.')
+    parser.add_option('-r', '--refine', action='store_true')
+    return parser
+
+def parse_ld_str(s, r=2.0):
+    parts = s.split(',')
+    lvalues = ['spdfg'.find(x) for x in parts.pop(0)]
+    if parts:
+        e1, e2, de = (float(x) for x in parts.pop(0).split(':'))
+    else:
+        e1, e2, de = -1, 1, 0.05
+    if parts:
+        r = float(parts.pop())
+    energies = np.linspace(e1, e2, int((e2 - e1) / de) + 1)
+    return lvalues, energies, r
+
+def main():
+    parser = build_parser()
+    opt, args = parser.parse_args()
+
+    if len(args) != 1:
+        parser.error('Incorrect number of arguments')
+    symbol = args[0]
+
+    nlfs = []
+    if opt.add:
+        for x in opt.add.split(','):
+            n = int(x[0])
+            l = 'spdfg'.find(x[1])
+            x = x[2:]
+            if x and x[-1] in 'ab':
+                s = int(x[-1] == 'b')
+                opt.spin_polarized = True
+                x = x[:-1]
+            else:
+                s = None
+            if x:
+                f = float(x)
+            else:
+                f = 1
+            nlfs.append((n, l, f, s))
+
+    aea = AllElectronAtom(symbol,
+                          xc=opt.xc_functional,
+                          spinpol=opt.spin_polarized,
+                          dirac=opt.dirac)
+
+    kwargs = {}
+    if opt.exponents:
+        parts = opt.exponents.split(':')
+        kwargs['alpha1'] = float(parts[0])
+        if len(parts) > 1:
+            kwargs['alpha2'] = float(parts[1])
+            if len(parts) > 2:
+                kwargs['ngauss'] = int(parts[2])
+
+    for n, l, f, s in nlfs:
+        aea.add(n, l, f, s)
+
+    aea.initialize(**kwargs)
+    aea.run()
+
+    if opt.refine:
+        aea.refine()
+
+    if opt.logarithmic_derivatives:
+        lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives)
+        import matplotlib.pyplot as plt
+        for l in lvalues:
+            ld = aea.logarithmic_derivative(l, energies, r)
+            plt.plot(energies, ld, colors[l])
+        plt.show()
+        
+    if opt.plot:
+        aea.plot_wave_functions()
+
+
+if __name__ == '__main__':
+    main()

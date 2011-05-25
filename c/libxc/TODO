@@ -1,0 +1,25 @@
+Add functionals:
+
+GGAs:
+  *) Langreth & Mehl
+       correlation
+       PRL 47, 446
+  *) Wilson & Levy
+       correlation
+       PRB 41, 12930
+  *) Filatov & Thiel
+       correlation
+       IJQC 62, 603; Mol Phys 91, 847
+
+mGGAs:
+  *) Local tau approximation
+  *) TPSS
+
+hybrids:
+  *) 405: mPW91PW91
+  *) 407: B97
+  *) 408: B97-1
+  *) 409: B97-1 revised
+  *) 410: B97-2
+  *) 412: SB98h
+  *) 413: B88+B95?
