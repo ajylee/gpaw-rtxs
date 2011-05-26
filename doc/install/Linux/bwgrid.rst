@@ -11,14 +11,14 @@ Instructions assume **bash**, installation under $HOME/opt.
 Load the necessary modules::
 
   module load system/python/2.6
-  module load mpi/openmpi/1.2.8-gnu-4.1
+  module load mpi/openmpi/1.4.3-gnu-4.1
  
 You can also use gcc-4.3 instead of gcc-4.1, but numpys
 test will complain about different fortran versions::
 
   module load system/python/2.6
   module load compiler/gnu/4.3
-  module load mpi/openmpi/1.2.8_static-gnu-4.3
+  module load mpi/openmpi/1.4.3_static-gnu-4.3
  
 
 Build the unoptimized numpy::
