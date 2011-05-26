@@ -121,12 +121,16 @@ class InputParameters(dict):
                   'will be disabled some day in the future!')
             self.convergence['eigenstates'] = r['Tolerance']
         else:
+            nbtc = r['NumberOfBandsToConverge']
+            if not isinstance(nbtc, int):
+                # The string 'all' was eval'ed to the all() function!
+                nbtc = 'all'
             self.convergence = {'density': r['DensityConvergenceCriterion'],
                                 'energy':
                                 r['EnergyConvergenceCriterion'] * Hartree,
                                 'eigenstates':
                                 r['EigenstatesConvergenceCriterion'],
-                                'bands': r['NumberOfBandsToConverge']}
+                                'bands': nbtc}
             if version <= 0.6:
                 mixer = 'Mixer'
                 weight = r['MixMetric']
