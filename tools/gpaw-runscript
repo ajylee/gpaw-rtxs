@@ -16,7 +16,8 @@ defaults = { 'err'   : None,
              'qsys'  : 'pbs',
              'script': 'run.py',
              'time'  : 86400, # one day in seconds
-             'wd'    : None
+             'wd'    : None,
+             'smt'   : False,
              }
 
 hosts = { 'batman'                   : 'pbs_batman',
@@ -346,7 +347,7 @@ unset CC CFLAGS LDFLAGS
     def pbs_bwg(self, f, set, env):
         modules_to_load = [
 		'system/python/2.6',
-		'mpi/openmpi/1.2.8-gnu-4.1']
+		'mpi/openmpi/1.4.3-gnu-4.1']
         print >> f, '#!/bin/bash'
         print >> f, '#PBS -N '+set['name']
         # bwg nodes contain 8 cores
@@ -360,7 +361,7 @@ unset CC CFLAGS LDFLAGS
         print >> f, '#PBS -l walltime=' + hms_string(set['time'])
         print >> f, '#PBS -m bea'
         if set['mail'] is not None:
-            print >> f, '#PBS -M',set['mail']
+            print >> f, '#PBS -M', set['mail']
 	for module in modules_to_load:
         	print >> f, 'module load ' + module
         print >> f, 'cd', set['wd']
@@ -380,7 +381,10 @@ unset CC CFLAGS LDFLAGS
         print >> f, '#MSUB -N '+set['name']
         # nodes contain 8 cores                                             
         cores = set['cores']
-        nodes = int((cores + 7) / 8)
+        cores_per_node = 8
+        if set['smt']:
+            cores_per_node = 16
+        nodes = int((cores + (cores_per_node - 1)) / cores_per_node)
         ppn = int((cores + nodes - 1) / nodes)
         if cores != nodes * ppn:
             print 'Note:', nodes * ppn, 'cores reserved but only', cores, 'core\
@@ -398,9 +402,8 @@ ormance.'
         print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
         print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
         print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
-        print >> f, 'mpiexec -np', cores, 
-        print >> f, '-env PYTHONPATH $PYTHONPATH',
-        print >> f, '-env GPAW_SETUP_PATH $GPAW_SETUP_PATH',
+        print >> f, 'export PSP_ONDEMAND=1'
+        print >> f, 'mpiexec -np', cores, '-x', 
         print >> f, '$GPAW_PYTHON', set['script'],
         if 'parameters' in set:
             print >> f, set['parameters'],
@@ -515,6 +518,8 @@ parser.add_option("-q", "--qsys", dest='qsys',
                   help='queue system (def: try to guess)')
 parser.add_option("-t", "--time", dest='time',
                   help='Time (def: 86400=1140m=24h=1d=one day)')
+parser.add_option("-s", "--smt", dest='smt', action='count',
+                  help='Simultaneous Multi-Threading (host specific)')
 opt, args = parser.parse_args()
 ##print "opt=",opt
 ##print "args=",args
@@ -536,6 +541,10 @@ if opt.parameters:
 
 if opt.time:
     set['time'] = s_from_dhms(opt.time)
+
+print "opt.smt", opt.smt
+if opt.smt:
+    set['smt'] = True
 
 if len(args):
     set['script'] = args[0]
