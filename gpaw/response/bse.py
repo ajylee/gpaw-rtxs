@@ -109,7 +109,7 @@ class BSE(BASECHI):
 
         if self.use_W:
             # q points init
-            self.kd.get_bz_q_points(folding=False)
+            self.kd.get_bz_q_points()
             self.nq = len(self.kd.bzq_kc)
 
         # parallel init
@@ -191,51 +191,24 @@ class BSE(BASECHI):
                     rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],self.kq_k[k2])
                     
                     q_c = bzk_kc[k2] - bzk_kc[k1]
-                    iq = self.kd.where_is_q(q_c,folding=False)
+                    iq = self.kd.where_is_q(q_c)
                     W_GG = W_qGG[iq].copy()
                     
                     if k1 == k2:
                         if (n1==n2) or (m1==m2):
-
-                            # method 1:                            
-#                            tmp = 0
-#                            alpha = 10.#6 * self.vol**(2 / 3.0) / pi**2
-#                            for jq in range(self.nq):
-#                                for jG in range(self.npw):
-#                                    qG = np.dot(self.kd.bzq_kc[jq] + self.Gvec_Gc[jG], self.bcell_cv)
-#                                    if (np.abs(qG) > 1e-4).all():
-#                                        qG2 = np.dot(qG, qG)
-#                                        tmp += np.exp(-alpha*qG2) / qG2                
-#
-#                            coef = self.nkpt * self.vol / (2*pi)**2 * np.sqrt(pi/alpha) - tmp
-#                            W_GG[:,0] = np.sqrt(coef) * 4 * pi
 
                             tmp_G = np.zeros(self.npw)
                             q = np.array([0.0001,0,0])
                             for jG in range(1, self.npw):
                                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
                                 tmp_G[jG] = self.dfinvG0_G[jG] / np.sqrt(np.inner(qG,qG))
-#                            W_GG[:,0] *= tmp_G
-#                            W_GG[0,:] = W_GG[:,0]
-#                            W_GG[0, 0] = coef * 4 * pi * self.dfinvG0_G[0]
 
-                            # method 2:
                             const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)                            
                             tmp_G *= const
                             W_GG[:,0] = tmp_G
                             W_GG[0,:] = tmp_G.conj()
                             W_GG[0,0] = 2./pi*(6*pi**2/self.vol)**(1./3.) \
                                             * self.dfinvG0_G[0] *self.vol
-
-
-                            # method 3
-#                            R = max(self.acell[0,0], self.acell[1,1], self.acell[2,2]) / 2.
-#                            W_GG[0,0] = 2 * pi * R**2 * self.dfinvG0_G[0]
-#                            for jG in range(1,self.npw):
-#                                G_c = np.dot(self.Gvec_Gc[jG], self.bcell_cv)
-#                                G = np.sqrt(np.inner(G_c,G_c))
-#                                tmp_G[jG] = self.dfinvG0_G[jG] * np.sqrt(1-np.cos(G*R))/ G**2
-#                            W_GG[:,0] = 4*pi * tmp_G
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
                     W_SS[iS, jS] = np.sum(tmp_GG)
@@ -259,9 +232,9 @@ class BSE(BASECHI):
         if self.positive_w is True: # matrix should be Hermitian
             for iS in range(self.nS):
                 for jS in range(self.nS):
-                    if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-6:
+                    if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-4:
                         print H_SS[iS,jS]- H_SS[jS,iS].conj()
-                    assert H_SS[iS,jS]- H_SS[jS,iS].conj() < 1e-6
+                    assert np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) < 1e-4
 
 #        if not self.positive_w:
         self.w_S, self.v_SS = np.linalg.eig(H_SS)
@@ -369,6 +342,9 @@ class BSE(BASECHI):
             q_c = self.q_c
         else:
             q_c = bzk_kc[kq] - bzk_kc[k]
+            q_c[np.where(q_c>0.501)] -= 1
+            q_c[np.where(q_c<-0.499)] += 1
+            
             if (np.abs(q_c) < self.ftol).all():
                 optical_limit=True
                 q_c = np.array([0.0001, 0, 0])
@@ -423,7 +399,7 @@ class BSE(BASECHI):
                 if optical_limit:
                     iq = kd.where_is_q(np.zeros(3))
                 else:
-                    iq = kd.where_is_q(q_c,folding=False)
+                    iq = kd.where_is_q(q_c)
                     
                 phi_aGp = self.phi_qaGp[iq]
             else:
@@ -497,6 +473,18 @@ class BSE(BASECHI):
             f.close()
         # Wait for I/O to finish
         world.barrier()
+
+        """Check f-sum rule."""
+        N1 = 0
+        for iw in range(self.Nw):
+            w = iw * self.dw
+            N1 += np.imag(epsilon_w[iw]) * w
+        N1 *= self.dw * self.vol / (2 * pi**2)
+
+        self.printtxt('')
+        self.printtxt('Sum rule:')
+        nv = self.nvalence
+        self.printtxt('N1 = %f, %f  %% error' %(N1, (N1 - nv) / nv * 100) )
 
         return epsilon_w
 

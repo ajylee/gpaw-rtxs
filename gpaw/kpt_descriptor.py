@@ -290,7 +290,7 @@ class KPointDescriptor:
         
         return kplusq_k
 
-    def get_bz_q_points(self, folding=True):
+    def get_bz_q_points(self):
         """Return the q=k1-k2."""
 
         bzk_kc = self.bzk_kc
@@ -302,9 +302,8 @@ class KPointDescriptor:
         all_qs = np.array(all_qs)
 
         # Fold q-points into Brillouin zone
-        if folding:
-            all_qs[np.where(all_qs > 0.501)] -= 1.
-            all_qs[np.where(all_qs < -0.499)] += 1.
+        all_qs[np.where(all_qs > 0.501)] -= 1.
+        all_qs[np.where(all_qs < -0.499)] += 1.
 
         # Make list of non-identical q-points in full BZ
         bz_qs = [all_qs[0]]
@@ -322,12 +321,11 @@ class KPointDescriptor:
 
         return
 
-    def where_is_q(self, q_c, folding=True):
+    def where_is_q(self, q_c):
         """Find the index of q points."""
 
-        if folding:
-            q_c[np.where(q_c>0.501)] -= 1
-            q_c[np.where(q_c<-0.499)] += 1
+        q_c[np.where(q_c>0.501)] -= 1
+        q_c[np.where(q_c<-0.499)] += 1
 
         found = False
         for ik in range(len(self.bzq_kc)):

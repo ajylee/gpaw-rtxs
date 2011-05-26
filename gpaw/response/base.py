@@ -34,8 +34,6 @@ class BASECHI:
                  txt=None,
                  optical_limit=False):
 
-        self.xc = 'LDA'
-
         self.txtname = txt
         self.output_init()
 
@@ -264,7 +262,7 @@ class BASECHI:
             # support ground state calculation with kpoint and band parallelization
             # but domain decomposition must = 1
             kpt_rank, u = self.calc.wfs.kd.get_rank_and_index(0, ibzk)
-            bzkpt_rank = rank
+            bzkpt_rank = self.kcomm.rank
             band_rank, myn = self.calc.wfs.bd.who_has(n)
             assert self.calc.wfs.gd.comm.size == 1
             world_rank = (kpt_rank * self.calc.wfs.band_comm.size + band_rank)
