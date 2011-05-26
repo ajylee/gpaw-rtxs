@@ -84,4 +84,4 @@ if size == 1:
                             else:
                                 r = 0
                             e = b_g[n + 1, n + 1, n + 1] - r
-                            assert abs(e) < 2e-12, (n,ix,iy,iz,r,v,e)
+                            assert abs(e) < 4e-12, (n,ix,iy,iz,r,v,e)
