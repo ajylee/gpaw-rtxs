@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#PBS -q medium -l nodes=1:ppn=8:xeon5570 -m abe -V
 # Takes 30 mins with 8 cores in domain-parallel (memory ~500mb, max 1.5gb)
 
 import numpy as np

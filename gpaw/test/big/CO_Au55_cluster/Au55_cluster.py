@@ -1,10 +1,3 @@
-#!/usr/bin/env python
-
-#PBS -m ae
-#PBS -q verylong
-#PBS -l nodes=2:ppn=8
-#!/usr/bin/env python
-
 from ase import Atom, Atoms
 from ase.optimize.bfgslinesearch import BFGSLineSearch
 from ase.io import read

@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-#PBS -l nodes=1:ppn=8
-#PBS -l walltime=00:25:00
-#PBS -j oe
-#PBS -m ae
-#PBS -M s052580@fysik.dtu.dk
-#PBS -N dscf-N2-forces
-
 import sys
 
 import numpy as np

@@ -1,10 +1,3 @@
-#!/usr/bin/env python
-
-#PBS -m ae
-#PBS -q verylong
-#PBS -l nodes=1:ppn=8
-#!/usr/bin/env python
-
 from ase.io import read
 from gpaw import GPAW
 from ase.optimize.bfgslinesearch import BFGSLineSearch
