@@ -10,7 +10,7 @@ import sys
 
 class RPACorrelation:
 
-    def __init__(self, calc, txt=None):
+    def __init__(self, calc, txt=None, qsym=True):
         
         self.calc = calc
         
@@ -30,7 +30,7 @@ class RPACorrelation:
         self.bz_k_points = calc.wfs.bzk_kc
         self.atoms = calc.get_atoms()
         self.setups = calc.wfs.setups
-        self.ibz_q_points, self.q_weights = self.get_ibz_q_points(self.bz_k_points) 
+        self.ibz_q_points, self.q_weights = self.get_ibz_q_points(self.bz_k_points, qsym=qsym) 
         self.print_initialization()
         self.initialized = 0
         
@@ -199,7 +199,7 @@ class RPACorrelation:
             dws = self.w[1:] - self.w[:-1]
             E_q = np.dot((E_q_w[:-1] + E_q_w[1:])/2., dws) / (2.*np.pi)
 
-            if extrapolate:
+            if self.extrapolate:
                 '''Fit tail to: Eq(w) = A**2/((w-B)**2 + C)**2'''
                 e1 = abs(E_q_w[-1])**0.5
                 e2 = abs(E_q_w[-2])**0.5
@@ -228,7 +228,7 @@ class RPACorrelation:
         else:
             return E_q_w.real
        
-    def get_ibz_q_points(self, bz_k_points):
+    def get_ibz_q_points(self, bz_k_points, qsym=True):
 
         # Get all q-points
         all_qs = []
@@ -254,7 +254,10 @@ class RPACorrelation:
             if q_in_list == False:
                 bz_qs.append(q_a)
         self.bz_q_points = bz_qs
-    
+
+        if not qsym:
+            return self.bz_q_points, np.ones(len(self.bz_q_points)) / len(self.bz_q_points)
+        
         # Obtain q-points and weights in the irreducible part of the BZ
         kpt_descriptor = KPointDescriptor(bz_qs, self.nspins)
         kpt_descriptor.set_symmetry(self.atoms, self.setups, usesymm=True)
