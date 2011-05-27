@@ -122,7 +122,7 @@ class InputParameters(dict):
             self.convergence['eigenstates'] = r['Tolerance']
         else:
             nbtc = r['NumberOfBandsToConverge']
-            if not isinstance(nbtc, int):
+            if not isinstance(nbtc, (int, str)):
                 # The string 'all' was eval'ed to the all() function!
                 nbtc = 'all'
             self.convergence = {'density': r['DensityConvergenceCriterion'],
