@@ -23,7 +23,7 @@ surf.calc = GPAW(poissonsolver=ps,
                  kpts=[k, k, 1],
                  h=h,
                  maxiter=200,
-                 nbands=int(ne / 2) + 5,
+                 nbands=int(ne / 2) + 15,
                  txt='surface.txt')
 e = surf.get_potential_energy()
 surf.calc.write('surface.gpw')
