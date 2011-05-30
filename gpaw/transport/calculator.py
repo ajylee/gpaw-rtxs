@@ -2103,7 +2103,7 @@ class Transport(GPAW):
                     H_p[:] = pack2(Htemp)
 
             ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-            Exc += setup.xc_correction.calculate(ham.xc, D_sp, dH_sp)
+            Exc += ham.xc.calculate_paw_correction(setup, D_sp, dH_sp)
             dH_sp += dH_p
 
             Ekin -= (D_sp * dH_sp).sum()
@@ -2436,7 +2436,7 @@ class Transport(GPAW):
                 for a in self.wfs.basis_functions.atom_indices:
                     setup = self.wfs.setups[a]
                     f_si = setup.calculate_initial_occupation_numbers(
-                        density.magmom_a[a], density.hund, charge=c,
+                        density.magmom_av[a, 2], density.hund, charge=c,
                         nspins=self.nspins)
                     if a in self.wfs.basis_functions.my_atom_indices:
                         density.D_asp[a] = setup.initialize_density_matrix(

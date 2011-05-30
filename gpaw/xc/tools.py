@@ -37,7 +37,7 @@ def vxc(paw, xc=None):
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
-        wfs.setups[a].xc_correction.calculate(xc, D_sp, dvxc_sp)
+        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp)
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:
             dvxc_asii[a] = [wfs.setups[a].dO_ii]

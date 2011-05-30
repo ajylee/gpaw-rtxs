@@ -20,12 +20,6 @@ half_integer_gamma = [sqrt(pi)]
 for m in range(20):
     half_integer_gamma.append(half_integer_gamma[m] * (m + 0.5))
 
-class NullXCCorrection:
-    def calculate(self, xc, D_sp, H_sp=None, addcoredensity=True):
-        return 0.0
-
-null_xc_correction = NullXCCorrection()
-
 
 class HGHSetup(BaseSetup):
     def __init__(self, data, basis):
@@ -57,7 +51,7 @@ class HGHSetup(BaseSetup):
 
         self.lmax = 0
 
-        self.xc_correction = null_xc_correction
+        self.xc_correction = None
 
         r, g = data.get_compensation_charge_function()
         self.ghat_l = [Spline(0, r[-1], g)]

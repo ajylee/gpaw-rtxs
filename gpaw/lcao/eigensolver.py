@@ -34,7 +34,6 @@ class LCAO:
         wfs.timer.start('Potential matrix')
         wfs.basis_functions.calculate_potential_matrix(vt_G, H_MM, kpt.q)
         wfs.timer.stop('Potential matrix')
-
         # Add atomic contribution
         #
         #           --   a     a  a*

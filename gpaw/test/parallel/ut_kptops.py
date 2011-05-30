@@ -94,7 +94,7 @@ class UTKPointParallelSetup(TestCase):
 
         # Set up kpoint descriptor:
         self.kd = KPointDescriptor(bzk_kc, self.nspins)
-        self.kd.set_symmetry(self.atoms, self.setups, p.usesymm)
+        self.kd.set_symmetry(self.atoms, self.setups, usesymm=p.usesymm)
         self.kd.set_communicator(kpt_comm)
 
     def tearDown(self):

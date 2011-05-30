@@ -151,7 +151,8 @@ class PAWTextOutput:
           % self.hamiltonian.xc.name)
         if self.wfs.nspins == 2:
             t('Spin-Polarized Calculation.')
-            t('Magnetic Moment:   %.6f' % self.density.magmom_a.sum(), end='')
+            t('Magnetic Moment:  (%.6f, %.6f, %.6f)' %
+              tuple(self.density.magmom_av.sum(0)), end='')
             if self.occupations.fixmagmom:
                 t('(fixed)')
             else:
@@ -328,6 +329,11 @@ class PAWTextOutput:
             for a, mom in enumerate(self.get_magnetic_moments()):
                 t(a, mom)
             t()
+        elif not self.wfs.collinear:
+            self.txt.write('Local Magnetic Moments:\n')
+            for a, mom_v in enumerate(self.get_magnetic_moments()):
+                self.txt.write('%4d  (%.3f, %.3f, %.3f)\n' %
+                               (a, mom_v[0], mom_v[1], mom_v[2]))
 
     def print_iteration(self, iter):
         # Output from each iteration:

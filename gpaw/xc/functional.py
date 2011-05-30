@@ -31,6 +31,9 @@ class XCFunctional:
         
         raise NotImplementedError
     
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
+        return setup.xc_correction.calculate(self, D_sp, dEdD_sp)
+    
     def set_positions(self, spos_ac):
         pass
     

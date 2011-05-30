@@ -10,7 +10,7 @@ from gpaw.setup import BaseSetup
 from gpaw.setup_data import SetupData
 from gpaw.basis_data import Basis
 from gpaw.spline import Spline
-from gpaw.hgh import null_xc_correction
+
 
 # Some splines are mandatory, but should then be zero to avoid affecting things
 zero_function = Spline(0, 0.5, [0.0, 0.0, 0.0])
@@ -46,7 +46,7 @@ class GhostSetup(BaseSetup):
         self.Nct = 1e-12 # XXX XXX XXX XXX
         self.nct = nonzero_function # XXXXXX
         self.lmax = 0
-        self.xc_correction = null_xc_correction
+        self.xc_correction = None
         self.ghat_l = [nonzero_function] * (self.lmax + 1) # XXXXXX
         self.rcgauss = 1e12 # XXX XXX XXX XXX
         self.vbar = zero_function

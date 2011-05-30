@@ -69,8 +69,7 @@ for name in ['LDA', 'PBE']:
 
     s.xc_correction.n_qg[:] = 0.0
     s.xc_correction.nc_g[:] = 0.0
-    E1 = (s.xc_correction.calculate(xc, D_p.reshape(1, -1),
-                                    H_p.reshape(1, -1))
+    E1 = (xc.calculate_paw_correction(s, D_p.reshape(1, -1))
           + s.xc_correction.Exc0)
 
     print name, E1, E2, E1 - E2

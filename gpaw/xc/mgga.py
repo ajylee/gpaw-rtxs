@@ -1,4 +1,4 @@
-import weakref
+from math import sqrt, pi
 
 import numpy as np
 
@@ -6,6 +6,7 @@ from gpaw.xc.gga import GGA
 from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import Gradient
 from gpaw.lfc import LFC
+from gpaw.sphere.lebedev import weight_n
 
 
 class MGGA(GGA):
@@ -73,6 +74,49 @@ class MGGA(GGA):
                 self.taugrad_v[v](self.dedtaut_sG[kpt.s] * a_G, a_G,
                                   kpt.phase_cd)
                 axpy(-0.5, a_G, Htpsit_G)
+
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        assert not hasattr(self, 'D_sp')
+        self.D_sp = D_sp
+        self.n = 0
+        self.ae = True
+        self.c = setup.xc_correction
+        self.dEdD_sp = dEdD_sp
+
+        if self.c.tau_npg is None:
+            self.c.tau_npg, self.c.taut_npg = self.initialize_kinetic(self.c)
+            print 'TODO: tau_ypg is HUGE!  There must be a better way.'
+            
+        E = GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
+                                         addcoredensity, a)
+        del self.D_sp, self.n, self.ae, self.c, self.dEdD_sp
+        return E
+
+    def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+        nspins = len(n_sg)
+        if self.ae:
+            tau_pg = self.c.tau_npg[self.n]
+            tauc_g = self.c.tauc_g / (sqrt(4 * pi) * nspins)
+            sign = 1.0
+        else:
+            tau_pg = self.c.taut_npg[self.n]
+            tauc_g = self.c.tauct_g / (sqrt(4 * pi) * nspins)
+            sign = -1.0
+        tau_sg = np.dot(self.D_sp, tau_pg) + tauc_g
+        dedtau_sg = np.empty_like(tau_sg)
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+                              tau_sg, dedtau_sg)
+        if self.dEdD_sp is not None:
+            self.dEdD_sp += (sign * weight_n[self.n] *
+                             np.inner(dedtau_sg * self.c.rgd.dv_g, tau_pg))
+        self.n += 1
+        if self.n == len(weight_n):
+            self.n = 0
+            self.ae = False
+
+    def calculate_spherical(self, rgd, n_sg, v_sg):
+        raise NotImplementedError
 
     def add_forces(self, F_av):
         dF_av = self.tauct.dict(derivative=True)

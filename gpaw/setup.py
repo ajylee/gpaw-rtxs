@@ -77,12 +77,14 @@ class BaseSetup:
         """If f_j is specified, custom occupation numbers will be used.
 
         Hund rules disabled if so."""
+
+        assert magmom >= 0  # XXX simplify code below
         
         niao = self.niAO
         f_si = np.zeros((nspins, niao))
 
         assert (not hund) or f_j is None
-        if f_j == None:
+        if f_j is None:
             f_j = self.f_j
 
         # Projector function indices:
@@ -144,14 +146,22 @@ class BaseSetup:
             i += degeneracy
             j += 1
 
-        #These lines disable the calculation of charged atoms!
-        #Therefore I commented them. -Mikael
-        #if magmom != 0:
-        #    raise RuntimeError('Bad magnetic moment %g for %s atom!'
-        # % (magmom, self.self.symbol))
+        if magmom != 0:
+            raise ValueError('Bad magnetic moment %g for %s atom!'
+                             % (magmom, self.symbol))
         assert i == niao
 
         return f_si
+
+    def get_hunds_rule_moment(self, charge=0):
+        for M in range(10):
+            try:
+                self.calculate_initial_occupation_numbers(M, True, charge, 2)
+            except ValueError:
+                pass
+            else:
+                return M
+        raise RuntimeError
     
     def initialize_density_matrix(self, f_si):
         nspins, niao = f_si.shape
@@ -686,7 +696,6 @@ class Setup(BaseSetup):
                 self.fc_j = self.extra_xc_data['core_f']
                 self.lc_j = self.extra_xc_data['core_l']
                 self.njcore = len(self.lc_j)
-                print self.extra_xc_data['core_states'].shape
                 if self.njcore > 0:
                     self.uc_jg = self.extra_xc_data['core_states'].reshape(
                         (self.njcore, -1))

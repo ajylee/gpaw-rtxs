@@ -40,7 +40,9 @@ from gpaw.utilities import h2gpts
 
 class PAW(PAWTextOutput):
     """This is the main calculation object for doing a PAW calculation."""
+
     timer_class = Timer
+
     def __init__(self, filename=None, **kwargs):
         """ASE-calculator interface.
 
@@ -86,7 +88,7 @@ class PAW(PAWTextOutput):
             parameters = load(filename)
             parameters.update(kwargs)
             kwargs = parameters
-            filename = None # XXX
+            filename = None  # XXX
 
         if filename is not None:
             comm = kwargs.get('communicator', mpi.world)
@@ -105,7 +107,7 @@ class PAW(PAWTextOutput):
                     raise RuntimeError('Setups not specified in file. Use '
                                        'idiotproof=False to proceed anyway.')
                 else:
-                    par.setups = {None : 'paw'}
+                    par.setups = {None: 'paw'}
             if par.basis is None:
                 if par.idiotproof:
                     raise RuntimeError('Basis not specified in file. Use '
@@ -201,7 +203,8 @@ class PAW(PAWTextOutput):
                 name = {'parsize': 'domain',
                         'parsize_bands': 'band',
                         'parstride_bands': 'stridebands'}[key]
-                raise DeprecationWarning("Keyword argument has been moved " \
+                raise DeprecationWarning(
+                    'Keyword argument has been moved ' +
                     "to the 'parallel' dictionary keyword under '%s'." % name)
             else:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
@@ -333,24 +336,8 @@ class PAW(PAWTextOutput):
         cell_cv = atoms.get_cell()
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
-        magmom_a = atoms.get_initial_magnetic_moments()
+        magmom_av = atoms.get_initial_magnetic_moments()
 
-        magnetic = magmom_a.any()
-
-        spinpol = par.spinpol
-        if par.hund:
-            if natoms != 1:
-                raise ValueError('hund=True arg only valid for single atoms!')
-            spinpol = True
-
-        if spinpol is None:
-            spinpol = magnetic
-        elif magnetic and not spinpol:
-            raise ValueError('Non-zero initial magnetic moment for a '
-                             'spin-paired calculation!')
-
-        nspins = 1 + int(spinpol)
-        
         if isinstance(par.xc, str):
             xc = XC(par.xc)
         else:
@@ -358,8 +345,37 @@ class PAW(PAWTextOutput):
 
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc, world)
 
+        if magmom_av.ndim == 1:
+            collinear = True
+            magmom_av, magmom_a = np.zeros((natoms, 3)), magmom_av
+            magmom_av[:, 2] = magmom_a
+        else:
+            collinear = False
+            
+        magnetic = magmom_av.any()
+
+        spinpol = par.spinpol
+        if par.hund:
+            if natoms != 1:
+                raise ValueError('hund=True arg only valid for single atoms!')
+            spinpol = True
+            magmom_av[0] = (0, 0, setups[0].get_hunds_rule_moment(par.charge))
+            
+        if spinpol is None:
+            spinpol = magnetic
+        elif magnetic and not spinpol:
+            raise ValueError('Non-zero initial magnetic moment for a ' +
+                             'spin-paired calculation!')
+
+        if collinear:
+            nspins = 1 + int(spinpol)
+            ncomp = 1
+        else:
+            nspins = 1
+            ncomp = 2
+
         # K-point descriptor
-        kd = KPointDescriptor(par.kpts, nspins)
+        kd = KPointDescriptor(par.kpts, nspins, collinear)
 
         width = par.width
         if width is None:
@@ -375,15 +391,14 @@ class PAW(PAWTextOutput):
         else:
             if par.h is None:
                 self.text('Using default value for grid spacing.')
-                h = 0.2 
+                h = 0.2
             else:
                 h = par.h
             N_c = h2gpts(h, cell_cv)
 
         cell_cv /= Bohr
 
-
-        if hasattr(self, 'time') or par.dtype==complex:
+        if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
         else:
             if kd.gamma:
@@ -391,11 +406,13 @@ class PAW(PAWTextOutput):
             else:
                 dtype = complex
 
-        kd.set_symmetry(atoms, setups, par.usesymm, N_c)
+        kd.set_symmetry(atoms, setups, magmom_av, par.usesymm, N_c)
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
-
+        M_v = magmom_av.sum(0)
+        M = np.dot(M_v, M_v)**0.5
+        
         nbands = par.nbands
         if nbands is None:
             nbands = nao
@@ -409,23 +426,14 @@ class PAW(PAWTextOutput):
                 'Charge %f is not possible - not enough valence electrons' %
                 par.charge)
 
-        M = magmom_a.sum()
-        if par.hund:
-            f_si = setups[0].calculate_initial_occupation_numbers(
-                magmom=0, hund=True, charge=par.charge, nspins=nspins)
-            Mh = f_si[0].sum() - f_si[1].sum()
-            if magnetic and M != Mh:
-                raise RuntimeError('You specified a magmom that does not'
-                                   'agree with hunds rule!')
-            else:
-                M = Mh
-
         if nbands <= 0:
             nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
 
         if nvalence > 2 * nbands:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
+
+        nbands *= ncomp
 
         if par.width is not None:
             self.text('**NOTE**: please start using '
@@ -441,7 +449,7 @@ class PAW(PAWTextOutput):
             else:
                 self.occupations = par.occupations
 
-        self.occupations.magmom = M
+        self.occupations.magmom = M_v[2]
 
         cc = par.convergence
 
@@ -469,7 +477,7 @@ class PAW(PAWTextOutput):
                                (nbands, parsize_bands))
 
         if not self.wfs:
-            if parsize == 'domain only': #XXX this was silly!
+            if parsize == 'domain only':  # XXX this was silly!
                 parsize = world.size
 
             domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(parsize,
@@ -506,7 +514,13 @@ class PAW(PAWTextOutput):
                                                gd, bd, dtype,
                                                nao=nao, timer=self.timer)
 
-                self.wfs = LCAOWaveFunctions(lcaoksl, *args)
+                if collinear:
+                    self.wfs = LCAOWaveFunctions(lcaoksl, *args)
+                else:
+                    from gpaw.xc.noncollinear import \
+                         NonCollinearLCAOWaveFunctions
+                    self.wfs = NonCollinearLCAOWaveFunctions(lcaoksl, *args)
+
             elif par.mode == 'fd' or isinstance(par.mode, PW):
                 # buffer_size keyword only relevant for fdpw
                 buffer_size = par.parallel['buffer_size']
@@ -536,14 +550,14 @@ class PAW(PAWTextOutput):
                 lcaonbands = min(nbands, nao)
                 lcaobd = BandDescriptor(lcaonbands, band_comm, parstride_bands)
                 assert nbands <= nao or bd.comm.size == 1
-                assert lcaobd.mynbands == min(bd.mynbands, nao) #XXX
+                assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
 
                 # Layouts used for general diagonalizer (LCAO initialization)
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = par.parallel['sl_default']
                 initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, lcaobd, dtype, 
+                                               gd, lcaobd, dtype,
                                                nao=nao,
                                                timer=self.timer)
 
@@ -584,11 +598,12 @@ class PAW(PAWTextOutput):
             else:
                 # Special case (use only coarse grid):
                 finegd = gd
+
             self.density = Density(gd, finegd, nspins,
-                                   par.charge + setups.core_charge)
+                                   par.charge + setups.core_charge, collinear)
 
         self.density.initialize(setups, par.stencils[1], self.timer,
-                                magmom_a, par.hund)
+                                magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
@@ -596,7 +611,7 @@ class PAW(PAWTextOutput):
             self.hamiltonian = Hamiltonian(gd, finegd, nspins,
                                            setups, par.stencils[1], self.timer,
                                            xc, par.poissonsolver,
-                                           par.external)
+                                           par.external, collinear)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
@@ -632,7 +647,6 @@ class PAW(PAWTextOutput):
         self.density.calculate_pseudo_charge(0)
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.update(self.density)
-
 
     def attach(self, function, n=1, *args, **kwargs):
         """Register observer function.
@@ -708,19 +722,19 @@ class PAW(PAWTextOutput):
         # is called within a real mpirun/gpaw-python context.
         if txt is None:
             txt = self.txt
-        print >> txt, 'Memory estimate'
-        print >> txt, '---------------'
-        
-        mem_init = maxrss() # XXX initial overhead includes part of Hamiltonian
-        print >> txt, 'Process memory now: %.2f MiB' % (mem_init / 1024.0**2)
-        
+        txt.write('Memory estimate\n')
+        txt.write('---------------\n')
+
+        mem_init = maxrss()  # initial overhead includes part of Hamiltonian!
+        txt.write('Process memory now: %.2f MiB' % (mem_init / 1024.0**2))
+
         mem = MemNode('Calculator', 0)
         try:
             self.estimate_memory(mem)
         except AttributeError, m:
-            print >> txt, 'Attribute error:', m
-            print >> txt, 'Some object probably lacks estimate_memory() method'
-            print >> txt, 'Memory breakdown may be incomplete'
+            txt.write('Attribute error: %r' % m)
+            txt.write('Some object probably lacks estimate_memory() method')
+            txt.write('Memory breakdown may be incomplete')
         totalsize = mem.calculate_size()
         mem.write(txt, maxdepth=maxdepth)
 

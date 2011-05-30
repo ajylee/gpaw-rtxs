@@ -60,11 +60,10 @@ class HybridXC(XCFunctional):
     def get_setup_name(self):
         return 'PBE'
 
-    def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
-                         dndr_sLg=None, rnablaY_Lv=None,
-                         tau_sg=None, dedtau_sg=None):
-        return self.xc.calculate_radial(rgd, n_sLg, Y_L, v_sg,
-                                        dndr_sLg, rnablaY_Lv)
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
+                                 addcoredensity, a)
     
     def initialize(self, density, hamiltonian, wfs, occupations):
         assert wfs.gamma

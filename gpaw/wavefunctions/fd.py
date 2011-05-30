@@ -121,7 +121,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             # Hack used in delta-scf calculations:
             if hasattr(kpt, 'c_on'):
                 assert self.bd.comm.size == 1
-                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q) #XXX again
+                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)  #XXX again
                 d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
                                 dtype=complex)
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
@@ -148,7 +148,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         # New k-point descriptor for full BZ:
         kd = KPointDescriptor(self.kd.bzk_kc, nspins=self.nspins)
-        kd.set_symmetry(atoms, self.setups, None)
+        kd.set_symmetry(atoms, self.setups, usesymm=None)
         kd.set_communicator(serial_comm)
 
         self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],

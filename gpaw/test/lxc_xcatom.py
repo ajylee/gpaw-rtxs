@@ -53,15 +53,15 @@ for xcname in libxc_set:
     D_p = 0.1 * ra.random(nii) + 0.4
     H_p = np.zeros(nii)
 
-    E1 = s.xc_correction.calculate(xc, D_p.reshape(1, -1), H_p.reshape(1, -1))
+    E1 = xc.calculate_paw_correction(s, D_p.reshape(1, -1), H_p.reshape(1, -1))
     dD_p = x * ra.random(nii)
     D_p += dD_p
     dE = np.dot(H_p, dD_p) / x
-    E2 = s.xc_correction.calculate(xc, D_p.reshape(1, -1))
+    E2 = xc.calculate_paw_correction(s, D_p.reshape(1, -1))
     print xcname, dE, (E2 - E1) / x
     equal(dE, (E2 - E1) / x, 0.003)
 
-    E2s = s.xc_correction.calculate(xc,
+    E2s = xc.calculate_paw_correction(s,
         np.array([0.5 * D_p, 0.5 * D_p]), np.array([H_p, H_p]))
     print E2, E2s
     equal(E2, E2s, 1.0e-12)
@@ -77,10 +77,10 @@ for xcname in libxc_set:
     D_sp = 0.1 * ra.random((2, nii)) + 0.2
     H_sp = np.zeros((2, nii))
 
-    E1 = s.xc_correction.calculate(xc, D_sp, H_sp)
+    E1 = xc.calculate_paw_correction(s, D_sp, H_sp)
     dD_sp = x * ra.random((2, nii))
     D_sp += dD_sp
     dE = np.dot(H_sp.ravel(), dD_sp.ravel()) / x
-    E2 = s.xc_correction.calculate(xc, D_sp, H_sp)
+    E2 = xc.calculate_paw_correction(s, D_sp, H_sp)
     print dE, (E2 - E1) / x
     equal(dE, (E2 - E1) / x, 0.005)

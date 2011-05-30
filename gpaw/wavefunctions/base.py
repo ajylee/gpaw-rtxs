@@ -46,6 +46,10 @@ class WaveFunctions(EmptyWaveFunctions):
     kpt_comm:
         MPI-communicator for parallelization over **k**-points.
     """
+
+    collinear = True
+    ncomp = 1
+    
     def __init__(self, gd, nvalence, setups, bd, dtype,
                  world, kd, timer=None):
         if timer is None:
@@ -152,7 +156,7 @@ class WaveFunctions(EmptyWaveFunctions):
         # Varying f_n used in calculation of response part of GLLB-potential
         for a, D_sp in D_asp.items():
             ni = self.setups[a].ni
-            D_sii = np.zeros((self.nspins, ni, ni))
+            D_sii = np.zeros((len(D_sp), ni, ni))
             for f_n, kpt in zip(f_un, self.kpt_u):
                 self.calculate_atomic_density_matrices_k_point(D_sii, kpt, a,
                                                                f_n)
@@ -169,7 +173,8 @@ class WaveFunctions(EmptyWaveFunctions):
                 D_sp = D_asp.get(a)
                 if D_sp is None:
                     ni = setup.ni
-                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
+                    D_sp = np.empty((self.nspins * self.ncomp**2,
+                                     ni * (ni + 1) // 2))
                 self.gd.comm.broadcast(D_sp, self.rank_a[a])
                 all_D_asp.append(D_sp)
 

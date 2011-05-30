@@ -22,7 +22,7 @@ import _gpaw
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins=1):
+    def __init__(self, kpts, nspins=1, collinear=True):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
         Parameters
@@ -56,12 +56,13 @@ class KPointDescriptor:
             self.bzk_kc = np.array(kpts, float)
             self.N_c = None
 
+        self.collinear = collinear
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
         
-        # Gamma-point calculation
+        # Gamma-point calculation?
         self.gamma = self.nbzkpts == 1 and not self.bzk_kc[0].any()
-
+            
         self.symmetry = None
         self.comm = None
         self.ibzk_kc = None
@@ -78,16 +79,17 @@ class KPointDescriptor:
         
         return self.mynks
 
-    def set_symmetry(self, atoms, setups, usesymm, N_c=None):
+    def set_symmetry(self, atoms, setups, magmom_av=None,
+                     usesymm=False, N_c=None):
         """Create symmetry object and construct irreducible Brillouin zone.
 
-        Parameters
-        ----------
         atoms: Atoms object
             Defines atom positions and types and also unit cell and
             boundary conditions.
         setups: instance of class Setups
             PAW setups for the atoms.
+        magmom_av: ndarray
+            Initial magnetic moments.
         usesymm: bool
             Symmetry flag.
         N_c: three int's or None
@@ -97,11 +99,15 @@ class KPointDescriptor:
         if (~atoms.pbc & self.bzk_kc.any(0)).any():
             raise ValueError('K-points can only be used with PBCs!')
 
+        if magmom_av is None:
+            magmom_av = np.zeros((len(atoms), 3))
+            magmom_av[:, 2] = atoms.get_initial_magnetic_moments()
+
+        magmom_av = magmom_av.round(decimals=3)  # round off
+        id_a = zip(setups.id_a, *magmom_av.T)
+
         # Construct a Symmetry instance containing the identity operation
         # only
-        # Round off
-        magmom_a = atoms.get_initial_magnetic_moments().round(decimals=3)
-        id_a = zip(magmom_a, setups.id_a)
         self.symmetry = Symmetry(id_a, atoms.cell / Bohr, atoms.pbc)
         
         if self.gamma or usesymm is None:
@@ -129,7 +135,10 @@ class KPointDescriptor:
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
-        self.nks = self.nibzkpts * self.nspins
+        if self.collinear:
+            self.nks = self.nibzkpts * self.nspins
+        else:
+            self.nks = self.nibzkpts
         
     def set_communicator(self, comm):
         """Set k-point communicator."""
@@ -143,7 +152,7 @@ class KPointDescriptor:
         # My number and offset of k-point/spin combinations
         self.mynks, self.ks0 = self.get_count(), self.get_offset()
 
-        if self.nspins == 2 and comm.size == 1:
+        if self.nspins == 2 and comm.size == 1:  # NCXXXXXXXX
             # Avoid duplicating k-points in local list of k-points.
             self.ibzk_qc = self.ibzk_kc.copy()
         else:
@@ -160,7 +169,10 @@ class KPointDescriptor:
         for ks in range(self.ks0, self.ks0 + self.mynks):
             s, k = divmod(ks, self.nibzkpts)
             q = (ks - self.ks0) % self.nibzkpts
-            weight = self.weight_k[k] * 2 / self.nspins
+            if self.collinear:
+                weight = self.weight_k[k] * 2 / self.nspins
+            else:
+                weight = self.weight_k[k]
             if self.gamma:
                 phase_cd = np.ones((3, 2), complex)
             else:
@@ -286,7 +298,7 @@ class KPointDescriptor:
 
             # Check the k+q vector index
             k_c = self.bzk_kc[kplusq_k[kplusq]]
-            assert abs(kplusq_c - k_c).sum() < 1e-8, "Could not find k+q!"
+            assert abs(kplusq_c - k_c).sum() < 1e-8, 'Could not find k+q!'
         
         return kplusq_k
 
@@ -298,7 +310,7 @@ class KPointDescriptor:
         all_qs = []
         for k1 in bzk_kc:
             for k2 in bzk_kc:
-                all_qs.append(k1-k2)
+                all_qs.append(k1 - k2)
         all_qs = np.array(all_qs)
 
         # Fold q-points into Brillouin zone
@@ -310,9 +322,9 @@ class KPointDescriptor:
         for q_a in all_qs:
             q_in_list = False
             for q_b in bz_qs:
-                if (abs(q_a[0]-q_b[0]) < 0.01 and
-                    abs(q_a[1]-q_b[1]) < 0.01 and
-                    abs(q_a[2]-q_b[2]) < 0.01):
+                if (abs(q_a[0] - q_b[0]) < 0.01 and
+                    abs(q_a[1] - q_b[1]) < 0.01 and
+                    abs(q_a[2] - q_b[2]) < 0.01):
                     q_in_list = True
                     break
             if q_in_list == False:
@@ -324,8 +336,8 @@ class KPointDescriptor:
     def where_is_q(self, q_c):
         """Find the index of q points."""
 
-        q_c[np.where(q_c>0.501)] -= 1
-        q_c[np.where(q_c<-0.499)] += 1
+        q_c[np.where(q_c > 0.501)] -= 1
+        q_c[np.where(q_c < -0.499)] += 1
 
         found = False
         for ik in range(len(self.bzq_kc)):
@@ -335,10 +347,9 @@ class KPointDescriptor:
                 break
             
         if found is False:
-            print self.bzq_kc, q_c
+            print(self.bzq_kc, q_c)
             raise ValueError('q-points can not be found!')
         
-
     def get_count(self, rank=None):
         """Return the number of ks-pairs which belong to a given rank."""
 
@@ -435,12 +446,11 @@ class KPointDescriptor:
     #def ...
 
 
-
 class KPointDescriptorOld:
     """Descriptor-class for ordered lists of kpoint/spin combinations
 
     TODO
-    """ #XXX
+    """
 
     def __init__(self, nspins, nibzkpts, comm=None, gamma=True, dtype=float):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
@@ -562,5 +572,3 @@ class KPointDescriptorOld:
     #    return (self.nspins*self.nibzkpts,)
     #
     #def ...
-
-

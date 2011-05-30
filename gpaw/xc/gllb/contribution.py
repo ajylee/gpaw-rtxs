@@ -22,7 +22,7 @@ class Contribution:
     def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
         raise NotImplementedError
 
-    def calculate_energy_and_derivatives(self, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp):
         raise NotImplementedError
     
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):

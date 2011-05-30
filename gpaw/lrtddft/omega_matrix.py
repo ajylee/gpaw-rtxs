@@ -254,11 +254,11 @@ class OmegaMatrix:
                     D_sp[kss[ij].pspin] -= ns * P_p
                     setup = wfs.setups[a]
                     I_sp = np.zeros_like(D_sp)
-                    setup.xc_correction.calculate(self.xc, D_sp, I_sp)
+                    self.xc.calculate_paw_correction(setup, D_sp, I_sp)
                     I_sp *= -1.0
                     D_sp = self.paw.density.D_asp[a].copy()
-                    D_sp[kss[ij].pspin] += ns*P_p
-                    setup.xc_correction.calculate(self.xc, D_sp, I_sp)
+                    D_sp[kss[ij].pspin] += ns * P_p
+                    self.xc.calculate_paw_correction(setup, D_sp, I_sp)
                     I_sp /= 2.0 * ns
                     I_asp[a] = I_sp
                 timer2.stop()
@@ -275,17 +275,13 @@ class OmegaMatrix:
                     
                     if kss.npspins==2: # spin polarised
                         nv_g = nt_sg.copy()
-                        nv_g[kss[ij].pspin] +=\
-                                        kss[ij].get(fg)
-                        nv_g[kss[kq].pspin] +=\
-                                        kss[kq].get(fg)
-                        Excpp = xc.get_energy_and_potential(\
-                                        nv_g[0],v_g,nv_g[1],v_g)
+                        nv_g[kss[ij].pspin] += kss[ij].get(fg)
+                        nv_g[kss[kq].pspin] += kss[kq].get(fg)
+                        Excpp = xc.get_energy_and_potential(
+                            nv_g[0], v_g, nv_g[1], v_g)
                         nv_g = nt_sg.copy()
-                        nv_g[kss[ij].pspin] +=\
-                                        kss[ij].get(fg)
-                        nv_g[kss[kq].pspin] -= \
-                                        kss[kq].get(fg)
+                        nv_g[kss[ij].pspin] += kss[ij].get(fg)
+                        nv_g[kss[kq].pspin] -= kss[kq].get(fg)
                         Excpm = xc.get_energy_and_potential(\
                                             nv_g[0],v_g,nv_g[1],v_g)
                         nv_g = nt_sg.copy()

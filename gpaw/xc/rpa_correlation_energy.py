@@ -30,10 +30,11 @@ class RPACorrelation:
         self.bz_k_points = calc.wfs.bzk_kc
         self.atoms = calc.get_atoms()
         self.setups = calc.wfs.setups
-        self.ibz_q_points, self.q_weights = self.get_ibz_q_points(self.bz_k_points, qsym=qsym) 
+        self.magmom_av = calc.density.magmom_av
+        self.ibz_q_points, self.q_weights = self.get_ibz_q_points(
+            self.bz_k_points, qsym=qsym) 
         self.print_initialization()
         self.initialized = 0
-        
 
     def get_rpa_correlation_energy(self,
                                    kcommsize=1,
@@ -260,7 +261,8 @@ class RPACorrelation:
         
         # Obtain q-points and weights in the irreducible part of the BZ
         kpt_descriptor = KPointDescriptor(bz_qs, self.nspins)
-        kpt_descriptor.set_symmetry(self.atoms, self.setups, usesymm=True)
+        kpt_descriptor.set_symmetry(self.atoms, self.setups, self.magmom_av,
+                                    usesymm=True)
         ibz_q_points = kpt_descriptor.ibzk_kc
         q_weights = kpt_descriptor.weight_k
         return ibz_q_points, q_weights

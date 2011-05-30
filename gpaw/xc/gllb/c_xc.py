@@ -43,9 +43,9 @@ class C_XC(Contribution):
         vb_g += self.weight * self.vt_sg[1]
         e_g += (self.weight * self.e_g).ravel()
 
-    def calculate_energy_and_derivatives(self, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
         # Get the XC-correction instance
-        c = self.nlfunc.setups[a].xc_correction
+        c = setup.xc_correction
 
         assert self.nlfunc.nspins == 1
         D_p = D_sp[0]

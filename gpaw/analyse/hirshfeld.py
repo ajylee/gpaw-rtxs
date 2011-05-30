@@ -56,7 +56,7 @@ class HirshfeldDensity(Density):
         self.initialize(setups, 
                         par.stencils[1], 
                         self.calculator.timer,
-                        [0] * len(atoms), False)
+                        np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
         self.set_positions(spos_ac, rank_a)
         basis_functions = BasisFunctions(self.gd,

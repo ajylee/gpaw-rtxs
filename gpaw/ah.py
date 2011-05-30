@@ -13,7 +13,6 @@ import numpy as np
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
 from gpaw.basis_data import Basis
-from gpaw.hgh import null_xc_correction
 
 
 class AppelbaumHamann(BaseSetup):
@@ -48,7 +47,7 @@ class AppelbaumHamann(BaseSetup):
         self.Kc = 0.0
         self.MB = 0.0
         self.M = 0.0
-        self.xc_correction = null_xc_correction
+        self.xc_correction = None
         self.HubU = None
         self.dO_ii = np.zeros((1, 1))
         self.type = 'ah'

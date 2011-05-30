@@ -105,7 +105,8 @@ class PhononCalculator:
         # K-point descriptor for the q-vectors of the dynamical matrix
         # Note, no explicit parallelization here.
         self.kd = KPointDescriptor(kpts, 1)
-        self.kd.set_symmetry(self.atoms, self.calc.wfs.setups, symmetry)
+        self.kd.set_symmetry(self.atoms, self.calc.wfs.setups,
+                             usesymm=symmetry)
         self.kd.set_communicator(serial_comm)
 
         # Number of occupied bands

@@ -186,7 +186,7 @@ class UTGaussianWavefunctionSetup(UTDomainParallelSetup):
         # K-point descriptor
         bzk_kc = np.array([[0, 0, 0]], dtype=float)
         self.kd = KPointDescriptor(bzk_kc, 1)
-        self.kd.set_symmetry(self.atoms, self.setups, True)
+        self.kd.set_symmetry(self.atoms, self.setups, usesymm=True)
         self.kd.set_communicator(self.kpt_comm)
         
         # Create gamma-point dummy wavefunctions

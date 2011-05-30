@@ -11,37 +11,39 @@ from gpaw.sphere.lebedev import weight_n, R_nv
 
 
 def get_scaled_positions(atoms, positions):
-   """COPY PASTE FROM ASE! Get positions relative to unit cell.
+    """COPY PASTE FROM ASE! Get positions relative to unit cell.
    
-   Atoms outside the unit cell will be wrapped into the cell in
-   those directions with periodic boundary conditions so that the
-   scaled coordinates are beween zero and one."""
+    Atoms outside the unit cell will be wrapped into the cell in
+    those directions with periodic boundary conditions so that the
+    scaled coordinates are beween zero and one."""
    
-   scaled = np.linalg.solve(atoms._cell.T, positions.T).T
-   for i in range(3):
-      if atoms._pbc[i]:
-         scaled[i] %= 1.0
-   return scaled
+    scaled = np.linalg.solve(atoms._cell.T, positions.T).T
+    for i in range(3):
+        if atoms._pbc[i]:
+            scaled[i] %= 1.0
+    return scaled
+
 
 class AllElectronPotential:
-   def __init__(self, paw):
-      self.paw = paw
+    def __init__(self, paw):
+        self.paw = paw
       
-   def write_spherical_ks_potentials(self, txt):
-      f = open(txt,'w')
-      for a in self.paw.density.D_asp:
-         r_g, vKS_g = self.get_spherical_ks_potential(a)
-         setup = self.paw.density.setups[a]
-         # Calculate also atomic LDA for reference
-         g = AllElectron(setup.symbol, xcname='LDA',nofiles=True, scalarrel=True, txt=None)
-         g.run()
-         print >>f, r_g[0], vKS_g[0], g.vr[0], 0.0
-         for r, vKS,vr in zip(r_g[1:],vKS_g[1:], g.vr[1:]):
-            print >> f, r, vKS,vr, (vKS-vr)/r
+    def write_spherical_ks_potentials(self, txt):
+        f = open(txt,'w')
+        for a in self.paw.density.D_asp:
+            r_g, vKS_g = self.get_spherical_ks_potential(a)
+            setup = self.paw.density.setups[a]
+            # Calculate also atomic LDA for reference
+            g = AllElectron(setup.symbol, xcname='LDA', nofiles=True,
+                            scalarrel=True, txt=None)
+            g.run()
+            print >>f, r_g[0], vKS_g[0], g.vr[0], 0.0
+            for r, vKS,vr in zip(r_g[1:],vKS_g[1:], g.vr[1:]):
+                print >> f, r, vKS,vr, (vKS-vr)/r
 
-      f.close()
+        f.close()
 
-   def grid_to_radial(self, a, gd, f_g):
+    def grid_to_radial(self, a, gd, f_g):
       bohr_to_ang = 1/1.88971616463
 
       # Coordinates of an atom
@@ -72,7 +74,7 @@ class AllElectronPotential:
 
       return radf_g
       
-   def get_spherical_ks_potential(self,a):
+    def get_spherical_ks_potential(self,a):
       #self.paw.restore_state()
 
       print "XC:", self.paw.hamiltonian.xc.name
@@ -156,13 +158,11 @@ class AllElectronPotential:
       for n, Y_L in enumerate(xccorr.Y_nL):
          n_sLg = np.dot(D_sLq, xccorr.n_qg)
          n_sLg[:, 0] += sqrt(4 * pi) * xccorr.nc_g
-         vxc_sg[:] = 0.0
-         xc.calculate_radial(xccorr.rgd, n_sLg, Y_L, vxc_sg)
+         vxc_sg[:] = xc.calculate_radial(xccorr.rgd, n_sLg, Y_L)[1]
          radvxct_g += weight_n[n] * vxc_sg[0]
          nt_sLg = np.dot(D_sLq, xccorr.nt_qg)
          nt_sLg[:, 0] += sqrt(4 * pi) *xccorr.nct_g
-         vxc_sg[:] = 0.0
-         xc.calculate_radial(xccorr.rgd, nt_sLg, Y_L, vxc_sg)
+         vxc_sg[:] = xc.calculate_radial(xccorr.rgd, nt_sLg, Y_L)[1]
          radvxct_g -= weight_n[n] * vxc_sg[0]
 
       radvks_g = radvxct_g*xccorr.rgd.r_g + radHt_g

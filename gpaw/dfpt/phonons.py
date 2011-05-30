@@ -37,7 +37,8 @@ class Phonons(phonons.Phonons):
 
         # Create k-point descriptor
         self.kd = KPointDescriptor(kpts, 1)
-        self.kd.set_symmetry(self.atoms, self.calc.wfs.setups, symmetry)
+        self.kd.set_symmetry(self.atoms, self.calc.wfs.setups,
+                             usesymm=symmetry)
 
         # Overwrite ``N_c`` attribute
         self.N_c = tuple(self.kd.N_c)

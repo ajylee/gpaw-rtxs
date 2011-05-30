@@ -51,6 +51,9 @@ class NonLocalFunctional(XCFunctional):
         else:
             dsfsdfg
         return gd.integrate(e_g)
+
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp, a):
+        return self.calculate_energy_and_derivatives(setup, D_sp, dEdD_sp, a)
     
     def calculate_spinpaired(self, e_g, n_g, v_g):
         e_g[:] = 0.0
@@ -62,12 +65,13 @@ class NonLocalFunctional(XCFunctional):
         for contribution in self.contributions:
             contribution.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g)
             
-    def calculate_energy_and_derivatives(self, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
         Exc = 0.0
         H_sp[:] = 0.0
         for contribution in self.contributions:
-            Exc += contribution.calculate_energy_and_derivatives(D_sp, H_sp, a)
-        Exc -= self.setups[a].xc_correction.Exc0
+            Exc += contribution.calculate_energy_and_derivatives(setup,
+                                                                 D_sp, H_sp, a)
+        Exc -= setup.xc_correction.Exc0
         return Exc
 
     def get_xc_potential_and_energy_1d(self, v_g):

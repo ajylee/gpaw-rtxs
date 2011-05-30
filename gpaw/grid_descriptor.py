@@ -537,5 +537,4 @@ class GridDescriptor(Domain):
                 (self.N_c == other.N_c).all() and
                 (self.n_c == other.n_c).all() and
                 (self.beg_c == other.beg_c).all() and
-                (self.end_c == other.end_c).all()
-                )
+                (self.end_c == other.end_c).all())

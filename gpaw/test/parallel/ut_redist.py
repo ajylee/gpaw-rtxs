@@ -83,7 +83,7 @@ class UTDomainParallelSetup(TestCase):
 
         # Set up k-point descriptor
         self.kd = KPointDescriptor(self.bzk_kc, self.nspins)
-        self.kd.set_symmetry(self.atoms, self.setups, p.usesymm)
+        self.kd.set_symmetry(self.atoms, self.setups, usesymm=p.usesymm)
 
         # Set the dtype
         if self.kd.gamma:

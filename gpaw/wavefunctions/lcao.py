@@ -215,10 +215,6 @@ class LCAOWaveFunctions(WaveFunctions):
                                                nt_sG[kpt.s], kpt.q)
         self.timer.stop('Construct density')
 
-    def add_to_density_from_k_point(self, nt_sG, kpt):
-        """Add contribution to pseudo electron-density. """
-        self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, kpt.f_n)
-
     def add_to_kinetic_density_from_k_point(self, taut_G, kpt):
         raise NotImplementedError('Kinetic density calculation for LCAO '
                                   'wavefunctions is not implemented.')

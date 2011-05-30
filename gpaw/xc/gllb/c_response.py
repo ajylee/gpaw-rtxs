@@ -95,11 +95,11 @@ class C_Response(Contribution):
                                 dedaa2_g=None, dedab2_g=None):
         raise NotImplementedError
 
-    def calculate_energy_and_derivatives(self, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
         #print "In response::calculate_energy_and_derivatives"
         # Get the XC-correction instance
-        c = self.nlfunc.setups[a].xc_correction
-        ncresp_g = self.nlfunc.setups[a].extra_xc_data['core_response']
+        c = setup.xc_correction
+        ncresp_g = setup.extra_xc_data['core_response']
         
         D_p = self.D_asp.get(a)[0]
         Dresp_p = self.Dresp_asp.get(a)[0]
