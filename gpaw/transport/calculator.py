@@ -51,6 +51,13 @@ class Transport(GPAW):
         self.finegd = self.density.finegd
             
     def set_transport_kwargs(self, **transport_kwargs):
+    '''illustration of keywords:
+
+             o  o  o  o  o  o  o  o  o  o  o  o  o 
+	     0  1  2  3  4  5  6  7  8  9  10 11 12
+                         | mol_atoms |    
+             |pl_atoms1|                |pl_atoms2|
+    '''
         kw = transport_kwargs  
         p =  self.set_default_transport_parameters()
         self.gpw_kwargs = kw.copy()
@@ -182,7 +189,6 @@ class Transport(GPAW):
        
         self.initialized_transport = False
         self.analysis_parameters = []
-        #self.atoms_l = [None] * self.lead_num
         self.optimize = False
         self.multi_leads = self.multi_lead_directions != None
         kpts = kw['kpts']
@@ -230,7 +236,7 @@ class Transport(GPAW):
         p['nleadlayers'] = [1, 1]
         p['la_index'] = None
         p['data_file'] = None
-        p['analysis_data_list'] = ['tc']
+        p['analysis_data_list'] = ['tc', 'force']
         p['special_datas'] = []
         p['save_bias_data'] = True
         p['analysis_mode'] = False
@@ -323,7 +329,6 @@ class Transport(GPAW):
 		    shift = self.lead_fermi[0] - fermi
 		    fermi += shift
 		    atoms.calc.hamiltonian.vt_sG += shift / Hartree
-		    atoms.calc.hamiltonian.vHt_g += shift / Hartree
 		self.lead_fermi.append(fermi)    
 		self.setups_lead.append(atoms.calc.wfs.setups)
 	        self.collect_leads_matrices(atoms.calc, i)
@@ -355,24 +360,20 @@ class Transport(GPAW):
     def define_leads_related_variables(self):
         self.nblead = []  # numer of basis in lead
         self.bnc = []    # boundary N_c, gd.N_c[self.d] in lead
-	#self.setups_lead = [] 
 	self.bzk_kc_lead = [] 
 	self.ibzk_kc_lead = []
 	self.ibzk_qc_lead = []
         self.edge_index = [[None] * self.lead_num, 
 	                   [None] * self.lead_num] #index of edge atom
-	#self.lead_fermi = []
 	world.barrier()
 	for i in range(self.lead_num):
 	    data = self.tio.read_data(filename='Lead_' + str(i),
 	                                          option='Lead')
             self.nblead.append(data['nao'])
 	    self.bnc.append(data['N_c'][self.d])
-	    #self.setups_lead.append(data['setups'])
 	    self.bzk_kc_lead.append(data['bzk_kc'])
 	    self.ibzk_kc_lead.append(data['ibzk_kc'])
 	    self.ibzk_qc_lead.append(data['ibzk_qc'])
-	    #self.lead_fermi.append(data['fermi'])
         
     def initialize_transport(self):
         # calculate the lead and generate a guess hamiltonian for
@@ -791,7 +792,7 @@ class Transport(GPAW):
 	                h_spkmm[s, pk, a:b, a-nbc:a] = cell_ch_spkmm[s, pk, :, :nbp].T.conj()
 	                h_spkmm[s, pk, a-nbc:a, a:b] = cell_ch_spkmm[s, pk, :, :nbp]
 		else:
-                    b= nb0 + nbp0
+                    b = nb0 + nbp0
 	        h_spkmm[s, pk, b+nbp1:b+nbp1+nb1, b+nbp1:b+nbp1+nb1] = self.lead_hsd[1].H[s][pk].recover()
 		if nbp1 != 0:    
                     h_spkmm[s, pk, b:b+nbp1, b:b+nbp1] = self.lead_hsd[1].H[s][pk].recover()[-nbp1:, -nbp1:]
@@ -1625,11 +1626,11 @@ class Transport(GPAW):
         if not self.ground:
             denloc = self.eq_fock2den(s, k, el='loc')
             weight_mm = self.integral_diff_weight(denocc, denvir,
-                                                  'transiesta')
+                                                                 'transiesta')
             diff = (denloc - (denocc + denvir)) * weight_mm
             den += diff
-            percents = np.sum(diff * diff) / np.sum(denocc * denocc)
-            self.text('local percents %s' % percents)
+            percents = np.sum( diff * diff ) / np.sum( denocc * denocc )
+            self.text('local percents %f' % np.real(percents))
         
         den = (den + den.T.conj()) / 2
         if self.wfs.dtype == float:
@@ -1850,7 +1851,7 @@ class Transport(GPAW):
                 self.gate = gate[i]
                 self.get_selfconsistent_hamiltonian()
             start = 0
-        self.n_bias_step = start
+	self.n_bias_step = start    
         for i in range(start, num_v):
             v = bias[i]
             self.bias = [v/2., -v /2.]
@@ -2103,7 +2104,7 @@ class Transport(GPAW):
                     H_p[:] = pack2(Htemp)
 
             ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-            Exc += ham.xc.calculate_paw_correction(setup, D_sp, dH_sp)
+            Exc += setup.xc_correction.calculate(ham.xc, D_sp, dH_sp)
             dH_sp += dH_p
 
             Ekin -= (D_sp * dH_sp).sum()
@@ -2292,11 +2293,10 @@ class Transport(GPAW):
                           ('Hamiltonian', self.hamiltonian),
                           ('Wavefunctions', self.wfs)]:
             obj.estimate_memory(mem.subnode(name))
-        for i in range(self.lead_num):
-	    atoms = self.get_lead_atoms(i)
-            atoms.calc.estimate_memory(mem.subnode('Leads' + str(i), 0))
+        #for i in range(self.lead_num):
+	#    atoms = self.get_lead_atoms(i)
+        #    atoms.calc.estimate_memory(mem.subnode('Leads' + str(i), 0))
         se_mem, mat_mem = self.estimate_transport_matrix_memory()
-        
         mem.subnode('Matrix', mat_mem)
         mem.subnode('Selfenergy', se_mem)
 
@@ -2436,7 +2436,7 @@ class Transport(GPAW):
                 for a in self.wfs.basis_functions.atom_indices:
                     setup = self.wfs.setups[a]
                     f_si = setup.calculate_initial_occupation_numbers(
-                        density.magmom_av[a, 2], density.hund, charge=c,
+                        density.magmom_a[a], density.hund, charge=c,
                         nspins=self.nspins)
                     if a in self.wfs.basis_functions.my_atom_indices:
                         density.D_asp[a] = setup.initialize_density_matrix(
