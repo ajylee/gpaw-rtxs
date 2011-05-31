@@ -51,13 +51,13 @@ class Transport(GPAW):
         self.finegd = self.density.finegd
             
     def set_transport_kwargs(self, **transport_kwargs):
-    '''illustration of keywords:
+        '''illustration of keywords:
 
-             o  o  o  o  o  o  o  o  o  o  o  o  o 
-	     0  1  2  3  4  5  6  7  8  9  10 11 12
-                         | mol_atoms |    
-             |pl_atoms1|                |pl_atoms2|
-    '''
+                 o  o  o  o  o  o  o  o  o  o  o  o  o 
+                 0  1  2  3  4  5  6  7  8  9  10 11 12
+                             | mol_atoms |    
+                 |pl_atoms1|                |pl_atoms2|
+        '''
         kw = transport_kwargs  
         p =  self.set_default_transport_parameters()
         self.gpw_kwargs = kw.copy()
@@ -340,12 +340,13 @@ class Transport(GPAW):
 	for i in range(self.lead_num):
 	    atoms = self.get_lead_atoms(i)
 	    calc = atoms.calc
-	    calc.initialize()
+	    calc.initialize(atoms)
 	    self.setups_lead.append(atoms.calc.wfs.setups)
 	    data = self.tio.read_data(filename='Lead_' + str(i),
 	                                          option='Lead')
             vt_sG = data['vt_sG']
 	    dH_asp = data['dH_asp']
+	    calc.hamiltonian.dH_asp = {}
             for i, dH_p in enumerate(dH_asp):
                 calc.hamiltonian.dH_asp[i] = dH_p
             calc.gd.distribute(vt_sG, calc.hamiltonian.vt_sG) 
@@ -2104,9 +2105,8 @@ class Transport(GPAW):
                     H_p[:] = pack2(Htemp)
 
             ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-            Exc += setup.xc_correction.calculate(ham.xc, D_sp, dH_sp)
-            dH_sp += dH_p
-
+            Exc += ham.xc.calculate_paw_correction(setup, D_sp, dH_sp)
+	    dH_sp += dH_p
             Ekin -= (D_sp * dH_sp).sum()
 
         self.timer.stop('atomic hamiltonian')
@@ -2436,7 +2436,7 @@ class Transport(GPAW):
                 for a in self.wfs.basis_functions.atom_indices:
                     setup = self.wfs.setups[a]
                     f_si = setup.calculate_initial_occupation_numbers(
-                        density.magmom_a[a], density.hund, charge=c,
+                        density.magmom_av[a, 2], density.hund, charge=c,
                         nspins=self.nspins)
                     if a in self.wfs.basis_functions.my_atom_indices:
                         density.D_asp[a] = setup.initialize_density_matrix(
