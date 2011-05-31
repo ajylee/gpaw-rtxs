@@ -46,12 +46,14 @@ for xc in [XC('LDA'), XC('PBE')]:
     n2[3] = n[0] - n[1]
     E2 = xc.calculate(gd, n2)
     print E, E2-E
+    assert abs(E2 - E) < 1e-11
     n2[1] = 0.1 * n2[3]
     n2[2] = 0.2 * n2[3]
     n2[3] *= (1 - 0.1**2 - 0.2**2)**0.5
     v = n2 * 0
     E2 = xc.calculate(gd, n2, v)
     print E, E2-E
+    assert abs(E2 - E) < 1e-11
 
     for i in range(4):
         if here:

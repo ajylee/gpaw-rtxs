@@ -9,7 +9,7 @@ from gpaw.utilities import pack
 
 x = 0.0000001
 ra.seed(8)
-for xc in ['LDA', 'PBE']:
+for xc in ['LDA']:#, 'PBE']:
     print xc
     xc = XC(xc)
     s = create_setup('N', xc)
@@ -17,8 +17,6 @@ for xc in ['LDA', 'PBE']:
     D_sp = np.array([pack(np.outer(P_i, P_i))
                      for P_i in 0.2 * ra.random((2, ni)) - 0.1])
     D_sp[1] += D_sp[0]
-    #D_sp[0] = D_sp[1]
-    #D_sp[:,1:] = 0
 
     nii = ni * (ni + 1) // 2
 
@@ -31,6 +29,7 @@ for xc in ['LDA', 'PBE']:
     Dnc_sp[3] = D_sp[0] - D_sp[1]
     Enc = xc.calculate_paw_correction(s, Dnc_sp)
     print E, E-Enc
+    assert abs(E - Enc) < 1e-11
 
     Dnc_sp[1] = 0.1 * Dnc_sp[3]
     Dnc_sp[2] = 0.2 * Dnc_sp[3]
@@ -38,14 +37,14 @@ for xc in ['LDA', 'PBE']:
     H_sp = 0 * Dnc_sp
     Enc = xc.calculate_paw_correction(s, Dnc_sp, H_sp)
     print E, E-Enc
+    assert abs(E - Enc) < 1e-11
 
     dD_sp = x * ra.random((4, nii))
-    #dD_sp[:, 1:] = 0
     dE = np.dot(H_sp.ravel(), dD_sp.ravel()) / x
     Dnc_sp += dD_sp
     Ep = xc.calculate_paw_correction(s, Dnc_sp)
     Dnc_sp -= 2 * dD_sp
     Em = xc.calculate_paw_correction(s, Dnc_sp)
     print dE, dE - 0.5 * (Ep - Em) / x
-    #equal(dE, 0.5 * (Ep - Em) / x, 1e-6)
+    assert abs(dE - 0.5 * (Ep - Em) / x) < 1e-8
         

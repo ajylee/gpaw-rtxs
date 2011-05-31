@@ -249,6 +249,8 @@ class NonCollinearLCAOEigensolver(LCAO):
         H_sMsM[1, :, 1] -= H_MM
         wfs.timer.stop('Potential matrix')
 
+        ham.gd.comm.sum(H_sMsM)
+
         H_sMsM[0, :, 0] += wfs.T_qMM[kpt.q]
         H_sMsM[1, :, 1] += wfs.T_qMM[kpt.q]
 
@@ -322,10 +324,16 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
         rho11_MM = self.ksl.calculate_density_matrix(f_n,
                                                      kpt.C_nsM[:, 1].copy())
         kpt.rho_sMM = np.empty((4, self.ksl.nao, self.ksl.nao), self.dtype)
-        kpt.rho_sMM[0] = rho00_MM + rho11_MM
-        kpt.rho_sMM[1] = rho01_MM + rho01_MM.T.conj()
-        kpt.rho_sMM[2] = 1j * (rho01_MM - rho01_MM.T.conj())
-        kpt.rho_sMM[3] = rho00_MM - rho11_MM
+        if self.dtype == float:
+            kpt.rho_sMM[0] = rho00_MM.real + rho11_MM.real
+            kpt.rho_sMM[1] = rho01_MM.real + rho01_MM.T.real
+            kpt.rho_sMM[2] = -rho01_MM.imag - rho01_MM.T.imag
+            kpt.rho_sMM[3] = rho00_MM.real - rho11_MM.real
+        else:
+            kpt.rho_sMM[0] = rho00_MM + rho11_MM
+            kpt.rho_sMM[1] = rho01_MM + rho01_MM.T.conj()
+            kpt.rho_sMM[2] = 1j * (rho01_MM - rho01_MM.T.conj())
+            kpt.rho_sMM[3] = rho00_MM - rho11_MM
         for rho_MM, nt_G in zip(kpt.rho_sMM, nt_sG):
             self.basis_functions.construct_density(rho_MM, nt_G, kpt.q)
 
