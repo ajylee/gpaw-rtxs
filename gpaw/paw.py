@@ -726,7 +726,7 @@ class PAW(PAWTextOutput):
         txt.write('---------------\n')
 
         mem_init = maxrss()  # initial overhead includes part of Hamiltonian!
-        txt.write('Process memory now: %.2f MiB' % (mem_init / 1024.0**2))
+        txt.write('Process memory now: %.2f MiB\n' % (mem_init / 1024.0**2))
 
         mem = MemNode('Calculator', 0)
         try:
