@@ -67,3 +67,26 @@ the running time with almost a factor of two with large process counts!
 Job scripts can be written also using::
 
   gpaw-runscript -h
+
+Simultaneous Multi-Threading
+============================
+
+SMT_ can be used
+to virtually double the number of nodes. A test case did not show
+an improvement in performance though.
+
+.. _SMT: http://www2.fz-juelich.de/jsc/juropa/usage/smt
+
+====== ===== === =========
+#cores t[s]  SMT date
+====== ===== === =========
+64     2484  no  9.5.2011
+64     2438  no  16.5.2011
+128    1081  no  16.5.2011
+64     4812  yes 16.5.2011
+128    2077  yes 16.5.2011
+====== ===== === =========
+
+SMT can be switched on in `gpaw-runscript` via::
+
+  gpaw-runscript -s
