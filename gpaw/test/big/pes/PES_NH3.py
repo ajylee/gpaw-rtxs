@@ -32,7 +32,7 @@ d_c = GPAW(gpts=N_c, nbands=16, mixer=MixerDif(0.1, 5, weight=100.0),
            xc='PBE', txt='NH3-d.txt', spinpol=True)
 
 d = atoms.copy()
-d.set_initial_magnetic_moments([-1,1,1,-1])
+d.set_initial_magnetic_moments([-1, 0.5, 0.5, -0.5])
 d_c.set(charge=1)
 d.set_calculator(d_c)
 d.get_potential_energy()

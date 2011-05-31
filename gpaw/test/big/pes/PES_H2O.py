@@ -21,7 +21,7 @@ m_c = GPAW(gpts=N_c, nbands=4, mixer=MixerDif(0.1, 5, weight=100.0),
            xc='PBE', txt='H2O-m.txt', spinpol=True)
 
 m = atoms.copy()
-m.set_initial_magnetic_moments([-1,2,-1])
+m.set_initial_magnetic_moments([-1,1,-1])
 m.set_calculator(m_c)
 m.get_potential_energy()
 
@@ -31,7 +31,7 @@ d_c = GPAW(gpts=N_c, nbands=16, mixer=MixerDif(0.1, 5, weight=100.0),
            xc='PBE', txt='H2O-d.txt', spinpol=True)
 
 d = atoms.copy()
-d.set_initial_magnetic_moments([-1,1,-1])
+d.set_initial_magnetic_moments([-1, 0.5, -0.5])
 d_c.set(charge=1)
 d.set_calculator(d_c)
 d.get_potential_energy()
@@ -46,4 +46,3 @@ pes.save_folded_pes('H2O-td.dat', folding=None)
 
 pes = DOSPES(m_c, d_c)
 pes.save_folded_pes('H2O-dos.dat', folding=None)
-
