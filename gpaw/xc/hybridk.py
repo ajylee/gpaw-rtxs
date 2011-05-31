@@ -135,6 +135,11 @@ class HybridXC(XCFunctional):
         return self.xc.calculate_radial(rgd, n_sLg, Y_L, v_sg,
                                         dndr_sLg, rnablaY_Lv)
     
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
+                                 addcoredensity, a)
+    
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.xc.initialize(density, hamiltonian, wfs, occupations)
         self.nspins = wfs.nspins
@@ -215,6 +220,10 @@ class HybridXC(XCFunctional):
         self.exx_skn = np.zeros((self.nspins, K, self.bd.nbands))
         self.debug_skn = np.zeros((self.nspins, K, self.bd.nbands))
 
+        #self.x_kK = np.zeros((K, kd.nbzkpts))
+        #for k1 in range(K):
+        #    for K in range(kd.nbzkpts):
+                
         for s in range(self.nspins):
             kpt1_q = [KPoint(kd, kpt)
                       for kpt in self.kpt_u if kpt.s == s]
@@ -258,7 +267,7 @@ class HybridXC(XCFunctional):
         self.exx = world.sum(self.exx)
         world.sum(self.debug_skn)
         assert (self.debug_skn == self.kd.nbzkpts * self.bd.nbands).all()
-        self.exx += self.calculate_paw_correction()
+        self.exx += self.calculate_exx_paw_correction()
         
     def apply(self, kpt1, kpt2, k):
         k1_c = self.kd.ibzk_kc[kpt1.k]
@@ -321,12 +330,12 @@ class HybridXC(XCFunctional):
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
-                    
+
                 self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
                 if is_ibz2:
                     self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
 
-    def calculate_paw_correction(self):
+    def calculate_exx_paw_correction(self):
         exx = 0
         deg = 2 // self.nspins  # spin degeneracy
         for a, D_sp in self.density.D_asp.items():
