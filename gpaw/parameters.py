@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
@@ -109,9 +109,19 @@ class InputParameters(dict):
             self.basis = r['BasisSet']
         except KeyError:
             pass
-        self.gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
-                     (r.dimension('ngptsy') + 1) // 2 * 2,
-                     (r.dimension('ngptsz') + 1) // 2 * 2)
+
+        if version >= '0.9':
+            h = r['GridSpacing']
+        else:
+            h = None
+
+        if h is None:
+            self.gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
+                         (r.dimension('ngptsy') + 1) // 2 * 2,
+                         (r.dimension('ngptsz') + 1) // 2 * 2)
+        else:
+            self.h = Bohr * h
+
         self.lmax = r['MaximumAngularMomentum']
         self.setups = r['SetupTypes']
         self.fixdensity = r['FixDensity']
