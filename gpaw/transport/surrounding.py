@@ -1,11 +1,11 @@
 import numpy as np
-
 from ase.units import Hartree
 from gpaw.transport.tools import aa1d, interpolate_array, \
                           collect_atomic_matrices, distribute_atomic_matrices
 from gpaw.transport.io import Transport_IO
 from gpaw.grid_descriptor import GridDescriptor
-
+from gpaw import parsize
+from gpaw.domain import decompose_domain
 
 #       ---------------------------------------
 #      side    |                     |  side
@@ -45,7 +45,15 @@ class Side:
         N_c = data['N_c']
 	cell_cv = data['cell_cv']
 	pbc_c = data['pbc_c']
-	parsize_c = data['parsize_c']
+	#parsize_c = data['parsize_c']
+        if type(parsize) is int:
+            parsize_c = None
+            assert parsize == self.domain_comm.size
+        else:
+            parsize_c = parsize
+        if parsize_c is None:
+            parsize_c = decompose_domain(N_c, comm.size)
+        parsize_c = np.array(parsize_c)
         d1 = N_c[0] // 2
         d2 = N_c[1] // 2
        
