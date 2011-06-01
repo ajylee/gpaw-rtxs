@@ -211,7 +211,7 @@ class NonCollinearFunctional(XCFunctional):
         dedn_sg /= m_g
         dedm_vg = 0.5 * (dedn_sg[0] - dedn_sg[1]) * m_vg
         if self.xc.type == 'GGA':
-            dcdm_vg = (dmdr_vg - (m_vg * dmdr_vg).sum(0) * m_vg / m_g**2) / m_g 
+            dcdm_vg = (dmdr_vg - (m_vg * dmdr_vg).sum(0) * m_vg / m_g**2) / m_g
             dddm_vLvg = rnablaY_Lv.T[:, :, X, X] * m_vg
             dddm_vLvg += m_vvg[:, X] * Y_L[:, X, X]
             dddm_vLvg -= d_vg[:, X, X, :] * m_vg[X, X] * Y_L[:, X, X] / m_g
@@ -308,6 +308,7 @@ class NonCollinearLCAOEigensolver(LCAO):
 class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
     collinear = False
     ncomp = 2
+
     def set_positions(self, spos_ac):
         LCAOWaveFunctions.set_positions(self, spos_ac)
         for kpt in self.kpt_u:
@@ -340,12 +341,11 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
         P_Mi = kpt.P_aMi[a]
         rhoP_Mi = np.zeros_like(P_Mi)
+        D0_ii = np.zeros(D_sii[0].shape, self.dtype)
         for rho_MM, D_ii in zip(kpt.rho_sMM, D_sii):
             gemm(1.0, P_Mi, rho_MM, 0.0, rhoP_Mi)
-            gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 1.0, D_ii)
-            #is D_ii real?
-            D_ii += D_ii.T.copy()#hmmmmmmmmmmmmmmmmmmmmmmmmmmm
-            D_ii *= 0.5
+            gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D0_ii)
+            D_ii += 0.5 * (D0_ii.real + D0_ii.T.real)
 
 
 class NonCollinearMixer(BaseMixer):

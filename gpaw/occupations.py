@@ -9,19 +9,20 @@ from ase.units import Hartree
 from gpaw.utilities import erf
 from math import pi
 
+
 class OccupationNumbers:
     """Base class for all occupation number objects."""
     def __init__(self, fixmagmom):
         self.fixmagmom = fixmagmom        
-        self.magmom = None     # magnetic moment
-        self.e_entropy = None  # -ST
-        self.e_band = None     # band energy (sum_n eps_n * f_n)
-        self.fermilevel = None # Fermi level
-        self.homo = np.nan     # HOMO eigenvalue
-        self.lumo = np.nan     # LUMO eigenvalue
-        self.nvalence = None   # number of electrons
-        self.split = 0.0       # splitting of Fermi levels from fixmagmom=True
-        self.niter = 0         # number of iterations for finding Fermi level
+        self.magmom = None      # magnetic moment
+        self.e_entropy = None   # -ST
+        self.e_band = None      # band energy (sum_n eps_n * f_n)
+        self.fermilevel = None  # Fermi level
+        self.homo = np.nan      # HOMO eigenvalue
+        self.lumo = np.nan      # LUMO eigenvalue
+        self.nvalence = None    # number of electrons
+        self.split = 0.0        # splitting of Fermi levels from fixmagmom=True
+        self.niter = 0          # number of iterations for finding Fermi level
         
     def calculate(self, wfs):
         """Calculate everything.
@@ -53,7 +54,7 @@ class OccupationNumbers:
                        self.homo, self.lumo,
                        self.fermilevel, self.split]
         wfs.world.broadcast(data, 0)
-        (self.magmom, self.e_entropy, self.e_band, 
+        (self.magmom, self.e_entropy, self.e_band,
          self.homo, self.lumo, self.fermilevel, self.split) = data
 
         for kpt in wfs.kpt_u:
@@ -69,7 +70,7 @@ class OccupationNumbers:
         """Sum up all eigenvalues weighted with occupation numbers"""
         e_band = 0.0
         for kpt in wfs.kpt_u:
-            e_band += np.dot(kpt.f_n, kpt.eps_n)    
+            e_band += np.dot(kpt.f_n, kpt.eps_n)
         self.e_band = wfs.bd.comm.sum(wfs.kpt_comm.sum(e_band))
 
     def print_fermi_level(self, stream):
@@ -97,7 +98,7 @@ class OccupationNumbers:
         For historical (and storage) reasons there is also
         an method "set_fermi_levels_mean" which might be used
         to set the fermi-levels using the mean and the splitting
-        (set_fermi_splitting). 
+        (set_fermi_splitting).
 
         However: you can use simply this method but have to
         keep in mind to supply two fermi-levels if you do fixed-
@@ -153,7 +154,6 @@ class OccupationNumbers:
             raise ValueError('Different fermi levels are only vaild with ' +
                                 'fixmagmom!')
             
-
     def set_fermi_splitting(self, fermisplit):
         """Set the splitting of the fermi-level (in Ht).
         
@@ -226,7 +226,7 @@ class ZeroKelvin(OccupationNumbers):
             OccupationNumbers.get_fermi_level(self)  # fail
         else:
             if self.fixmagmom:
-                warnings.warn('Please use get_fermi_levels when '+
+                warnings.warn('Please use get_fermi_levels when ' +
                               'using fixmagmom', DeprecationWarning)
                 fermilevels = np.empty(2)
                 fermilevels[0] = self.fermilevel + 0.5 * self.split
@@ -246,7 +246,7 @@ class ZeroKelvin(OccupationNumbers):
                 fermilevels[1] = self.fermilevel - 0.5 * self.split
                 return fermilevels
             else:
-                raise ValueError('Distinct fermi-levels are only vaild '+
+                raise ValueError('Distinct fermi-levels are only vaild ' +
                                  'for fixed-magmom calculations!')
 
     def get_fermi_levels_mean(self):
@@ -258,11 +258,11 @@ class ZeroKelvin(OccupationNumbers):
     def get_fermi_splitting(self):
         """Return the splitting of the fermi level in hartree.
             
-        Returns 0.0 if calculation is not done using 
+        Returns 0.0 if calculation is not done using
         fixmagmom.
 
         """
-        if self.fixmagmom: 
+        if self.fixmagmom:
             return self.split
         else:
             return 0.0
@@ -437,8 +437,8 @@ class SmoothDistribution(ZeroKelvin):
             if kd.comm.rank == 0:
                 eps_n = eps_skn.ravel()
                 w_skn = np.empty((kd.nspins, kd.nibzkpts, wfs.nbands))
-                w_skn[:] = 2.0 / wfs.nspins * kd.weight_k[:, np.newaxis]
-                # XXX ??? 4 - wfs.nspins - wfs.ncomp)
+                w_skn[:] = (2.0 / wfs.nspins / wfs.ncomp *
+                            kd.weight_k[:, np.newaxis])
                 w_n = w_skn.ravel()
                 n_i = eps_n.argsort()
                 w_i = w_n[n_i]
@@ -499,7 +499,7 @@ class FermiDirac(SmoothDistribution):
         z = y + 1.0
         kpt.f_n[:] = kpt.weight / z
         n = kpt.f_n.sum()
-        dnde = (n - (kpt.f_n**2).sum() / kpt.weight) / self.width        
+        dnde = (n - (kpt.f_n**2).sum() / kpt.weight) / self.width
         y *= x
         y /= z
         y -= np.log(z)
@@ -543,4 +543,4 @@ class MethfesselPaxton(SmoothDistribution):
             return 2 * x
         else:
             return 2 * x * self.hermite_poly(n - 1, x) \
-                            - 2 * (n - 1) * self.hermite_poly(n - 2 , x)
+                            - 2 * (n - 1) * self.hermite_poly(n - 2, x)
