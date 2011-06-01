@@ -704,62 +704,52 @@ class Transport_Analysor:
         finegd = calc.hamiltonian.finegd
 
         if not tp.use_qzk_boundary and not tp.multi_leads:
-            nt_sG = tp.gd.collect(tp.density.nt_sG)
+            nt_sG = tp.density.nt_sG
+	    nt_sg = tp.density.nt_sg
         else:
-            nt_sG = gd.collect(calc.density.nt_sG)            
-        vt_sG = gd.collect(calc.hamiltonian.vt_sG)
-        
+            nt_sG = calc.density.nt_sG            
+	    nt_sg = calc.density.nt_sg
+        vt_sG = calc.hamiltonian.vt_sG
+        vt_sg = calc.hamiltonian.vt_sg
         data = self.data
         flag = 'ele_' + str(self.n_ele_step) + '_'
-        if world.rank == 0:
-            nt = []
-            vt = []
-            for s in range(tp.nspins): 
-                nts = aa1d(nt_sG[s]) 
-                vts = aa1d(vt_sG[s]) * Hartree
-                if not tp.multi_leads:
-                    nt1 = aa1d(tp.surround.sides['-'].boundary_nt_sG[s])
-                    nt2 = aa1d(tp.surround.sides['+'].boundary_nt_sG[s])
-                    nts = np.append(nt1, nts)
-                    nts = np.append(nts, nt2)
-                nt.append(nts)
-                vt.append(vts)
-            data[flag + 'nt'] = np.array(nt)
-            data[flag + 'vt'] = np.array(vt)
-            data[flag + 'df'] = np.diag(tp.hsd.H[0][0].recover(True))
-            data[flag + 'dd'] = np.diag(tp.hsd.D[0][0].recover(True))            
-        else:
-            nt = None
-            vt = None
+        nt = []
+        vt = []
+	ntg = []
+	vtg = []
+        for s in range(tp.nspins): 
+            nts = aa1d(nt_sG[s]) 
+            vts = aa1d(vt_sG[s]) * Hartree
+            ntgs = aa1d(nt_sg[s]) 
+            vtgs = aa1d(vt_sg[s]) * Hartree
+            nt.append(nts)
+            vt.append(vts)
+            ntg.append(ntgs)
+            vtg.append(vtgs)
+
+        data[flag + 'nt'] = np.array(nt)
+        data[flag + 'vt'] = np.array(vt)
+        data[flag + 'ntg'] = np.array(ntg)
+        data[flag + 'vtg'] = np.array(vtg)
+	data[flag + 'vbarg'] = aa1d(calc.hamiltonian.vbar_g)
+        data[flag + 'df'] = np.diag(tp.hsd.H[0][0].recover(True))
+        data[flag + 'dd'] = np.diag(tp.hsd.D[0][0].recover(True))            
         
         if not tp.use_qzk_boundary and not tp.multi_leads: 
             gd = tp.finegd
-            rhot_g = gd.collect(tp.density.rhot_g)
-            if world.rank == 0:
-                rho1 = tp.surround.sides['-'].boundary_rhot_g_line
-                rho2 = tp.surround.sides['+'].boundary_rhot_g_line
-                rho = aa1d(rhot_g)
-                rho = np.append(rho1, rho)
-                rho = np.append(rho, rho2)
-                data[flag + 'rho'] = np.array(rho)
-            else:
-                rho = None
+            rhot_g = tp.density.rhot_g
+            rho = aa1d(rhot_g)
+            data[flag + 'rho'] = np.array(rho)
         else:
             gd = calc.finegd
-            rhot_g = gd.collect(calc.density.rhot_g)            
-            if world.rank == 0:
-                rho = aa1d(rhot_g)                
-                data[flag + 'rho'] = np.array(rho)
-            else:
-                rho = None
-            
+            rhot_g = calc.density.rhot_g
+            rho = aa1d(rhot_g)                
+            data[flag + 'rho'] = np.array(rho)
+       
         gd = finegd
-        vHt_g = gd.collect(calc.hamiltonian.vHt_g)
-        if world.rank == 0:
-            vHt = aa1d(vHt_g) * Hartree
-            data[flag + 'vHt'] = vHt
-        else:
-            vHt = None
+        vHt_g = calc.hamiltonian.vHt_g
+        vHt = aa1d(vHt_g) * Hartree
+        data[flag + 'vHt'] = vHt
         self.n_ele_step += 1
       
     def save_bias_step(self, tp):
@@ -767,67 +757,80 @@ class Transport_Analysor:
             self.save_overhead_data(tp)
             self.overhead_data_saved = True
         ks_map = tp.my_ks_map
+
         if 'tc' in tp.analysis_data_list:
             tc, dos = self.collect_transmission_and_dos(tp)
             if not tp.non_sc:
                 current = self.calculate_current(tp, tc)
             else:
                 current = np.array(0)
-            flag = 'ER_' + str(tp.contour.comm.rank)
-            if tp.wfs.kpt_comm.rank == 0:
-                self.data[flag + '_tc'] = tc
-                self.data[flag + '_dos'] = dos
-                if tp.contour.comm.rank == 0:
-                    self.data['current'] = current
+            self.data['tc'] = tc
+            self.data['dos'] = dos
+            self.data['current'] = current
         nt, vt, ntx, vtx, nty, vty = self.abstract_d_and_v(tp)
-        if world.rank == 0 :           
-            for name in ['nt', 'vt', 'ntx', 'vtx', 'nty', 'vty']:
+        for name in ['nt', 'vt', 'ntx', 'vtx', 'nty', 'vty']:
                 self.data[name] = eval(name)
         if tp.non_sc or tp.analysis_mode:
             force = None
             contour = None
         else:
-            if not tp.use_qzk_boundary and not tp.multi_leads:
-                force = tp.calculate_force() * Hartree / Bohr
-            else:
-                force = tp.extended_calc.get_forces(tp.extended_atoms
+	    if 'force' in tp.analysis_data_list:
+                if not tp.use_qzk_boundary and not tp.multi_leads:
+                    force = tp.calculate_force() * Hartree / Bohr
+                else:
+                    force = tp.extended_calc.get_forces(tp.extended_atoms
                                                     )[:len(tp.atoms)]
+            else:
+	        force = None
             tp.F_av = None
             contour = self.collect_contour(tp)            
+    
         charge = self.collect_charge(tp)
         magmom = tp.occupations.magmom
         local_magmom = tp.get_magnetic_moments()   
 
-        if world.rank == 0:
-            lead_fermi = np.array(tp.lead_fermi)
-            lead_pairs = np.array(self.lead_pairs)
-            bias = np.array(tp.bias)
-            gate = np.array(tp.gate)
-            magmom = np.array(magmom)
-            local_magmom = np.array(local_magmom)
-            for name in ['lead_fermi', 'lead_pairs', 'bias', 'gate', 
+        lead_fermi = np.array(tp.lead_fermi)
+        lead_pairs = np.array(self.lead_pairs)
+        bias = np.array(tp.bias)
+        gate = np.array(tp.gate)
+        magmom = np.array(magmom)
+        local_magmom = np.array(local_magmom)
+        for name in ['lead_fermi', 'lead_pairs', 'bias', 'gate', 
                                       'charge', 'magmom', 'local_magmom']:
-                self.data[name] = eval(name)
+            self.data[name] = eval(name)
         # do not include contour now because it is a dict, not a array able to
         # collect, but will do it at last
-        self.data = gather_ndarray_dict(self.data, tp.contour.comm)
+        #self.data = gather_ndarray_dict(self.data, tp.contour.comm)
         self.data['contour'] = contour
         self.data['force'] = force
+	self.data['kpt_rank'] = tp.wfs.kpt_comm.rank
+	self.data['kpt_size'] = tp.wfs.kpt_comm.size
+	self.data['domain_rank'] = tp.gd.comm.rank
+	self.data['domain_parpos'] = tp.gd.parpos_c
+	self.data['domain_parsize'] = tp.gd.parsize_c
+        ns, npk, nlp, ne = tp.nspins, tp.npk, len(self.lead_pairs), len(self.energies)
+	self.data['transmission_dimension'] = (ns, npk, nlp, ne)
+	nb = tp.nbmol_inner
+	self.data['dos_dimension'] = (ns, npk, nb, ne)
+
         if tp.non_sc:
             self.data['total_energy'] = tp.guess_total_energy
         for condition, obj, name in tp.special_datas:
             if eval(condition):
                 self.data[name] = eval(obj)
        
-        if world.rank == 0:
-            if tp.analysis_mode:
-                filename = '/abias_step_' + str(self.n_bias_step)
-            else:
-                filename = '/bias_step_' + str(self.n_bias_step)
-            fd = file('analysis_data/ionic_step_' + str(self.n_ion_step)
-                      + filename, 'wb')
-            cPickle.dump(self.data, fd, 2)
-            fd.close()
+        tp.tio.save_data(self, option='Analysis', bias_step=self.n_bias_step)
+        tp.tio.arrange_analysis_data(self.n_bias_step, 
+	                                    self.n_ion_step, tp.analysis_mode)
+        #if world.rank == 0:
+        #    if tp.analysis_mode:
+        #        filename = '/abias_step_' + str(self.n_bias_step)
+        #    else:
+        #        filename = '/bias_step_' + str(self.n_bias_step)
+        #    fd = file('analysis_data/ionic_step_' + str(self.n_ion_step)
+        #              + filename, 'wb')
+        #    cPickle.dump(self.data, fd, 2)
+        #    fd.close()
         self.data = {}
         self.n_ele_step = 0
         self.n_bias_step += 1
@@ -853,35 +856,27 @@ class Transport_Analysor:
                     local_tc_array[s, q, :, e] =  self.calculate_transmission(tp, s,
                                                             q, energy, nid)
 
-        kpt_comm = tp.wfs.kpt_comm
-        ns, npk = tp.nspins, tp.npk
-        if kpt_comm.rank == 0:
-            tc_array = np.empty([ns, npk, nlp, ne], float)
-            dos_array = np.empty([ns, npk, nbmol, ne], float)
-        else:
-            tc_array = None
-            dos_array = None
-        kpt_comm.gather(local_tc_array, 0, tc_array)
-        kpt_comm.gather(local_dos_array, 0, dos_array)                    
-        return tc_array, dos_array
+        #kpt_comm = tp.wfs.kpt_comm
+        #ns, npk = tp.nspins, tp.npk
+        #if kpt_comm.rank == 0:
+        #    tc_array = np.empty([ns, npk, nlp, ne], float)
+        #    dos_array = np.empty([ns, npk, nbmol, ne], float)
+        #else:
+        #    tc_array = None
+        #    dos_array = None
+        #kpt_comm.gather(local_tc_array, 0, tc_array)
+        #kpt_comm.gather(local_dos_array, 0, dos_array)                    
+        return local_tc_array, local_dos_array
     
     def collect_charge(self, tp):
-        ns, npk = tp.nspins, tp.npk
         nbmol = tp.nbmol + np.sum(tp.nblead)
-        kpt_comm = tp.wfs.kpt_comm
-        if kpt_comm.rank == 0:
-            charge_array = np.zeros([ns, npk, nbmol])
-        else:
-            charge_array = None
         ns, npk = tp.my_nspins, tp.my_npk
         local_charge_array = np.zeros([ns, npk, nbmol])
         for s in range(ns):
             for q in range(npk):
                     local_charge_array[s, q] = \
                                      self.calculate_charge_distribution(tp, s, q)
-        kpt_comm.gather(local_charge_array, 0, charge_array)
-        if world.rank == 0:
-            charge_array = np.sum(charge_array, axis=1)
+        charge_array = np.sum(local_charge_array, axis=1)
         return charge_array
 
     def collect_contour(self, tp):
@@ -896,13 +891,13 @@ class Transport_Analysor:
                 my_ne_contour[flag] = np.array(tp.nepathinfo[s][q].energy)
                 if not tp.ground:
                     my_loc_contour[flag] = np.array(tp.locpathinfo[s][q].energy)        
-        eq_contour = gather_ndarray_dict(my_eq_contour, tp.wfs.kpt_comm)
-        ne_contour = gather_ndarray_dict(my_ne_contour, tp.wfs.kpt_comm)        
-        if not tp.ground:
-            loc_contour = gather_ndarray_dict(my_loc_contour, tp.wfs.kpt_comm)
-        else:
-            loc_contour = None
-        contour = {'eq': eq_contour, 'ne': ne_contour, 'loc': loc_contour}
+        #eq_contour = gather_ndarray_dict(my_eq_contour, tp.wfs.kpt_comm)
+        #ne_contour = gather_ndarray_dict(my_ne_contour, tp.wfs.kpt_comm)        
+        #if not tp.ground:
+        #    loc_contour = gather_ndarray_dict(my_loc_contour, tp.wfs.kpt_comm)
+        #else:
+        #    loc_contour = None
+        contour = {'eq': my_eq_contour, 'ne': my_ne_contour, 'loc': my_loc_contour}
         return contour
  
     def save_ion_step(self, tp):
@@ -923,57 +918,55 @@ class Transport_Analysor:
         calc = tp.extended_calc
         gd = calc.gd
         if not tp.use_qzk_boundary and not tp.multi_leads:
-            nt_sG = tp.gd.collect(tp.density.nt_sG)
+            nt_sG = tp.density.nt_sG
         else:
-            nt_sG = gd.collect(calc.density.nt_sG)            
-        vt_sG = gd.collect(calc.hamiltonian.vt_sG)
+            nt_sG = calc.density.nt_sG            
+        vt_sG = calc.hamiltonian.vt_sG
         nt = []
         vt = []
         ntx = []
         nty = []
         vtx = []
         vty = []
-        if world.rank == 0:        
-            for s in range(tp.nspins):
-                nts = aa1d(nt_sG[s])
-                vts = aa1d(vt_sG[s])
-                ntsx = aa2d(nt_sG[s], 0)            
-                vtsx = aa2d(vt_sG[s], 0)
-                ntsy = aa2d(nt_sG[s], 1)            
-                vtsy = aa2d(vt_sG[s], 1)                
-                nt.append(nts)
-                vt.append(vts)
-                ntx.append(ntsx)
-                vtx.append(vtsx)
-                nty.append(ntsy)
-                vty.append(vtsy)
-            nt = np.array(nt)
-            vt = np.array(vt)
-            ntx = np.array(ntx)
-            vtx = np.array(vtx)
-            nty = np.array(nty)
-            vty = np.array(vty)
+        for s in range(tp.nspins):
+            nts = aa1d(nt_sG[s])
+            vts = aa1d(vt_sG[s])
+            ntsx = aa2d(nt_sG[s], 0)            
+            vtsx = aa2d(vt_sG[s], 0)
+            ntsy = aa2d(nt_sG[s], 1)            
+            vtsy = aa2d(vt_sG[s], 1)                
+            nt.append(nts)
+            vt.append(vts)
+            ntx.append(ntsx)
+            vtx.append(vtsx)
+            nty.append(ntsy)
+            vty.append(vtsy)
+        nt = np.array(nt)
+        vt = np.array(vt)
+        ntx = np.array(ntx)
+        vtx = np.array(vtx)
+        nty = np.array(nty)
+        vty = np.array(vty)
         return nt, vt, ntx, vtx, nty, vty
     
     def calculate_current(self, tp, tc_array, lead_pair_index=0):             
         current = np.array([0, 0], complex)
-        if tp.wfs.kpt_comm.rank == 0:
-            contour = tp.contour
-            kt = 0.02
-            fd = fermidistribution        
-            lead_ef1 = contour.leadfermi[self.lead_pairs[lead_pair_index][0]]
-            lead_ef2 = contour.leadfermi[self.lead_pairs[lead_pair_index][1]]
-            if lead_ef2 > lead_ef1:
-                lead_ef1, lead_ef2 = lead_ef2, lead_ef1
-            interval = np.real(self.my_energies[1] - self.my_energies[0])
-            tc_all = np.sum(tc_array, axis=1) / tp.npk 
-            fermi_factor = fd(self.my_energies - lead_ef1, kt) - fd(
-                                             self.my_energies - lead_ef2, kt)
-            for s in range(tp.nspins):
-                current[s] = np.sum(tc_all[s, lead_pair_index] * fermi_factor *
-                                                              self.my_weights)
-            current = np.array(current)
-            tp.contour.comm.sum(current)
+        contour = tp.contour
+        kt = 0.02
+        fd = fermidistribution        
+        lead_ef1 = contour.leadfermi[self.lead_pairs[lead_pair_index][0]]
+        lead_ef2 = contour.leadfermi[self.lead_pairs[lead_pair_index][1]]
+        if lead_ef2 > lead_ef1:
+            lead_ef1, lead_ef2 = lead_ef2, lead_ef1
+        interval = np.real(self.my_energies[1] - self.my_energies[0])
+        tc_all = np.sum(tc_array, axis=1) / tp.npk 
+        fermi_factor = fd(self.my_energies - lead_ef1, kt) - fd(
+                                         self.my_energies - lead_ef2, kt)
+        for s in range(tp.my_nspins):
+            current[s] = np.sum(tc_all[s, lead_pair_index] * fermi_factor *
+                                                          self.my_weights)
+        current = np.array(current)
+        #tp.contour.comm.sum(current)
         return current 
          
 class Transport_Plotter:
@@ -1013,7 +1006,8 @@ class Transport_Plotter:
         rcParams['axes.titlesize'] = 18
         rcParams['axes.labelsize'] = 18
         rcParams['font.size'] = 18
-  
+        rcParams['figure.subplot.left'] = 0.15
+
     def get_data(self, bias_step, ion_step):
         if self.mode == 0:
             fd = file('analysis_data/ionic_step_' + str(ion_step) +
@@ -1024,20 +1018,126 @@ class Transport_Plotter:
         data = cPickle.load(fd)
         fd.close()        
         return data
-
+    
     def get_info(self, name, bias_step, ion_step=0):
         data = self.get_data(bias_step, ion_step)
-        if name in ['tc', 'dos']:
-            info = data['ER_0_' + name]        
-            data_name = 'ER_1_' + name
-            n = 1
-            while data_name in data:
-                info = np.append(info, data[data_name], axis=-1)
-                n += 1
-                data_name = 'ER_' + str(n) + '_' + name        
-        else:
-            info = data[name]
+	if 'newform' in data and data['newform'] == True:
+	    info = self.collect_info(data, name)
+	else:
+            if name in ['tc', 'dos']:
+                info = data['ER_0_' + name]        
+                data_name = 'ER_1_' + name
+                n = 1
+                while data_name in data:
+                    info = np.append(info, data[data_name], axis=-1)
+                    n += 1
+                    data_name = 'ER_' + str(n) + '_' + name        
+            else:
+                info = data[name]
         return info
+
+    def collect_info(self, data, name):
+        kpt_size = data['kpt_size']
+        domain_parsize = data['domain_parsize']
+        domain_size = np.product(domain_parsize)
+        if name == 'vt' or name == 'nt':
+	    vt = []
+	    for i in range(domain_parsize[2]):
+	        vt.append([])
+	    for i in range(domain_size):
+	        d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
+		               i % (domain_parsize[1] * 
+			       domain_parsize[2]) // domain_parsize[2], 
+			       i % domain_parsize[2])        
+                lvt = data['K_0D_' + str(i) + '_' + name]
+		#lvt = np.sum(lvt, axis=1) / lvt.shape[1]
+		#lvt = np.sum(lvt, axis=1) / lvt.shape[1]
+		vt[d3].append(lvt) 
+	    for i in range(domain_parsize[2]):
+	        vt[i] = np.sum(vt[i],axis=0) / len(vt[i])
+	    output = np.concatenate(vt, axis=-1)
+	elif name =='vty' or name =='nty':
+	    vty = []
+	    for i in range(domain_parsize[0]):
+	        vty.append([])
+		for j in range(domain_parsize[2]):
+		    vty[i].append([])
+	    for i in range(domain_size):
+	        d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
+		               i % (domain_parsize[1] * 
+			       domain_parsize[2]) // domain_parsize[2], 
+			       i % domain_parsize[2])        
+                lvty = data['K_0D_' + str(i) + '_' + name]
+		vty[d1][d3].append(lvty) 
+	    for i in range(domain_parsize[0]):
+	        for j in range(domain_parsize[2]):
+		    vty[i][j] = np.sum(vty[i][j],axis=0) / len(vty[i][j])
+	    output = np.concatenate(vty, axis=-1)	    
+	    output = np.concatenate(output, axis=-1)	    
+	elif name =='vtx' or name =='ntx':
+	    vtx = []
+	    for i in range(domain_parsize[1]):
+	        vtx.append([])
+		for j in range(domain_parsize[2]):
+		    vtx[i].append([])
+	    for i in range(domain_size):
+	        d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
+		               i % (domain_parsize[1] * 
+			       domain_parsize[2]) // domain_parsize[2], 
+			       i % domain_parsize[2])        
+                lvtx = data['K_0D_' + str(i) + '_' + name]
+		vtx[d2][d3].append(lvtx) 
+	    for i in range(domain_parsize[1]):
+	        for j in range(domain_parsize[2]):
+		    vtx[i][j] = np.sum(vtx[i][j],axis=0) / len(vtx[i][j])
+	    output = np.concatenate(vtx, axis=-1)	    
+	    output = np.concatenate(output, axis=-1)	    
+        elif name == 'vHt' or name == 'rho':
+	    vHt = []
+	    for i in range(domain_parsize[2]):
+	        vHt.append([])
+	    for i in range(domain_size):
+	        d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
+		               i % (domain_parsize[1] * 
+			       domain_parsize[2]) // domain_parsize[2], 
+			       i % domain_parsize[2])        
+                lvHt = data['K_0D_' + str(i) + '_' + name]
+		lvHt = np.sum(lvHt, axis=0) / lvHt.shape[0]
+		lvHt = np.sum(lvHt, axis=0) / lvHt.shape[0]
+		vHt[d3].append(lvHt) 
+	    for i in range(domain_parsize[2]):
+	        vHt[i] = np.sum(vHt[i],axis=0) / vHt[i].shape[0]
+	    output = np.concatenate(vHt, axis=-1)
+        elif name == 'tc':
+	    ns, npk, npl, ne = data['transmission_dimension']
+	    tc = []
+	    for i in range(kpt_size):
+	        ltc = []
+	        for j in range(domain_size):
+ 	            ltc.append(data['K_' + str(i) + 'D_' + str(j) + '_tc'])
+	    	ltc = np.concatenate(ltc, axis=-1)
+		tc.append(ltc)
+	    output = np.array(tc)
+	    output.shape = (ns, npk, npl, ne)
+	elif name == 'dos':
+	    ns, npk, nb, ne = data['dos_dimension']
+	    dos = []
+	    for i in range(kpt_size):
+	        ldos = []
+		for j in range(domain_size):
+		    ldos.append(data['K_' + str(i) + 'D_' + str(j) + '_dos'])
+		ldos = np.concatenate(ldos, axis=-1)
+		dos.append(ldos)
+            output = np.array(dos)
+	    output.shape = (ns, npk, nb, ne)
+        elif name == 'charge':
+            data = cPickle.load(file('temperary_data/KC_0_DC_0AD_bias_0','r'))
+            data1 = cPickle.load(file('temperary_data/KC_1_DC_0AD_bias_0','r'))
+	    output = [data['charge'], data1['charge']]
+	    output=np.sum(output,axis=1)
+	else:
+	    output = data[name]
+        return output	    
 
     def get_positions(self, ion_step=0):
         fd = file('analysis_data/ionic_step_' + str(ion_step) + '/positions', 'r')
@@ -1115,25 +1215,47 @@ class Transport_Plotter:
         pdos = np.array(pdos)
         return pdos
 
-    def charge(self, bias_step, ion_step=0, atom_indices=None,
-               orbital_type=None):
+    def charge(self, bias_step, ion_step=0, s=0, atom_indices=None,
+               orbital_type=None, direction=None):
         self.read_overhead()
         charge_array = self.get_info('charge', bias_step, ion_step)
         orbital_indices = self.basis['orbital_indices']
         orbital_map = {'S': 0, 'P': 1, 'D': 2, 'F': 3}
+        direction_map = {'x': 2, 'y': 0, 'z': 1, 'xy': 0, 'yz': 1,
+                         'z2r2': 2, 'xz': 3, 'x2y2': 4}        
+        if direction is None:
+            direction_index = np.zeros([orbital_indices.shape[0]]) + 1
+        else:
+            directions = []
+            num = -1
+            oio = 0
+            for oi in orbital_indices:
+                if oi[1] != oio:
+                    num = -1
+                oio = oi[1]      
+                if oi[1] != orbital_map[orbital_type]:
+                    directions.append(0)
+                else:
+                    num += 1
+                    if num == direction_map[direction]:
+                        directions.append(1)
+                    else:
+                        directions.append(0)
+            direction_index = np.array(directions)
+
         if orbital_type is None:
             orbital_index = np.zeros([orbital_indices.shape[0]]) + 1
         else:
             orbital_index = orbital_indices[:, 1] - orbital_map[
                                                       orbital_type] ==  0
         n_atom_basis = len(orbital_index)
-        charge_array = charge_array[0, :n_atom_basis]
+        charge_array = charge_array[s, :n_atom_basis]
         atom_index = np.zeros([orbital_indices.shape[0]]) + 1
         if atom_indices is not None:
             atom_index -= 1
             for i in atom_indices:
                 atom_index += orbital_indices[:, 0] - i == 0
-        charge = np.sum(charge_array * atom_index * orbital_index)
+        charge = np.sum(charge_array * atom_index * orbital_index * direction_index)
         return charge
        
     def iv(self, nsteps=16, spinpol=False):
