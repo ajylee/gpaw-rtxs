@@ -2,7 +2,8 @@
 import cPickle
 import os
 from gpaw.mpi import world
-from gpaw.transport.tools import collect_atomic_matrices
+from gpaw.transport.tools import collect_atomic_matrices, gather_ndarray_dict
+import numpy as np
 
 class Transport_IO:
     def __init__(self, kpt_comm, domain_comm):
@@ -27,16 +28,24 @@ class Transport_IO:
 		filenames[name] = name
 	return filenames
 
-    def read_data(self, filename=None, option='Analysis'):
+    def read_data(self, bias_step=0, filename=None, option='Analysis'):
         if option == 'Lead':
 	    if filename is None:
 	        filename = self.filenames[option]
   	    fd = file(self.dir_name + '/' + filename, 'r')
 	    data = cPickle.load(fd)
 	    fd.close()
-	return data
+	elif option == 'Analysis':
+            name = 'KC_' + str(self.kpt_comm.rank) + '_DC_' + \
+	                                     str(self.domain_comm.rank) +'AD'
+	    fd = file(self.dir_name + '/' + self.filenames[name] + '_bias_' + str(bias_step), 'r')
+	    data = cPickle.load(fd)
+	    fd.close()
+	else:
+	    raise NotImplementError
+    	return data
            
-    def save_data(self, obj, filename=None, option='Analysis'):
+    def save_data(self, obj, bias_step=0, filename=None, option='Analysis'):
         #       option ------map------ obj
         #       Analysis            Transport.Analysor
 	#        Lead                Lead_Calc
@@ -51,7 +60,7 @@ class Transport_IO:
 	elif option == 'Analysis':
 	    name = 'KC_' + str(self.kpt_comm.rank) + '_DC_' + \
 	                                     str(self.domain_comm.rank) +'AD'
-	    fd = file(self.dir_name + '/' + self.filenames[name], 'wb')
+	    fd = file(self.dir_name + '/' + self.filenames[name] + '_bias_' + str(bias_step), 'wb')
 	    cPickle.dump(data, fd, 2)
 	    fd.close()
 	else:
@@ -111,9 +120,74 @@ class Transport_IO:
 
     def collect_analysis_data(self, obj):
         return obj.data
-
         
+    def arrange_analysis_data(self, n_bias_step, n_ion_step, analysis_mode):           
+        data = self.read_data(bias_step=n_bias_step, option='Analysis')
+	parsize = data['domain_parsize']
+        parpos = data['domain_parpos']
+	domain_rank = data['domain_rank']
+	kpt_rank = data['kpt_rank']
+	kpt_size = data['kpt_size']
+	transmission_dimension = data['transmission_dimension']
+	dos_dimension = data['dos_dimension']
+        assert kpt_rank == self.kpt_comm.rank
+	assert domain_rank == self.domain_comm.rank
+
+        #collect transmission, dos, current
+	global_data = {}
+	flag = 'K_' + str(kpt_rank) + 'D_' + str(domain_rank) + '_'
+        global_data[flag + 'parpos'] = data['domain_parpos']
+        global_data[flag + 'tc'] = data['tc']
+	global_data[flag + 'dos'] = data['dos']
+
+        global_data = gather_ndarray_dict(global_data, self.kpt_comm)
+	
+	global_data[flag + 'vt'] = data['vt']
+	global_data[flag + 'vtx'] = data['vtx']
+	global_data[flag + 'vty'] = data['vty']
+	global_data[flag + 'nt'] = data['nt']
+	global_data[flag + 'ntx'] = data['ntx']
+	global_data[flag + 'nty'] = data['nty']
+
+        global_data = gather_ndarray_dict(global_data, self.domain_comm)
+
+        global_data['lead_fermi'] = data['lead_fermi']
+	global_data['bias'] = data['bias']
+	global_data['gate'] = data['gate']
+	global_data['charge'] = data['charge']
+	global_data['magmom'] = data['magmom']
+	global_data['local_magmom'] = data['local_magmom']
+
+	global_data['newform'] = True
+        global_data['domain_parsize'] = data['domain_parsize']
+	global_data['kpt_size'] = data['kpt_size']
+	global_data['transmission_dimension'] = data['transmission_dimension']
+	global_data['dos_dimension'] = data['dos_dimension']
+
+	world.barrier()
+        if world.rank == 0:
+            if analysis_mode:
+                filename = '/abias_step_' + str(n_bias_step)
+            else:
+                filename = '/bias_step_' + str(n_bias_step)
+            fd = file('analysis_data/ionic_step_' + str(n_ion_step)
+                      + filename, 'wb')
+            cPickle.dump(global_data, fd, 2)
+            fd.close()
+	    for root, dirs, files in os.walk('temperary_data'):
+	        for name in files:
+		    if 'AD' in name:
+		        os.remove(os.path.join(root, name))
+	        
+       
+
+	
+     
             
+
+
+	
+        
 
 	       
 	    
