@@ -789,7 +789,7 @@ Publications using the gpaw code
 
    .. 13 May 2011
 
-#) Jussi Enkovaara, Nichols A. Romero, Sameer Shendec and Jens J. Mortensen
+#) Jussi Enkovaara, Nichols A. Romero, Sameer Shende and Jens J. Mortensen
 
    `GPAW - massively parallel electronic structure calculations with 
    Python-based software`__
