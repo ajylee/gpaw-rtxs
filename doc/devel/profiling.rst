@@ -23,7 +23,7 @@ your script::
 
   ...
   import profile
-  profile.run('atoms.GetPotentialEnergy()', 'prof')
+  profile.run('atoms.get_potential_energy()', 'prof')
   ...
 
 To analyse the results, you do this::
