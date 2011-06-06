@@ -19,6 +19,7 @@ class DF(CHI):
                  G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
+                 vcut=None,
                  ftol=1e-7,
                  txt=None,
                  xc='ALDA',
@@ -29,7 +30,7 @@ class DF(CHI):
                  kcommsize=None):
 
         CHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
-                     ecut=ecut, G_plus_q=G_plus_q, eta=eta, rpad=rpad,
+                     ecut=ecut, G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
                      full_response=full_response, optical_limit=optical_limit,
                      comm=comm, kcommsize=kcommsize)

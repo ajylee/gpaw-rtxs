@@ -1,20 +1,99 @@
 import numpy as np
-from math import sqrt, pi
+from math import sqrt, pi, sin, cos, exp
 from gpaw.utilities.blas import gemmdot
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.mpi import world, rank, size
 
+def v3D_Coulomb(qG):
+    """Coulomb Potential in the 3D Periodic Case
+    Periodic calculation, no cutoff.
+    v3D = 4 pi / G^2"""
+    return 1. / np.dot(qG,qG)
 
-def calculate_Kc(q_c, Gvec_Gc, bcell_cv):
+def v2D_Coulomb(qG,G_p,G_n,R):
+    """ 2D Periodic Case
+    Slab/Surface/Layer calculation, cutoff in G_n direction.
+    v2D = 4 pi/G^2 * [1 + exp(-G_p R)*[(G_n/G_p)*sin(G_n R) - cos(G_n R)]
+    """
+
+    G_nR = np.dot(G_n,qG)*R
+    G_pR = sqrt(np.dot(G_p,qG*qG))*R
+    return 1. / np.dot(qG,qG) * (1 + exp(-G_pR)*((G_nR/G_pR)*sin(G_nR) - cos(G_nR)))
+
+def v1D_Coulomb(qG,G_p,G_n,R):
+    """ 1D Periodic Case
+    Nanotube/Nanowire/Atomic Chain calculation, cutoff in G_n direction.
+     v1D = 4 pi/G^2 * [1 + G_n R J_1(G_n R) K_0(|G_p|R)
+     		    - |G_p| R J_0(G_n R) K_1(|G_p|R)]
+    """        
+    from scipy.special import j1,k0,j0,k1
+    
+    G_nR = sqrt(np.dot(G_n,qG*qG))*R
+    G_pR = abs(np.dot(G_p,qG))*R
+    return 1. / np.dot(qG,qG) * (1 + G_nR * j1(G_nR) * k0(G_pR) - G_pR * j0(G_nR) * k1(G_pR))
+
+def v0D_Coulomb(qG,R):
+    """ 0D Non-Periodic Case
+    Isolated System/Molecule calculation, spherical cutoff.
+    v0D = 4 pi/G^2 * [1 - cos(G R)
+    """
+
+    qG2 = np.dot(qG,qG)
+    return 1. / qG2 * (1 - cos(sqrt(qG2)*R))
+
+
+def calculate_Kc(q_c, Gvec_Gc, acell_cv, bcell_cv, pbc, optical_limit, vcut=None):
     """Symmetric Coulomb kernel"""
     npw = len(Gvec_Gc)
     Kc_G = np.zeros(npw)
-    
-    for iG in range(npw):
-        qG1 = np.dot(q_c + Gvec_Gc[iG], bcell_cv)
-        Kc_G[iG] = 1. / sqrt(np.dot(qG1, qG1))
 
+    # get cutoff parameters
+    G_p = np.array(pbc, float)
+    # Normal Direction
+    G_n = np.array([1,1,1])-G_p
+        
+    if vcut is None:
+        pass
+    elif vcut == '2D':
+        if G_n.sum() < 1e-8: # default dir is z
+            G_n = np.array([0,0,1])
+            G_p = np.array([1,1,0])
+        acell_n = acell_cv*G_n
+        R = max(acell_n[0,0],acell_n[1,1],acell_n[2,2])/2.
+    elif vcut == '1D':
+        # R is the radius of the cylinder containing the cell.
+        if G_n.sum() < 1e-8:
+            raise ValueError('Check boundary condition ! ')
+        acell_n = acell_cv*G_n
+        R = max(acell_n[0,0],acell_n[1,1],acell_n[2,2])/2.            
+    elif vcut == '0D':
+        # R is the minimum radius of a sphere containing the cell.
+        acell_n = acell_cv
+        R = min(acell_n[0,0],acell_n[1,1],acell_n[2,2])/2.
+    else:
+        XXX
+        NotImplemented
+
+    # calculate coulomb kernel
+    for iG in range(npw):
+        qG = np.dot(q_c + Gvec_Gc[iG], bcell_cv)
+        
+        if vcut is None:
+            Kc_G[iG] = sqrt(v3D_Coulomb(qG))
+        elif vcut == '2D':
+            Kc_G[iG] = sqrt(v2D_Coulomb(qG,G_p,G_n,R))
+        elif vcut == '1D':
+            Kc_G[iG] = sqrt(v1D_Coulomb(qG,G_p,G_n,R))
+        elif vcut == '0D':
+            Kc_G[iG] = sqrt(v0D_Coulomb(qG,R))
+        else:
+            NotImplemented
+            
+    if optical_limit:
+        q_v = np.dot(q_c, bcell_cv)
+        Kc_G[0] = sqrt(1. / np.dot(q_v,q_v))
+            
     Kc_GG = 4 * pi * np.outer(Kc_G, Kc_G)
 
     return Kc_GG
@@ -104,3 +183,4 @@ def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
     
     return Kxc_GG / vol
                 
+

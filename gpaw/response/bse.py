@@ -261,7 +261,6 @@ class BSE(BASECHI):
 
         dfinv_qGG = np.zeros((self.nq, self.npw, self.npw),dtype=complex)
         kc_qGG = np.zeros((self.nq, self.npw, self.npw))
-        kc_G = np.zeros(self.npw)
         dfinvG0_G = np.zeros(self.npw,dtype=complex) # save the wing elements
 
         t0 = time()
@@ -276,20 +275,13 @@ class BSE(BASECHI):
 
             df = DF(calc=self.calc, q=q, w=(0.,), nbands=self.nbands,
                     optical_limit=optical_limit,
-                    hilbert_trans=False, xc='RPA',
+                    hilbert_trans=False, xc='RPA', rpad=self.rpad,
                     eta=0.0001, ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
 
 #            df.e_kn = self.e_kn
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
             self.phi_qaGp[iq] = df.phi_aGp 
-
-            for iG in range(self.npw):
-                qG1 = np.dot(q + self.Gvec_Gc[iG], self.bcell_cv)
-                kc_G[iG] = 1. / np.sqrt(np.dot(qG1, qG1))
-            kc_qGG[iq] = np.outer(kc_G, kc_G)
-
-            self.timing(iq, t0, self.nq, 'iq')
-            assert df.npw == self.npw
+            kc_qGG[iq] = df.Kc_GG
 
             if optical_limit:
                 dfinvG0_G = dfinv_qGG[iq,:,0]
@@ -297,7 +289,8 @@ class BSE(BASECHI):
                 assert np.abs(dfinv_qGG[iq,0,:] - dfinv_qGG[iq,:,0].conj()).sum() < 1e-6
                 dfinv_qGG[iq,0,0] = np.real(dfinv_qGG[iq,0,0])
             del df
-        W_qGG = 4 * pi * dfinv_qGG * kc_qGG
+
+        W_qGG = dfinv_qGG * kc_qGG
 #        world.sum(W_qGG)
 #        world.broadcast(dfinvG0_G, 0)
         self.dfinvG0_G = dfinvG0_G
@@ -364,6 +357,13 @@ class BSE(BASECHI):
         
         psitold_g = self.get_wavefunction(ibzkpt2, m, True)
         psit2_g = kd.transform_wave_function(psitold_g, kq)
+
+
+        if (self.rpad > 1).any() or (self.pbc - True).any():
+            tmp = self.pad(psit1_g)
+            psit1_g = tmp.copy()
+            tmp = self.pad(psit2_g)
+            psit2_g = tmp.copy()
 
         if Gspace is False:
             return psit1_g.conj() * psit2_g * expqr_g

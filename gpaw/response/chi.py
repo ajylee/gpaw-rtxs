@@ -47,6 +47,7 @@ class CHI(BASECHI):
                  G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
+                 vcut=None,
                  ftol=1e-5,
                  txt=None,
                  xc='ALDA',
@@ -64,6 +65,7 @@ class CHI(BASECHI):
         self.xc = xc
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = full_response
+        self.vcut = vcut
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
@@ -136,7 +138,8 @@ class CHI(BASECHI):
         self.get_phi_aGp()
 
         # Calculate Coulomb kernel
-        self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.bcell_cv)
+        self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
+                                  self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
 
         # Calculate ALDA kernel (not used in chi0)
         R_av = calc.atoms.positions / Bohr
