@@ -744,6 +744,16 @@ Publications using the gpaw code
 
    __ http://arxiv.org/abs/1101.5666
 
+#) Jakob Arendt Rasmussen, Graeme Henkelman, and Bjørk Hammer
+
+   `Pyrene: Hydrogenation, hydrogen evolution, and π-band model`__
+
+   \J. Chem. Phys. 134, 164703 (2011)
+
+   __ http://dx.doi.org/10.1063/1.3563632
+
+   .. 29 April 2011
+
 #) Mikkel Strange, Carsten Rostgaard, Hannu Häkkinen, and Kristian S. Thygesen
 
    `Self-consistent GW calculations of electronic transport in thiol-
