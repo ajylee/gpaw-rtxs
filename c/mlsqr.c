@@ -86,9 +86,9 @@ PyObject* mlsqr(PyObject *self, PyObject *args)
 
 
   // TODO: Calculate fit
-  const int sizex = ceil(cutoff);
-  const int sizey = ceil(cutoff);
-  const int sizez = ceil(cutoff);
+  const int sizex = (int) ceil(cutoff);
+  const int sizey = (int) ceil(cutoff);
+  const int sizez = (int) ceil(cutoff);
 
   // Allocate X-matrix and b-vector
   int source_points = (2*sizex+1)*(2*sizey+1)*(2*sizez+1);
@@ -105,13 +105,13 @@ PyObject* mlsqr(PyObject *self, PyObject *args)
   for (int p=0; p< points; p++)
     {
       double x = (*coord_nc++)*grid_points[0] - grid_start[0];
-      double y = (*coord_nc++)*grid_points[1] - grid_start[0];
-      double z = (*coord_nc++)*grid_points[2] - grid_start[0];
+      double y = (*coord_nc++)*grid_points[1] - grid_start[1];
+      double z = (*coord_nc++)*grid_points[2] - grid_start[2];
 
       // The grid center point
-      int cx2 = round(x);
-      int cy2 = round(y);
-      int cz2 = round(z);
+      int cx2 = (int) round(x);
+      int cy2 = (int) round(y);
+      int cz2 = (int) round(z);
 
       // Scaled to grid
       int cx = safemod(cx2,data->dimensions[0]);
