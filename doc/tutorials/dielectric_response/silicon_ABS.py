@@ -51,8 +51,7 @@ if ABS:
         hilbert_trans=False, txt='df_1.out',
         ecut=150, optical_limit=True)
 
-    df1, df2 = df.get_dielectric_function()
-    eM1, eM2 = df.get_macroscopic_dielectric_constant(df1, df2)
+    df.get_macroscopic_dielectric_constant()
 
     df.write('df_1.pckl')
 
@@ -60,9 +59,8 @@ if ABS:
     df = DF(calc='si.gpw', q=q, w=w, eta=0.1,
         ecut=150, optical_limit=True, txt='df_2.out')
 
-    df1, df2 = df.get_dielectric_function()
-    df.get_absorption_spectrum(df1, df2, filename='si_abs.dat')
-    df.check_sum_rule(df1, df2)
+    df.get_absorption_spectrum(filename='si_abs.dat')
+    df.check_sum_rule()
     
     df.write('df_2.pckl')
 

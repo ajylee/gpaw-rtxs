@@ -13,7 +13,6 @@ df = DF(calc='si.gpw',
         optical_limit=True,
         txt='df_2.out')    # Output text
 
-df1, df2 = df.get_dielectric_function()
-df.get_absorption_spectrum(df1, df2, filename='si_abs.dat')
-df.check_sum_rule(df1, df2)
+df.get_absorption_spectrum(filename='si_abs.dat')
+df.check_sum_rule()
 df.write('df_2.pckl')      # Save important parameters and data 

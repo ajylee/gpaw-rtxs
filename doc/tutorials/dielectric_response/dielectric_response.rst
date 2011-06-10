@@ -120,12 +120,12 @@ without using hilbert transform::
 	    ecut=150,           
 	    optical_limit=True)
 
-    df1, df2 = df.get_dielectric_function()
-    eM1, eM2 = df.get_macroscopic_dielectric_constant(df1, df2)
+    df.get_macroscopic_dielectric_constant()
     df.write('df_1.pckl')
 
-eM1 and eM2 are dielectric constant without and with local field correction. 
-In general, local field correction will reduce this value by 10-20% (eM1 > eM2 by 10-20%).
+At the end of the output file 'df_1.out', you can find the dielectric constant 
+calculated with RPA and ALDA, without and with local field correction. 
+In general, local field correction will reduce this value by 10-20%.
 
 Result
 ------
