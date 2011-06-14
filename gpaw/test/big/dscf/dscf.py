@@ -43,8 +43,8 @@ ds = [d_0 - 0.02 + i*0.02 for i in range(3)]
 E_es = []
 
 for d in ds:
-    molecule[0].set_position((pos[12][0], pos[12][1], z_0 - 16*d/(12+16)))
-    molecule[1].set_position((pos[13][0], pos[13][1], z_0 + 12*d/(12+16)))
+    molecule[0].position = (pos[12][0], pos[12][1], z_0 - 16*d/(12+16))
+    molecule[1].position = (pos[13][0], pos[13][1], z_0 + 12*d/(12+16))
     molecule.get_potential_energy()
 
     #Find band corresponding to lumo
