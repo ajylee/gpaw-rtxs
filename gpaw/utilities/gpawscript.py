@@ -1,6 +1,8 @@
+import os
 import sys
-import traceback
+import tempfile
 import optparse
+import traceback
 
 import numpy as np
 from ase.structure import bulk, estimate_lattice_constant
@@ -18,6 +20,7 @@ from gpaw.mpi import world
 
 defaults = InputParameters()
 
+
 def build_parser():
     description = ('Run GPAW calculation for simple atoms, molecules or '
                    'bulk systems.')
@@ -31,7 +34,7 @@ def build_parser():
                       help='String identifier added to filenames.')
     struct.add_option('-x', '--crystal-structure',
                       help='Crystal structure.',
-                      choices=['sc', 'fcc', 'bcc', 'diamond', 'hcp', 
+                      choices=['sc', 'fcc', 'bcc', 'diamond', 'hcp',
                                'rocksalt', 'zincblende'])
     struct.add_option('-a', '--lattice-constant', type='float',
                       help='Lattice constant in Angstrom.')
@@ -58,7 +61,7 @@ def build_parser():
     behavior.add_option('-G', '--gui', action='store_true',
                         help="Pop up ASE's GUI.")
     behavior.add_option('-w', '--write-to-file', metavar='FILENAME',
-                        help="Write configuration to file.")
+                        help='Write configuration to file.')
     behavior.add_option('-F', '--fit', action='store_true',
                         help='Find optimal volume or bondlength.')
     behavior.add_option('-R', '--relax', type='float', metavar='FMAX',
@@ -71,6 +74,12 @@ def build_parser():
     behavior.add_option('-E', '--effective-medium-theory',
                         action='store_true',
                         help='Use EMT calculator.')
+    behavior.add_option('-P', '--python-session',
+                        action='store_true',
+                        help='Run calculation inside interactive Python ' +
+                        'session.  A possible $PYTHONSTARTUP script will be ' +
+                        'imported and the "calc" variable refers to the ' +
+                        'calculator.')
     parser.add_option_group(behavior)
 
     calc_opts = optparse.OptionGroup(parser, 'Calculator')
@@ -85,21 +94,34 @@ def build_parser():
     return parser
 
 
-def run(argv=None):
+def run(argv=None, ignore_python_session_option=False):
     if argv is None:
         argv = sys.argv[1:]
     elif isinstance(argv, str):
         argv = argv.split()
-        
+
     parser = build_parser()
     opt, args = parser.parse_args(argv)
-    
+
     if len(args) != 1:
-        parser.error("incorrect number of arguments")
+        parser.error('incorrect number of arguments')
     name = args[0]
 
+    if not ignore_python_session_option and opt.python_session:
+        file = tempfile.NamedTemporaryFile()
+        file.write('import os\n')
+        file.write('if "PYTHONSTARTUP" in os.environ:\n')
+        file.write('    execfile(os.environ["PYTHONSTARTUP"])\n')
+        file.write('from gpaw.utilities.gpawscript import run\n')
+        file.write('runner = run(%r, ignore_python_session_option=True)\n' %
+                   ' '.join(argv))
+        file.write('calc = runner.calc\n')
+        file.flush()
+        os.system('python -i %s' % file.name)
+        return
+
     if world.rank == 0:
-        out = sys.stdout#open('%s-%s.results' % (name, opt.identifier), 'w')
+        out = sys.stdout
     else:
         out = devnull
 
@@ -179,7 +201,7 @@ def run(argv=None):
         from gpaw.occupations import FermiDirac, MethfesselPaxton
         from gpaw.mixer import Mixer, MixerSum
         from gpaw.poisson import PoissonSolver
-            
+
         if opt.parameters:
             input_parameters = eval(open(opt.parameters).read())
         else:
@@ -202,19 +224,20 @@ def run(argv=None):
 
     return runner
 
+
 def main():
     try:
         run(sys.argv[1:])
     except KeyboardInterrupt:
-        print 'Killed!'
+        print('Killed!')
         raise SystemExit(1)
     except SystemExit:
         raise
     except Exception:
         #traceback.print_exc()
-        print >> sys.stderr, """
+        sys.stderr.write("""
 An exception occurred!  Please report the issue to
 gridpaw-developer@listserv.fysik.dtu.dk - thanks!  Please also report this
 if it was a user error, so that a better error message can be provided
-next time."""
+next time.""")
         raise
