@@ -810,6 +810,17 @@ Publications using the gpaw code
 
    .. 14 May 2011
 
+#) Michael Walter, Michael Moseler, Robert L Whetten and Hannu Häkkinen
+
+   `A 58-electron superatom-complex model for the magic phosphine-protected 
+   gold clusters (Schmid-gold, Nanogold®) of 1.4-nm dimension`__
+
+   \Chem. Sci. Advance Article (2011)
+
+   __ http://dx.doi.org/10.1039/C1SC00060H
+
+   .. 2 June 2011
+
 :ref:`adding_publications`
 
 .. If the first author is A. Einstein, then remember to use
