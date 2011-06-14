@@ -55,7 +55,7 @@ if True:
         if rank == 0 and debug:
             print z
     
-        a[0].set_z(z)
+        a[0].z = z
 
         e_no_field += [ a.get_potential_energy() ]
 
@@ -81,7 +81,7 @@ if True:
         if rank == 0 and debug:
             print z
     
-        a[0].set_z(z)
+        a[0].z = z
 
         e_with_field += [ a.get_potential_energy() ]
 

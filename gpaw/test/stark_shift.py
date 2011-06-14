@@ -241,7 +241,7 @@ if test3:
         e1s    += [ min( ev0[0], ev1[0] ) ]
         dip     = c.get_dipole_moment()
         d      += [ dip[2] ]
-        field   = ex.get_taylor(position=a[0].get_position())[1][1]
+        field   = ex.get_taylor(position=a[0].position)[1][1]
         if rank == 0 and debug:
             print field*to_eVA, 2*charge/((pcd/2)**2)*Hartree*Bohr
         fields += [ field*to_eVA ]

@@ -8,9 +8,9 @@ from ase.optimize import QuasiNewton
 from gpaw import GPAW
 
 GNR = read('ZGNR12.traj')
-pos = GNR[22].get_position() + [-1.05,0.0,0.0] 
+pos = GNR[22].position + [-1.05,0.0,0.0] 
 GNR.append(Atom('H', pos))
-pos = GNR[1].get_position() + [1.05,0.0,0.0]
+pos = GNR[1].position + [1.05,0.0,0.0]
 GNR.append(Atom('H', pos))
 GNR.set_pbc((0,0,1))
 kpts = (1,1,10)
