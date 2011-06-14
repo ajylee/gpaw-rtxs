@@ -24,7 +24,7 @@ class ExteriorElectronDensity:
         atom_c = atoms.positions / Bohr
         vdWradius = np.empty((n))
         for a, atom in enumerate(atoms):
-            vdWradius[a] = self.get_vdWradius(atom.get_atomic_number())
+            vdWradius[a] = self.get_vdWradius(atom.number)
 
         # define the exterior region mask
         mask = gd.empty(dtype=int)

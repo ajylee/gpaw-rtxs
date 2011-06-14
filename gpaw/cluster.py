@@ -57,7 +57,7 @@ class Cluster(Atoms):
             for atom in self:
                 positions = self.positions - atom.position
                 distances = np.sqrt(np.sum(positions**2, axis=1))
-                radius = scale * covalent_radii[atom.get_atomic_number()]
+                radius = scale * covalent_radii[atom.number]
                 neighborlist.append(np.where(distances < radii + radius)[0])
         else:
             # define neighbors according to distance
