@@ -312,10 +312,9 @@ class Path:
 class Contour:
     # see the file description of contour
     ne_err = 1e-4
-    eta = 1e-2
     calcutype = ['eqInt', 'eqInt', 'eqInt', 'resInt', 'neInt', 'locInt']
     def __init__(self, kt, fermi, bias, maxdepth=7, comm=None, neint='linear',
-                  plot_eta=1e-4, neintstep=0.02, eqinttol=1e-4,
+                  plot_eta=1e-4, neintstep=0.02, eqinttol=1e-4, eta=0.01,
                   min_energy=-700, plot_energy_range=[-5.,5.],
                   plot_energy_point_num=201):
         self.kt = kt
@@ -330,6 +329,7 @@ class Contour:
         self.minfermi = min(self.leadfermi)
         self.maxfermi = max(self.leadfermi)
         self.plot_eta = plot_eta
+	self.eta = eta
         self.dtype = complex
         self.comm = comm
         if self.comm == None:
