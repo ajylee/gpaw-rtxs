@@ -26,15 +26,15 @@ class RPACorrelation:
             from ase.parallel import paropen
             self.txt = paropen(txt, 'w')
 
+        self.qsym = qsym
         self.nspins = calc.wfs.nspins
         self.bz_k_points = calc.wfs.bzk_kc
         self.atoms = calc.get_atoms()
         self.setups = calc.wfs.setups
-        self.magmom_av = calc.density.magmom_av
-        self.ibz_q_points, self.q_weights = self.get_ibz_q_points(
-            self.bz_k_points, qsym=qsym) 
+        self.ibz_q_points, self.q_weights = self.get_ibz_q_points(self.bz_k_points, qsym) 
         self.print_initialization()
         self.initialized = 0
+        
 
     def get_rpa_correlation_energy(self,
                                    kcommsize=1,
@@ -231,13 +231,23 @@ class RPACorrelation:
        
     def get_ibz_q_points(self, bz_k_points, qsym=True):
 
+        # Check k-point sampling includes gamma point
+        bzk_gamma = False
+            
         # Get all q-points
         all_qs = []
         for k1 in bz_k_points:
+            if abs(k1[0]) < 0.001 and abs(k1[1]) < 0.001 and abs(k1[2]) < 0.001:
+                bzk_gamma = True
             for k2 in bz_k_points:
                 all_qs.append(k1-k2)
         all_qs = np.array(all_qs)
-
+        if not qsym and not bzk_gamma:
+            print >> self.txt, 'WARNING----------WARNING----------WARNING----------WARNING----------WARNING----------'
+            print >> self.txt, 'k-point sampling does not include gamma point. q-point reduction may not be right'
+            print >> self.txt, 'Please use gamma centered k-point grid or qsym=False'
+            print >> self.txt, 'WARNING----------WARNING----------WARNING----------WARNING----------WARNING----------'
+            
         # Fold q-points into Brillouin zone
         all_qs[np.where(all_qs > 0.501)] -= 1.
         all_qs[np.where(all_qs < -0.499)] += 1.
@@ -261,8 +271,7 @@ class RPACorrelation:
         
         # Obtain q-points and weights in the irreducible part of the BZ
         kpt_descriptor = KPointDescriptor(bz_qs, self.nspins)
-        kpt_descriptor.set_symmetry(self.atoms, self.setups, self.magmom_av,
-                                    usesymm=True)
+        kpt_descriptor.set_symmetry(self.atoms, self.setups, usesymm=True)
         ibz_q_points = kpt_descriptor.ibzk_kc
         q_weights = kpt_descriptor.weight_k
         return ibz_q_points, q_weights
@@ -284,7 +293,10 @@ class RPACorrelation:
         print >> self.txt, 'Number of k-points             :   %s' % len(self.calc.wfs.bzk_kc)
         print >> self.txt, 'Number of q-points             :   %s' % len(self.bz_q_points)
         print >> self.txt, 'Number of Irreducible k-points :   %s' % len(self.calc.wfs.ibzk_kc)
-        print >> self.txt, 'Number of Irreducible q-points :   %s' % len(self.ibz_q_points)
+        if self.qsym:
+            print >> self.txt, 'Number of Irreducible q-points :   %s' % len(self.ibz_q_points)
+        else:
+            print >> self.txt, 'No reduction of q-points' 
         print >> self.txt
         for q, weight in zip(self.ibz_q_points, self.q_weights):
             print >> self.txt, 'q: [%1.3f %1.3f %1.3f] - weight: %1.3f' % (q[0],q[1],q[2],
