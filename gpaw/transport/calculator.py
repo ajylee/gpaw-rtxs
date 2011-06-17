@@ -69,7 +69,7 @@ class Transport(GPAW):
                        'lead_restart', 'special_datas', 'neutral_steps',
                        'plot_eta', 'plot_energy_range', 'plot_energy_point_num',
                        'vaccs', 'lead_guess', 'neutral','buffer_guess','fill_guess',
-		       'cell_atoms', 'sf', 'lead_sf',  
+		       'cell_atoms', 'sf', 'lead_sf', 'eta', 
                        'lead_atoms', 'nleadlayers', 'mol_atoms', 'la_index',
                        'total_charge', 'alpha', 'beta_guess','theta',
                        'LR_leads', 'gate', 'gate_mode', 'gate_atoms', 'gate_fun',                 
@@ -127,6 +127,7 @@ class Transport(GPAW):
         self.gate_atoms = p['gate_atoms']
         self.recal_path = p['recal_path']
         self.plot_eta = p['plot_eta']
+	self.eta = p['eta']
         self.plot_energy_range = p['plot_energy_range']
         self.plot_energy_point_num = p['plot_energy_point_num']
         self.alpha = p['alpha']
@@ -249,6 +250,7 @@ class Transport(GPAW):
         p['n_ion_step'] = 0
         p['eqinttol'] = 1e-4
         p['plot_eta'] = 0.0001
+	p['eta'] = 0.01
         p['plot_energy_range'] = [-5.,5.]
         p['plot_energy_point_num'] = 201
         p['alpha'] = 0.0
@@ -1212,7 +1214,7 @@ class Transport(GPAW):
         if not hasattr(self, 'contour'):
             self.contour = Contour(0.1,
                                self.lead_fermi, self.bias, comm=self.gd.comm,
-                                plot_eta=self.plot_eta,
+                                plot_eta=self.plot_eta, eta=self.eta,
                                 plot_energy_range=self.plot_energy_range,
                              plot_energy_point_num=self.plot_energy_point_num)
             
@@ -1322,7 +1324,7 @@ class Transport(GPAW):
     def initialize_scf(self):
         self.contour = Contour(self.occupations.width * Hartree,
                                self.lead_fermi, self.bias, comm=self.gd.comm,
-                               plot_eta=self.plot_eta,
+                               plot_eta=self.plot_eta, eta=self.eta,
                                neintstep=self.neintstep,
                                eqinttol=self.eqinttol,
                                min_energy=self.min_energy,
@@ -1725,7 +1727,7 @@ class Transport(GPAW):
             if not hasattr(self, 'contour'):
                 self.contour = Contour(self.occupations.width * Hartree,
                             self.lead_fermi, self.bias, comm=self.wfs.gd.comm,
-                             plot_eta=self.plot_eta,
+                             plot_eta=self.plot_eta, eta=self.eta,
                              plot_energy_range=self.plot_energy_range,
                              plot_energy_point_num=self.plot_energy_point_num)            
             if not hasattr(self, 'analysor'):
@@ -2486,7 +2488,7 @@ class Transport(GPAW):
         flag = True
         self.contour = Contour(self.occupations.width * Hartree,
                             self.lead_fermi, self.bias, comm=self.wfs.gd.comm,
-                             plot_eta=self.plot_eta,
+                             plot_eta=self.plot_eta, eta=self.eta,
                              plot_energy_range=self.plot_energy_range,
                              plot_energy_point_num=self.plot_energy_point_num)
         if not hasattr(self, 'analysor'):
@@ -2629,7 +2631,7 @@ class Transport(GPAW):
         self.contour = Contour(self.occupations.width * Hartree,
                                self.lead_fermi, self.bias,
                                comm=self.wfs.gd.comm,
-                               plot_eta=self.plot_eta,
+                               plot_eta=self.plot_eta, eta=self.eta,
                                plot_energy_range=self.plot_energy_range,
                              plot_energy_point_num=self.plot_energy_point_num)
         
