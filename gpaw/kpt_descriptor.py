@@ -161,7 +161,7 @@ class KPointDescriptor:
 
     def create_k_points(self, gd):
         """Return a list of KPoints."""
- 
+
         sdisp_cd = gd.sdisp_cd
 
         kpt_u = []
@@ -245,7 +245,7 @@ class KPointDescriptor:
 
     def find_k_plus_q(self, q_c, kpts_k=None):
         """Find the indices of k+q for all kpoints in the Brillouin zone.
-
+        
         In case that k+q is outside the BZ, the k-point inside the BZ
         corresponding to k+q is given.
         
@@ -258,13 +258,11 @@ class KPointDescriptor:
             Restrict search to specified k-points.
 
         """
-
         # Monkhorst-pack grid
         if self.N_c is not None:
             N_c = self.N_c
             dk_c = 1. / N_c
             kmax_c = (N_c - 1) * dk_c / 2.
-
         if kpts_k is None:
             kpts_kc = self.bzk_kc
         else:
@@ -274,15 +272,12 @@ class KPointDescriptor:
         kplusq_kc = kpts_kc + q_c
 
         # Translate back into the first BZ
-        if self.N_c is not None:
-            kplusq_kc[np.where(kplusq_kc > 0.5)] -= 1.
-            kplusq_kc[np.where(kplusq_kc <= -0.5)] += 1.
+        kplusq_kc[np.where(kplusq_kc > 0.501)] -= 1.
+        kplusq_kc[np.where(kplusq_kc < -0.499)] += 1.
 
         # List of k+q indices
         kplusq_k = []
 
-        # N = np.zeros(3, dtype=int)
-        
         # Find index of k+q vector
         for kplusq, kplusq_c in enumerate(kplusq_kc):
 
@@ -299,7 +294,7 @@ class KPointDescriptor:
             # Check the k+q vector index
             k_c = self.bzk_kc[kplusq_k[kplusq]]
             assert abs(kplusq_c - k_c).sum() < 1e-8, 'Could not find k+q!'
-        
+
         return kplusq_k
 
     def get_bz_q_points(self):

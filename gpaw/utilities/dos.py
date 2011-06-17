@@ -68,12 +68,16 @@ def get_angular_projectors(setup, angular, type='bound'):
 
     return projectors
 
-def delta(x, x0, width):
+def delta(x, x0, width, mode='Gauss'):
     """Return a gaussian of given width centered at x0."""
-    return np.exp(np.clip(-((x - x0) / width)**2,
-                          -100.0, 100.0)) / (sqrt(pi) * width)
+    if mode == 'Gauss':
+        return np.exp(np.clip(-((x - x0) / width)**2,
+                              -100.0, 100.0)) / (sqrt(pi) * width)
+    if mode == 'Lorentz':
+        return (2 / pi / width) / ((np.clip(((x - x0) / (width/2))**2,
+                                           -100.0, 100.0)) + 1)
 
-def fold(energies, weights, npts, width):
+def fold(energies, weights, npts, width, mode='Gauss'):
     """Take a list of energies and weights, and sum a delta function
     for each."""
     emin = min(energies) - 5 * width
@@ -81,7 +85,7 @@ def fold(energies, weights, npts, width):
     e = np.linspace(emin, emax, npts)
     dos_e = np.zeros(npts)
     for e0, w in zip(energies, weights):
-        dos_e += w * delta(e, e0, width)
+        dos_e += w * delta(e, e0, width, mode=mode)
     return e, dos_e
 
 def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
