@@ -182,7 +182,7 @@ class Reader:
     """ This class allows gpaw to access
     to read a db-file
     """
-    def __init__(self, name):
+    def __init__(self, name, comm):
         self.verbose = False
         self.reader = self.parameters = get_reader(name)
 
@@ -190,6 +190,9 @@ class Reader:
         return self.reader[name]
     
     def __getitem__(self, name):
+        if name=='version' and not self.reader.has_key('version') \
+            and self.reader.has_key('db_calculator_version'):
+                return self.reader['db_calculator_version']
         return self.reader[name]
 
     def has_array(self, name):
