@@ -26,6 +26,7 @@ class BSE(BASECHI):
                  ecut=10.,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
+                 vcut=None,
                  ftol=1e-5,
                  txt=None,
                  optical_limit=False,
@@ -38,6 +39,7 @@ class BSE(BASECHI):
 
         self.epsilon_w = None
         self.positive_w = positive_w
+        self.vcut = vcut
         self.nc = nc # conduction band index
         self.nv = nv # valence band index
         self.use_W = use_W
@@ -203,7 +205,7 @@ class BSE(BASECHI):
                                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
                                 tmp_G[jG] = self.dfinvG0_G[jG] / np.sqrt(np.inner(qG,qG))
 
-                            const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)                            
+                            const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)
                             tmp_G *= const
                             W_GG[:,0] = tmp_G
                             W_GG[0,:] = tmp_G.conj()
@@ -212,7 +214,6 @@ class BSE(BASECHI):
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
                     W_SS[iS, jS] = np.sum(tmp_GG)
-
 #                    self.printtxt('%d %d %s %s' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
@@ -275,13 +276,16 @@ class BSE(BASECHI):
 
             df = DF(calc=self.calc, q=q, w=(0.,), nbands=self.nbands,
                     optical_limit=optical_limit,
-                    hilbert_trans=False, xc='RPA', rpad=self.rpad,
+                    hilbert_trans=False, xc='RPA', rpad=self.rpad, vcut=self.vcut,
                     eta=0.0001, ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
 
 #            df.e_kn = self.e_kn
             dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
             self.phi_qaGp[iq] = df.phi_aGp 
             kc_qGG[iq] = df.Kc_GG
+
+            self.timing(iq, t0, self.nq, 'iq')
+            assert df.npw == self.npw
 
             if optical_limit:
                 dfinvG0_G = dfinv_qGG[iq,:,0]
