@@ -274,8 +274,8 @@ class HybridXC(XCFunctional):
                 print >> self.txt, 'K %s %s ...' % (ik, kpt)
                 for iq, q in enumerate(self.ibzq_kc):
                     kpq = kd.find_k_plus_q(q, kpts_k=[ik])
-                    self.apply(ibz_kpts[kd.kibz_k[ik]],
-                               ibz_kpts[kd.kibz_k[kpq[0]]],
+                    self.apply(ibz_kpts[kd.bz2ibz_k[ik]],
+                               ibz_kpts[kd.bz2ibz_k[kpq[0]]],
                                ik, kpq[0], iq)
 
         self.exx = world.sum(self.exx)

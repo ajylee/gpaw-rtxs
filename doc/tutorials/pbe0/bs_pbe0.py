@@ -11,7 +11,7 @@ calc = GPAW('Si-PBE.gpw', txt=None)
 
 pbe0 = HybridXC('PBE0', alpha=5.0)
 de_skn = vxc(calc, pbe0) - vxc(calc, 'PBE')
-de_kn = de_skn[0, calc.wfs.kd.kibz_k]
+de_kn = de_skn[0, calc.wfs.kd.bz2ibz_k]
 
 calc.wfs.ibz2bz(calc.atoms)
 

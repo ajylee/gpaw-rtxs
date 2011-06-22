@@ -80,7 +80,7 @@ class KPointDescriptor:
         return self.mynks
 
     def set_symmetry(self, atoms, setups, magmom_av=None,
-                     usesymm=False, N_c=None):
+                     usesymm=False, N_c=None, comm=None):
         """Create symmetry object and construct irreducible Brillouin zone.
 
         atoms: Atoms object
@@ -112,12 +112,13 @@ class KPointDescriptor:
         
         if self.gamma or usesymm is None:
             # Point group and time-reversal symmetry neglected
-            nkpts = len(self.bzk_kc)
-            self.weight_k = np.ones(nkpts) / nkpts
+            self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
             self.ibzk_kc = self.bzk_kc.copy()
-            self.sym_k = np.zeros(nkpts)
-            self.time_reversal_k = np.zeros(nkpts, bool)
-            self.kibz_k = np.arange(nkpts)
+            self.sym_k = np.zeros(self.nbzkpts, int)
+            self.time_reversal_k = np.zeros(self.nbzkpts, bool)
+            self.bz2ibz_k = np.arange(self.nbzkpts)
+            self.ibz2bz_k = np.arange(self.nbzkpts)
+            self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
         else:
             if usesymm:
                 # Find symmetry operations of atoms
@@ -129,7 +130,9 @@ class KPointDescriptor:
             (self.ibzk_kc, self.weight_k,
              self.sym_k,
              self.time_reversal_k,
-             self.kibz_k) = self.symmetry.reduce(self.bzk_kc)
+             self.bz2ibz_k,
+             self.ibz2bz_k,
+             self.bz2bz_ks) = self.symmetry.reduce(self.bzk_kc, comm)
 
         setups.set_symmetry(self.symmetry)
 
@@ -229,7 +232,7 @@ class KPointDescriptor:
                 return psit_G
         # General point group symmetry
         else:
-            ik = self.kibz_k[k]
+            ik = self.bz2ibz_k[k]
             kibz_c = self.ibzk_kc[ik]
             b_g = np.zeros_like(psit_G)
             if time_reversal:

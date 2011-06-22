@@ -165,7 +165,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         for s in range(self.nspins):
             for k in range(kd.nbzkpts):
                 # Index of symmetry related point in the IBZ
-                ik = self.kd.kibz_k[k]
+                ik = self.kd.bz2ibz_k[k]
                 r, u = self.kd.get_rank_and_index(s, ik)
                 assert r == 0
                 kpt = self.kpt_u[u]

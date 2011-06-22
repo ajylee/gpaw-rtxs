@@ -4,6 +4,9 @@
 import numpy as np
 
 from gpaw import debug
+import gpaw.mpi as mpi
+import _gpaw
+
 
 class Symmetry:
     
@@ -24,7 +27,8 @@ class Symmetry:
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
         self.a_sa = np.arange(len(id_a)).reshape((1, -1))
-        
+        self.inversion = False
+
     def analyze(self, spos_ac):
         """Determine list of symmetry operations.
 
@@ -130,6 +134,8 @@ class Symmetry:
 
         self.a_sa = np.array(a_sa)
         self.op_scc = np.array(opok)
+        self.inversion = (self.op_scc ==
+                          -np.eye(3, dtype=int)).all(2).all(1).any()
 
     def check(self, spos_ac):
         """Check if positions satisfy symmetry operations."""
@@ -139,67 +145,57 @@ class Symmetry:
         if len(self.op_scc) < nsymold:
             raise RuntimeError('Broken symmetry!')
 
-    def reduce(self, bzk_kc):
+    def reduce(self, bzk_kc, comm=None):
         """Reduce k-points to irreducible part of the BZ.
 
-        Returns the irreducible k-points and the weights.
+        Returns the irreducible k-points and the weights and other stuff.
         
         """
         nbzkpts = len(bzk_kc)
-        ibzk0_kc = np.empty((nbzkpts, 3))
-        ibzk_kc = ibzk0_kc[:0]
-        weight_k = np.ones(nbzkpts)
-        nibzkpts = 0
+        U_scc = self.op_scc
+        nsym = len(U_scc)
         
-        # Mapping between k and symmetry related point in the irreducible BZ
-        kibz_k = np.empty(nbzkpts, int)
-        # Symmetry operation mapping the k-point in the irreducible BZ to k
+        bz2bz_ks = map_k_points(bzk_kc, U_scc, self.inversion, comm, self.tol)
+
+        bz2bz_k = -np.ones(nbzkpts + 1, int)
+        ibz2bz_k = []
+        for k in range(nbzkpts - 1, -1, -1):
+            # Reverse order looks more natural
+            if bz2bz_k[k] == -1:
+                bz2bz_k[bz2bz_ks[k]] = k
+                ibz2bz_k.append(k)
+        ibz2bz_k = np.array(ibz2bz_k[::-1])
+        bz2bz_k = bz2bz_k[:-1].copy()
+
+        bz2ibz_k = np.empty(nbzkpts, int)
+        bz2ibz_k[ibz2bz_k] = np.arange(len(ibz2bz_k))
+        bz2ibz_k = bz2ibz_k[bz2bz_k]
+
+        weight_k = np.bincount(bz2ibz_k) * (1.0 / nbzkpts)
+
+        # Symmetry operation mapping IBZ to BZ:
         sym_k = np.empty(nbzkpts, int)
-        # Time-reversal symmetry used on top of the point group operation
-        time_reversal_k = np.zeros(nbzkpts, dtype=bool)
-
-        for i, op_cc in enumerate(self.op_scc):
-            if (np.abs(op_cc - np.eye(3,dtype=int)) < 1e-8).all():
-                opI = i
-                break
+        for k in range(nbzkpts):
+            # We pick the first one found:
+            sym_k[k] = np.where(bz2bz_ks[bz2bz_k[k]] == k)[0][0]
         
-        kbz = nbzkpts
-        for k_c in bzk_kc[::-1]:
-            kbz -= 1
-            found = False
-            
-            for s, op_cc in enumerate(self.op_scc):
-                if len(ibzk_kc) == 0:
-                    break
-                diff_kc = np.dot(ibzk_kc, op_cc.T) - k_c
-                b_k = ((diff_kc - diff_kc.round())**2).sum(1) < self.tol
-                if not b_k.any():
-                    # Try with time reversal:
-                    diff_kc += 2 * k_c
-                    b_k = ((diff_kc - diff_kc.round())**2).sum(1) < self.tol
-                    if not b_k.any():
-                        continue
-                    else:
-                        time_reversal_k[kbz] = True
+        # Time-reversal symmetry used on top of the point group operation:
+        if self.inversion:
+            time_reversal_k = np.zeros(nbzkpts, bool)
+        else:
+            time_reversal_k = sym_k >= nsym
+            sym_k %= nsym
 
-                found = True
-                kibz = np.where(b_k)[0][0]
-                weight_k[kibz] += 1.0
-                kibz_k[kbz] = kibz
-                sym_k[kbz] = s
-                break
+        assert (ibz2bz_k[bz2ibz_k] == bz2bz_k).all()
+        for k in range(nbzkpts):
+            sign = 1 - 2 * time_reversal_k[k]
+            dq_c = (np.dot(U_scc[sym_k[k]], bzk_kc[bz2bz_k[k]]) -
+                    sign * bzk_kc[k])
+            dq_c -= dq_c.round()
+            assert abs(dq_c).max() < 1e-10
 
-            if not found:
-                kibz_k[kbz] = nibzkpts
-                sym_k[kbz] = opI
-                nibzkpts += 1
-                ibzk_kc = ibzk0_kc[:nibzkpts]
-                ibzk_kc[-1] = k_c
-
-        # Reverse order (looks more natural)
-        return (ibzk_kc[::-1].copy(),
-                weight_k[:nibzkpts][::-1] / nbzkpts,
-                sym_k, time_reversal_k, nibzkpts - 1 - kibz_k)
+        return (bzk_kc[ibz2bz_k], weight_k,
+                sym_k, time_reversal_k, bz2ibz_k, ibz2bz_k, bz2bz_ks)
 
     def prune_symmetries_grid(self, N_c):
         """Remove symmetries that are not satisfied by the grid."""
@@ -276,3 +272,44 @@ class Symmetry:
         
         n = len(self.op_scc)
         text('Symmetries present: %s' % n)
+
+
+def map_k_points(bzk_kc, U_scc, inversion, comm=None, tol=1e-11):
+    """Find symmetry relations between k-points.
+
+    This is a Python-wrapper for a C-function that does the hard work
+    which is distributed over comm.
+
+    The map bz2bz_ks is returned.  If there is a k2 for which::
+
+      = _    _    _
+      U k  = k  + N,
+       s k1   k2
+
+    where N is a vector of integers, then bz2bz_ks[k1, s] = k2, otherwise
+    if there is a k2 for which::
+
+      = _     _    _
+      U k  = -k  + N,
+       s k1    k2
+
+    then bz2bz_ks[k1, s + nsym] = k2, where nsym = len(U_scc).  Otherwise
+    bz2bz_ks[k1, s] = -1.
+    """
+
+    if comm is None:
+        comm = mpi.serial_comm
+
+    nbzkpts = len(bzk_kc)
+    ka = nbzkpts * comm.rank // comm.size
+    kb = nbzkpts * (comm.rank + 1) // comm.size
+    assert comm.sum(kb - ka) == nbzkpts
+
+    if not inversion:
+        U_scc = np.concatenate([U_scc, -U_scc])
+
+    bz2bz_ks = np.zeros((nbzkpts, len(U_scc)), int)
+    bz2bz_ks[ka:kb] = -1
+    _gpaw.map_k_points(bzk_kc, U_scc, tol, bz2bz_ks, ka, kb)
+    comm.sum(bz2bz_ks)
+    return bz2bz_ks

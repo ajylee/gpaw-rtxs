@@ -210,11 +210,11 @@ class CHI(BASECHI):
                 k_pad = True
 
             # Find corresponding kpoint in IBZ
-            ibzkpt1 = kd.kibz_k[k]
+            ibzkpt1 = kd.bz2ibz_k[k]
             if self.optical_limit:
                 ibzkpt2 = ibzkpt1
             else:
-                ibzkpt2 = kd.kibz_k[kq_k[k]]
+                ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
             
             for n in range(self.nstart, self.nend):
 #                print >> self.txt, k, n, t_get_wfs, time() - t0

@@ -90,8 +90,8 @@ class BSE(BASECHI):
         iS = 0
         kq_k = self.kq_k
         for k1 in range(self.nkpt):
-            ibzkpt1 = kd.kibz_k[k1]
-            ibzkpt2 = kd.kibz_k[kq_k[k1]]
+            ibzkpt1 = kd.bz2ibz_k[k1]
+            ibzkpt2 = kd.bz2ibz_k[kq_k[k1]]
             for n1 in range(self.nv[0], self.nv[1]): 
                 for m1 in range(self.nc[0], self.nc[1]): 
                     focc = self.f_kn[ibzkpt1,n1] - self.f_kn[ibzkpt2,m1]
@@ -353,8 +353,8 @@ class BSE(BASECHI):
             if optical_limit:
                 expqr_g = 1
 
-        ibzkpt1 = kd.kibz_k[k]
-        ibzkpt2 = kd.kibz_k[kq]
+        ibzkpt1 = kd.bz2ibz_k[k]
+        ibzkpt2 = kd.bz2ibz_k[kq]
         
         psitold_g = self.get_wavefunction(ibzkpt1, n, True)
         psit1_g = kd.transform_wave_function(psitold_g, k)
@@ -526,7 +526,7 @@ class BSE(BASECHI):
         for iS in range(self.nS_start, self.nS_end):
             print 'electron density:', iS
             k1, n1, m1 = self.Sindex_S3[iS]
-            ibzkpt1 = kd.kibz_k[k1]
+            ibzkpt1 = kd.bz2ibz_k[k1]
             psitold_g = self.get_wavefunction(ibzkpt1, n1)
             psit1_g = kd.transform_wave_function(psitold_g, k1)
 
@@ -544,7 +544,7 @@ class BSE(BASECHI):
         for iS in range(self.nS_start, self.nS_end):
             print 'hole density:', iS
             k1, n1, m1 = self.Sindex_S3[iS]
-            ibzkpt1 = kd.kibz_k[kq_k[k1]]
+            ibzkpt1 = kd.bz2ibz_k[kq_k[k1]]
             psitold_g = self.get_wavefunction(ibzkpt1, m1)
             psit1_g = kd.transform_wave_function(psitold_g, kq_k[k1])
 
@@ -598,8 +598,8 @@ class BSE(BASECHI):
         for iS in range(self.nS_start, self.nS_end):
 
             k, n, m = self.Sindex_S3[iS]
-            ibzkpt1 = kd.kibz_k[k]
-            ibzkpt2 = kd.kibz_k[kq_k[k]]
+            ibzkpt1 = kd.bz2ibz_k[k]
+            ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
             print 'hole wavefunction', iS, (k,n,m),A_S[iS]
             
             psitold_g = self.get_wavefunction(ibzkpt1, n)

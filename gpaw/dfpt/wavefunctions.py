@@ -83,7 +83,7 @@ class WaveFunctions:
             for k, k_c in enumerate(kd.bzk_kc):
 
                 # Index of symmetry related point in the irreducible BZ
-                ik = kd.kibz_k[k]
+                ik = kd.bz2ibz_k[k]
                 # Index of point group operation
                 s = kd.sym_k[k]
                 # Time-reversal symmetry used

@@ -354,8 +354,8 @@ class DF(CHI):
 
         for k in range(nkpt):
             print k
-            ibzkpt1 = kd.kibz_k[k]
-            ibzkpt2 = kd.kibz_k[kq[k]]
+            ibzkpt1 = kd.bz2ibz_k[k]
+            ibzkpt2 = kd.bz2ibz_k[kq[k]]
             for n in range(nbands):
                 for m in range(nbands):
                     focc = f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]

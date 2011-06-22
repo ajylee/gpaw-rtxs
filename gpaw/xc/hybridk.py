@@ -249,7 +249,7 @@ class HybridXC(XCFunctional):
                         kpt = kpt2_q[0]
 
                 for kpt1, kpt2 in zip(kpt1_q, kpt2_q):
-                    for k, ik in enumerate(kd.kibz_k):
+                    for k, ik in enumerate(kd.bz2ibz_k):
                         if ik == kpt2.k:
                             self.apply(kpt1, kpt2, k)
 
