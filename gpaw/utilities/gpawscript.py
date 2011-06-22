@@ -201,6 +201,7 @@ def run(argv=None, ignore_python_session_option=False):
         from gpaw.occupations import FermiDirac, MethfesselPaxton
         from gpaw.mixer import Mixer, MixerSum
         from gpaw.poisson import PoissonSolver
+        from gpaw.eigensolvers import RMM_DIIS
 
         if opt.parameters:
             input_parameters = eval(open(opt.parameters).read())
