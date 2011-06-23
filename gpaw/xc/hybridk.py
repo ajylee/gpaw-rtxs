@@ -17,7 +17,6 @@ from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kpoint import KPoint as KPoint0
-from gpaw.mpi import world
 
 
 class KPoint:
@@ -151,6 +150,8 @@ class HybridXC(XCFunctional):
         self.kd = wfs.kd
         self.bd = wfs.bd
 
+        self.world = wfs.world
+        
         N_c = self.gd.N_c
         N = self.gd.N_c.prod()
         vol = self.gd.dv * N
@@ -214,7 +215,7 @@ class HybridXC(XCFunctional):
 
         kd = self.kd
         K = kd.nibzkpts
-        W = world.size // self.nspins
+        W = self.world.size // self.nspins
         parallel = (W > 1)
         
         self.exx_skn = np.zeros((self.nspins, K, self.bd.nbands))
@@ -261,11 +262,11 @@ class HybridXC(XCFunctional):
                     kpt2_q.append(kpt)
             
         self.exx = 0.0
-        world.sum(self.exx_skn)
+        self.world.sum(self.exx_skn)
         for kpt in self.kpt_u:
             self.exx += 0.5 * np.dot(kpt.f_n, self.exx_skn[kpt.s, kpt.k])
-        self.exx = world.sum(self.exx)
-        world.sum(self.debug_skn)
+        self.exx = self.world.sum(self.exx)
+        self.world.sum(self.debug_skn)
         assert (self.debug_skn == self.kd.nbzkpts * self.bd.nbands).all()
         self.exx += self.calculate_exx_paw_correction()
         
