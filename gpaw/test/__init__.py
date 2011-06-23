@@ -114,6 +114,7 @@ tests = [
 #    'usesymm2.py',
     'eed.py',
     'partitioning.py',
+    'fixdensity.py',
     'mixer.py',
     'broydenmixer.py',
     'restart.py',
