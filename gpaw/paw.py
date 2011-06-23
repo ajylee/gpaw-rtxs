@@ -188,10 +188,10 @@ class PAW(PAWTextOutput):
                 self.density = None
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
-            elif key in ['kpts', 'nbands']:
+            elif key in ['kpts', 'nbands', 'usesymm']:
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
-            elif key in ['h', 'gpts', 'setups', 'spinpol', 'usesymm',
+            elif key in ['h', 'gpts', 'setups', 'spinpol',
                          'parallel', 'communicator', 'dtype']:
                 self.density = None
                 self.occupations = None
