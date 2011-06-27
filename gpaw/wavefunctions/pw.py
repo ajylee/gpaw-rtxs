@@ -151,8 +151,13 @@ class PWLFC:
 
     def integrate(self, a_xG, C_axi, q):
         a_xR = self.pd.ifft(a_xG) * self.expikr_qR[q]
-        C_axi[0][:] = 0.0  # XXXXX
+        #C_axi[0][:] = 0.0  # XXXXX
         self.lfc.integrate(a_xR, C_axi, q)
+
+    def derivative(self, a_xG, C_axiv, q):
+        a_xR = self.pd.ifft(a_xG) * self.expikr_qR[q]
+        #C_axiv[0][:] = 0.0  # XXXXX
+        self.lfc.derivative(a_xR, C_axiv, q)
 
 
 class PW: ####### use mode='pw'?  ecut=???
