@@ -46,6 +46,13 @@ If you use the :ref:`localized basis set <lcao>`, please cite also:
 
    __ http://dx.doi.org/10.1103/PhysRevB.80.195112
    
+If you use the :ref:`df_tutorial`, please cite also:
+
+   | Jun Yan, Jens. J. Mortensen, Karsten W. Jacobsen, and Kristian S. Thygesen
+   | `Linear density response function in the projector augmented wave method: Applications to solids, surfaces, and interfaces`__
+   | Physical Review B Vol. **83**, 245122, 2011
+
+   __ http://link.aps.org/doi/10.1103/PhysRevB.83.245122
 
 BibTex (:svn:`doc/GPAW.bib`):
 

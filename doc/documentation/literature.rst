@@ -821,6 +821,17 @@ Publications using the gpaw code
 
    .. 2 June 2011
 
+#) Jun Yan, Jens. J. Mortensen, Karsten W. Jacobsen, and Kristian S. Thygesen
+
+   `Linear density response function in the projector augmented wave method: 
+   Applications to solids, surfaces, and interfaces`__
+
+   \Phys. Rev. B 83, 245122 (2011)
+
+   __ http://link.aps.org/doi/10.1103/PhysRevB.83.245122   
+
+   .. 27 June 2011
+
 :ref:`adding_publications`
 
 .. If the first author is A. Einstein, then remember to use
