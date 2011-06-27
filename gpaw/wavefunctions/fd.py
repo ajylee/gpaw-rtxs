@@ -101,46 +101,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.band_comm.sum(taut_sG)
         return taut_sG
         
-    def calculate_forces(self, hamiltonian, F_av):
-        # Calculate force-contribution from k-points:
-        F_av.fill(0.0)
-        F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
-        for kpt in self.kpt_u:
-            self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
-            for a, F_niv in F_aniv.items():
-                F_niv = F_niv.conj()
-                F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
-                dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
-                P_ni = kpt.P_ani[a]
-                F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
-                F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
-                dO_ii = hamiltonian.setups[a].dO_ii
-                F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
-                F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
-
-            # Hack used in delta-scf calculations:
-            if hasattr(kpt, 'c_on'):
-                assert self.bd.comm.size == 1
-                self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)  #XXX again
-                d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
-                                dtype=complex)
-                for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                    d_nn += ne * np.outer(c_n.conj(), c_n)
-                for a, F_niv in F_aniv.items():
-                    F_niv = F_niv.conj()
-                    dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
-                    Q_ni = np.dot(d_nn, kpt.P_ani[a])
-                    F_vii = np.dot(np.dot(F_niv.transpose(), Q_ni), dH_ii)
-                    F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
-                    dO_ii = hamiltonian.setups[a].dO_ii
-                    F_vii -= np.dot(np.dot(F_niv.transpose(), Q_ni), dO_ii)
-                    F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
-
-        self.bd.comm.sum(F_av, 0)
-
-        if self.bd.comm.rank == 0:
-            self.kpt_comm.sum(F_av, 0)
-
     def ibz2bz(self, atoms):
         """Transform wave functions in IBZ to the full BZ."""
 
