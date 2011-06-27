@@ -87,7 +87,7 @@ def build_parser():
         calc_opts.add_option('--%s' % key, type=str,
                              help=optparse.SUPPRESS_HELP)
 
-    calc_opts.add_option('--write-gpw-file', metavar='MODE',
+    calc_opts.add_option('-W', '--write-gpw-file', metavar='MODE',
                          help='Write gpw file.')
     parser.add_option_group(calc_opts)
 
