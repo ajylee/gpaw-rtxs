@@ -11,8 +11,7 @@ atom = Atoms([Atom('H', (c, c, c), magmom=1)],
 
 # gpaw calculator:
 calc = GPAW(gpts=(32, 32, 32), nbands=1, xc='PBE', txt='H.txt',
-            #????????????????????????????????
-            )#poissonsolver=PoissonSolver(nn='M', relax='J'))
+            convergence=dict(eigenstates=3.3e-8))
 atom.set_calculator(calc)
 
 e1 = atom.get_potential_energy()

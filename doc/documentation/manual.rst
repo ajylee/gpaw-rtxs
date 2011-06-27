@@ -401,9 +401,9 @@ Accuracy of the self-consistency cycle
 The ``convergence`` keyword is used to set the convergence criteria.
 The default value is this Python dictionary::
 
-  {'energy': 0.0005, # eV / electron
+  {'energy': 0.0005,  # eV / electron
    'density': 1.0e-4,
-   'eigenstates': 1.0e-9,
+   'eigenstates': 4.0e-8,  # eV^2 / electron
    'bands': 'occupied'}
 
 In words:
@@ -415,8 +415,8 @@ In words:
   should be less than 0.001 electrons per valence electron.
 
 * The integrated value of the square of the residuals of the Kohn-Sham
-  equations should be less than :math:`1.0 \times 10^{-9}` per state
-  (FD mode only).
+  equations should be less than :math:`4.0 \times 10^{-8}
+  \mathrm{eV}^2` per valence electron (FD mode only).
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -431,16 +431,14 @@ also use ``{'bands': 200}`` to converge the lowest 200 bands. One can
 also write ``{'bands': -10}`` to converge all bands except the last
 10. It is often hard to converge the last few bands in a calculation.
 
-The calculation will stop with an error if convergence is not reached
-in ``maxiter`` self-consistent iterations (defaults to 120).
-
 
 .. _manual_maxiter:
 
 Maximum number of SCF-iterations
 --------------------------------
 
-XXX Missing doc
+The calculation will stop with an error if convergence is not reached
+in ``maxiter`` self-consistent iterations (defaults to 120).
 
 
 .. _manual_txt:

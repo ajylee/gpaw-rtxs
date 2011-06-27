@@ -250,7 +250,8 @@ class PAWTextOutput:
           (cc['energy']))
         t('Integral of Absolute Density Change:    %g electrons' %
           cc['density'])
-        t('Integral of Absolute Eigenstate Change: %g' % cc['eigenstates'])
+        t('Integral of Absolute Eigenstate Change: %g eV^2' %
+          cc['eigenstates'])
         t('Number of Bands in Calculation:         %i' % self.wfs.nbands)
         t('Bands to Converge:                      ', end='')
         if cc['bands'] == 'occupied':
@@ -341,7 +342,7 @@ class PAWTextOutput:
 
         nvalence = self.wfs.setups.nvalence - self.input_parameters.charge
         if nvalence > 0:
-            eigerr = self.scf.eigenstates_error / nvalence
+            eigerr = self.scf.eigenstates_error * Hartree**2 / nvalence
         else:
             eigerr = 0.0
 

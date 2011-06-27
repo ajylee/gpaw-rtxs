@@ -20,14 +20,14 @@ niter_ref = {'LDA': {'restart': 16},
 for xc in ['LDA','GLLBSC']:
     a = 4.23
     bulk = Atoms('Si2', cell=(a, a, a), pbc=True,
-              scaled_positions=[[0, 0, 0], [.5, .5, .5]])
+              scaled_positions=[[0, 0, 0], [0.5, 0.5, 0.5]])
     calc = GPAW(h=0.25,
                 nbands=8,
                 poissonsolver=PoissonSolver(nn='M'),
                 occupations=FermiDirac(width=0.01),
                 kpts=(3, 3, 3),
-                convergence={'eigenstates':1e-12,
-                             'bands':8},
+                convergence={'eigenstates': 9.2e-11,
+                             'bands': 8},
                 xc=xc,
                 eigensolver='cg')
 

@@ -55,7 +55,7 @@ calc = GPAW(
     h=0.25,
     occupations=FermiDirac(width=0.05),
     poissonsolver=PoissonSolver(nn='M', relax='J'),
-    convergence={'eigenstates':1e-5,'density': 1.0e-2,'energy': 0.1},
+    convergence={'eigenstates':8e-4,'density': 1.0e-2,'energy': 0.1},
     #txt=name+'.txt',
     kpts=(k, k, k),
     xc='PBE')

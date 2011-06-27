@@ -67,6 +67,7 @@ class Eigensolver:
         error = 0.0
         for kpt in wfs.kpt_u:
             error += self.iterate_one_k_point(hamiltonian, wfs, kpt)
+        error *= self.gd.dv
 
         wfs.orthonormalize()
 

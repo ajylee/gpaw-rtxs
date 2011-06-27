@@ -4,6 +4,7 @@ from math import pi, sqrt, sin, cos, atan2
 
 import numpy as np
 from numpy import dot # avoid the dotblas bug!
+from ase.units import Hartree
 
 from gpaw.utilities.blas import axpy, rk, r2k, gemm
 from gpaw.utilities import unpack
@@ -72,7 +73,7 @@ class CG(Eigensolver):
             phi_old_G[:] = 0.0
             error = self.gd.comm.sum(np.vdot(R_G, R_G).real)
             for nit in range(niter):
-                if error < self.tolerance / self.nbands:
+                if error * self.gd.dv * Hartree**2 < self.tolerance / self.nbands:
                     # print >> self.f, "cg:iters", n, nit
                     break
 

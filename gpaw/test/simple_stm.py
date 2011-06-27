@@ -94,11 +94,11 @@ print me + 'Integrals(unocc): 2 * wf, bias=',
 print 2 * wf, stmp.gd.integrate(stmp.ldos)
 equal(2 * wf, stmp.gd.integrate(stmp.ldos), 0.02)
 
-energy_tolerance = 0.00007
+energy_tolerance = 0.0007
 niter_tolerance = 0
 equal(e1, -2.54026, energy_tolerance)
-equal(niter1, 26, niter_tolerance)
+equal(niter1, 27, niter_tolerance)
 equal(e2, -1.51101, energy_tolerance)
-equal(niter2, 21, niter_tolerance)
+equal(niter2, 22, niter_tolerance)
 equal(e3, -2.83573, energy_tolerance)
 assert 38 <= niter3 <= 40, niter3

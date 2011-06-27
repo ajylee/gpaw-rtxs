@@ -12,8 +12,8 @@ I0 = {'cg': 6, 'rmm-diis': 7, 'dav': 8}
 
 calc = GPAW(xc='LDA',
             eigensolver='cg',
-            convergence={'eigenstates': 1E-6},
-            txt=None,
+            convergence={'eigenstates': 3.5e-5},
+            #txt=None,
             dtype=complex)
 
 
@@ -43,7 +43,7 @@ for esolver in esolvers:
         raise AssertionError('ERROR: restart failed to read complex WFS')
     
     calc.scf.reset()
-    calc.set(convergence={'eigenstates': 1E-10})
+    calc.set(convergence={'eigenstates': 3.5e-9})
     calc.set(eigensolver=esolver)
 
     E[esolver]=mol.get_potential_energy()

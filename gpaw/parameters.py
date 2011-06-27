@@ -51,7 +51,7 @@ class InputParameters(dict):
             ('mode',            'fd'),
             ('convergence',     {'energy':      0.0005,  # eV / electron
                                  'density':     1.0e-4,
-                                 'eigenstates': 1.0e-9,  # XXX ???
+                                 'eigenstates': 4.0e-8,  # eV^2
                                  'bands':       'occupied'}),
             ])
         dict.update(self, kwargs)

@@ -14,7 +14,7 @@ atoms = Atoms([Atom('C', (0.0, 0.0, 0.0)),
                     pbc=False)
 
 atoms.positions[:] += a / 2
-calc = GPAW(h=0.25, nbands=4, convergence={'eigenstates': 1e-11})
+calc = GPAW(h=0.25, nbands=4, convergence={'eigenstates': 7.8e-10})
 atoms.calc = calc
 energy = atoms.get_potential_energy()
 niter = calc.get_number_of_iterations()

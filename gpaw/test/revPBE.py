@@ -22,7 +22,7 @@ equal(e1, e2, 4e-3)
 
 energy_tolerance = 0.000001
 niter_tolerance = 0
-equal(e1, -0.07904951, energy_tolerance)
-equal(niter1, 14, niter_tolerance)
+equal(e1, -0.0790449962, energy_tolerance)
+equal(niter1, 16, niter_tolerance)
 equal(e2, -0.08147563, energy_tolerance)
 equal(niter2, 11, niter_tolerance)

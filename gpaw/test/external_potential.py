@@ -39,7 +39,7 @@ ex = PointCharges()
 ex.read('i' + fname)
 ex.write('o' + fname)
 
-convergence = {'eigenstates':1.e-4, 'density':1.e-2, 'energy':0.1}
+convergence = {'eigenstates':1.e-4*40*1.5**3, 'density':1.e-2, 'energy':0.1}
 
 # without potential
 if True:

@@ -10,6 +10,11 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* Convergence criteria for eigenstates changed: The missing volume per
+  grid-point factor is now included and the units are now eV**2. The
+  new default value is 4.0e-8 eV**2 which is equivalent to the old
+  default for a grid spacing of 0.2 Å.
+
 
 Version 0.8
 ===========

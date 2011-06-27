@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 import sys
 from math import sqrt, pi
 
@@ -89,7 +87,7 @@ nfs = 5          # number of field
 nbands = 30      # number of bands
 h = 0.20         # grid spacing
 
-debug = False
+debug = not False
 
 if debug:
     txt = 'gpaw.out'
@@ -126,7 +124,7 @@ if test1:
         hund=True,
         xc='LDA',
         eigensolver='cg',
-        convergence={'bands': nbands, 'eigenstates': 1e-5 },
+        convergence={'bands': nbands, 'eigenstates': 3.3e-4},
         maxiter= 1000,
         txt= txt
         )
@@ -168,7 +166,7 @@ c = GPAW(
     hund         = True,
     xc           = 'LDA',
     #eigensolver  = 'cg',
-    convergence  = { 'bands': nbands, 'eigenstates': 1e-5 },
+    convergence  = {'bands': nbands, 'eigenstates': 3.3e-4},
     maxiter      = 1000,
     txt          = txt
     )

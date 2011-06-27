@@ -460,7 +460,7 @@ class PAW(PAWTextOutput):
 
         if self.scf is None:
             self.scf = SCFLoop(
-                cc['eigenstates'] * nvalence,
+                cc['eigenstates'] / Hartree**2 * nvalence,
                 cc['energy'] / Hartree * max(nvalence, 1),
                 cc['density'] * nvalence,
                 par.maxiter, par.fixdensity,
@@ -475,6 +475,14 @@ class PAW(PAWTextOutput):
         if nbands % parsize_bands != 0:
             raise RuntimeError('Cannot distribute %d bands to %d processors' %
                                (nbands, parsize_bands))
+
+        mode = par.mode
+        if mode == 'pw':
+            mode = PW()
+            
+        if isinstance(mode, PW):
+            pbc_c = np.ones(3, bool)
+            dtype = complex
 
         if not self.wfs:
             if parsize == 'domain only':  # XXX this was silly!
@@ -505,7 +513,7 @@ class PAW(PAWTextOutput):
             # do k-point analysis here? XXX
             args = (gd, nvalence, setups, bd, dtype, world, kd, self.timer)
 
-            if par.mode == 'lcao':
+            if mode == 'lcao':
                 # Layouts used for general diagonalizer
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
@@ -521,7 +529,7 @@ class PAW(PAWTextOutput):
                          NonCollinearLCAOWaveFunctions
                     self.wfs = NonCollinearLCAOWaveFunctions(lcaoksl, *args)
 
-            elif par.mode == 'fd' or isinstance(par.mode, PW):
+            elif mode == 'fd' or isinstance(mode, PW):
                 # buffer_size keyword only relevant for fdpw
                 buffer_size = par.parallel['buffer_size']
                 # Layouts used for diagonalizer
@@ -561,16 +569,16 @@ class PAW(PAWTextOutput):
                                                nao=nao,
                                                timer=self.timer)
 
-                if par.mode == 'fd':
+                if mode == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
                                                orthoksl, initksl, *args)
                 else:
                     # Planewave basis:
-                    self.wfs = par.mode(diagksl, orthoksl, initksl,
+                    self.wfs = mode(diagksl, orthoksl, initksl,
                                         gd, nvalence, setups, bd,
                                         world, kd, self.timer)
             else:
-                self.wfs = par.mode(self, *args)
+                self.wfs = mode(self, *args)
         else:
             self.wfs.set_setups(setups)
 
@@ -583,7 +591,7 @@ class PAW(PAWTextOutput):
                 assert isinstance(nbands_converge, int)
                 if nbands_converge < 0:
                     nbands_converge += nbands
-            eigensolver = get_eigensolver(par.eigensolver, par.mode,
+            eigensolver = get_eigensolver(par.eigensolver, mode,
                                           par.convergence)
             eigensolver.nbands_converge = nbands_converge
             # XXX Eigensolver class doesn't define an nbands_converge property
