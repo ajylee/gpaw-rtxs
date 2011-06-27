@@ -89,7 +89,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w = open(filename, 'w', world)
         
         w['history'] = 'GPAW restart file'
-        w['version'] = '0.9'
+        w['version'] = 1
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
 

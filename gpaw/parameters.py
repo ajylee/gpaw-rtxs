@@ -110,15 +110,17 @@ class InputParameters(dict):
         except KeyError:
             pass
 
-        if version >= '0.9':
+        if version >= 0.9:
             h = r['GridSpacing']
         else:
             h = None
 
+        gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
+                (r.dimension('ngptsy') + 1) // 2 * 2,
+                (r.dimension('ngptsz') + 1) // 2 * 2)
+
         if h is None:
-            self.gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
-                         (r.dimension('ngptsy') + 1) // 2 * 2,
-                         (r.dimension('ngptsz') + 1) // 2 * 2)
+            self.gpts = gpts
         else:
             self.h = Bohr * h
 
@@ -141,6 +143,13 @@ class InputParameters(dict):
                                 'eigenstates':
                                 r['EigenstatesConvergenceCriterion'],
                                 'bands': nbtc}
+
+            if version < 1:
+                # Volume per grid-point:
+                dv = (abs(np.linalg.det(r.get('UnitCell'))) /
+                      (gpts[0] * gpts[1] * gpts[2]))
+                self.convergence['eigenstates'] *= Hartree**2 * dv
+
             if version <= 0.6:
                 mixer = 'Mixer'
                 weight = r['MixMetric']
