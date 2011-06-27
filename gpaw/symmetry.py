@@ -283,14 +283,14 @@ def map_k_points(bzk_kc, U_scc, inversion, comm=None, tol=1e-11):
     The map bz2bz_ks is returned.  If there is a k2 for which::
 
       = _    _    _
-      U k  = k  + N,
+      U q  = q  + N,
        s k1   k2
 
     where N is a vector of integers, then bz2bz_ks[k1, s] = k2, otherwise
     if there is a k2 for which::
 
       = _     _    _
-      U k  = -k  + N,
+      U q  = -q  + N,
        s k1    k2
 
     then bz2bz_ks[k1, s + nsym] = k2, where nsym = len(U_scc).  Otherwise
