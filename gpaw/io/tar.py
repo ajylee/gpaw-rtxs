@@ -31,6 +31,8 @@ class Writer:
         self.dims[name] = value
 
     def __setitem__(self, name, value):
+        if isinstance(value, float):
+            value = repr(value)
         self.xml1 += ['  <parameter %-20s value="%s"/>' %
                       ('name="%s"' % name, value)]
         
