@@ -1,3 +1,5 @@
+# creates: graphite.png
+
 from pylab import *
 import numpy as np
 
@@ -19,4 +21,5 @@ axis([2.8, 6.0,-65, 20])
 legend(loc='lower right')
 xlabel('d [A]')
 ylabel('Binding energy per atom [meV]')
-show()
+savefig('graphite.png')
+#show()
