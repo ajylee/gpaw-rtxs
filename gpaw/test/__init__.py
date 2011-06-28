@@ -86,6 +86,7 @@ tests = [
     'multipoletest.py',
     'proton.py',
     'vdwradii.py',
+    'charged_molecule.py',
     'parallel/ut_parallel.py',
     'parallel/compare.py',
     'ase3k.py',
