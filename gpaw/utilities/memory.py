@@ -38,19 +38,6 @@ def maxrss():
     """Return maximal resident memory size in bytes."""
     # see http://www.kernel.org/doc/man-pages/online/pages/man5/proc.5.html
 
-    # try to get it from rusage
-    # Python documentation here:
-    # http://docs.python.org/library/resource.html
-    # says to multiply by the pagesize, but this is incorrect. 
-    # What is implementation depenedent is whether ru_maxrss is in 
-    # bytes or kilobytes. We make an intelligent attempt to convert
-    # to detect this and convert to bytes.
-    mm = resource.getrusage(resource.RUSAGE_SELF)[2]
-    if mm > 0:
-        if mm < (1024)**2: # 1 MiB
-            mm = mm*1024 # then mm was probably in KiB so convert to MiB
-        return mm
-
     # try to get it from /proc/id/status
     # This will not work on supercomputers like Blue Gene or Cray
     for name in ('VmHWM:',  # Peak resident set size ("high water mark")
@@ -61,6 +48,26 @@ def maxrss():
         mm = _VmB(name)
         if mm > 0:
             return mm
+
+    # try to get it from rusage
+    # Python documentation here:
+    # http://docs.python.org/library/resource.html
+    # says to multiply by the pagesize, but this is incorrect.
+    # What is implementation depenedent is whether ru_maxrss is in
+    # bytes or kilobytes. We make an intelligent attempt to convert
+    # to detect this and convert to bytes.
+    # Warning: this does not work for systems reporting kilobytes
+    # for memory more than 1GiB (won't be scaled),
+    # similarly for systems reporting bytes: memory of less that MiB
+    # will be scaled by 1024
+    #
+    # the next call seems to return 'VmHWM'
+    mm = resource.getrusage(resource.RUSAGE_SELF)[2]
+    if mm > 0:
+        if mm < (1024)**2: # 1 MiB
+            mm = mm*1024 # then mm was probably in KiB so convert to MiB
+        return mm
+
     return 0.0 # no more ideas
 
 
@@ -77,15 +84,15 @@ class MemNode:
       nbytes = node.calculate_size()
       print 'Bytes', nbytes
       node.write(stdout) # write details
-      
+
     Note that calculate_size() must be called before write().  Some
     objects must be explicitly initialized before they can estimate
     their memory use.
-    """    
+    """
     floatsize = np.array(1, float).itemsize
     complexsize = np.array(1, complex).itemsize
     itemsize = {float : floatsize, complex : complexsize}
-    
+
     def __init__(self, name, basesize=0):
         """Create node with specified name and intrinsic size without
         subcomponents."""
@@ -106,7 +113,7 @@ class MemNode:
             return
         for node in self.nodes:
             node.write(txt, maxdepth, depth + 1)
-        
+
     def memformat(self, bytes):
         # One MiB is 1024*1024 bytes, as opposed to one MB which is ambiguous
         return '%.2f MiB' % (bytes / float(1 << 20))
@@ -119,11 +126,11 @@ class MemNode:
         return self.totalsize
 
     def subnode(self, name, basesize=0):
-        """Create subcomponent with given name and intrinsic size.  Use this 
+        """Create subcomponent with given name and intrinsic size.  Use this
         to build component tree."""
         mem = MemNode(name, basesize)
         self.nodes.append(mem)
         return mem
-    
+
     def setsize(self, basesize):
         self.basesize = float(basesize)

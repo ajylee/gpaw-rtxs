@@ -94,6 +94,7 @@ tests = [
     'planewavebasis.py',
     'coulomb.py',
     'timing.py',
+    'maxrss.py',
     'lcao_density.py',
     'gauss_func.py',
     'ah.py',
