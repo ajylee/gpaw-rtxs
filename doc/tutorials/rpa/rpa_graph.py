@@ -14,6 +14,6 @@ for d in ds:
                                        directions=[[0, 2/3.], [2, 1/3.]],
                                        kcommsize=64,
                                        restart='restart_%s.txt' % d)
-    f = paropen('rpa_graph_250.dat', 'a')
+    f = paropen('rpa_graph.dat', 'a')
     print >> f, d, E
     f.close()

@@ -119,7 +119,7 @@ The RPA result seems to be much better than the PBE result. However, one should 
 Example 2: Interlayer separation in graphite
 ============================================
 
-As an example involving k-point sampling, we calculate the interlayer separation of graphite
+As an example involving k-point sampling, we calculate the interlayer separation of graphite.
 
 Ground state calculation
 --------------------------
@@ -134,24 +134,24 @@ For the large non-selfconsistent calculation, we use the conjugate gradient eige
 Obtaining the RPA correlation energy
 ------------------------------------
 
-In principle one should start by converging the frequency sampling as in Example 1, but in this tutorial we will just assume that the default sampling sampling of 16 Gauss-Legendre points is sufficient.
+In principle one should start by converging the frequency sampling as in Example 1, but in this tutorial we will just assume that the default sampling with 16 Gauss-Legendre points is sufficient.
 
-It is not possible to fully converge the RPA correlation energy with respect to the energy and number of unoccupied bands, but as in Example 1, the results of a few calculations can be extrapolated to the value corresponding to infinite cutoff. However, when taken as a function of cutoff energy, the slope of the extrapolated function is often independent of the unit cell volume. Therefore, energy differences often converge much faster and instead of extrapolating the correlation energy at all interlayer separations, we just comptre a few energy differences as a function of cutoff energy and check for convergence. Below we just assume that our cutoff energy is converged, but one should check this by a reference calculation at 300 eV. The following script calculates the RPA correlation energy at 250 eV at various interlayer separations.
+It is not possible to fully converge the RPA correlation energy with respect to the energy and number of unoccupied bands, but as in Example 1, the results of a few calculations can be extrapolated to the value corresponding to infinite cutoff. However, when taken as a function of cutoff energy, the slope of the extrapolated function is often nearly independent of the unit cell volume. Therefore, energy differences often converge much faster and instead of extrapolating the correlation energy at all interlayer separations, we just compare a few energy differences as a function of cutoff energy and check for convergence. Below we assume that our cutoff energy is converged, but one should check this by a reference calculation at 300 eV. The following script calculates the RPA correlation energy at 250 eV at various interlayer separations.
 
 .. literalinclude:: rpa_graph.py
 
-The kcommsize=64 keyword tells the calculator to use 64 k-point domains and the calculation is thus parallelized with 9 k-points on each CPU. If the number of cpus is larger than kcommsize, parallelization over freqency points will be initiated, which is much less efficient than k-point parallelization. However, the memory consumption may sometimes be exceedingly high since the full response function is stored in all frequency points and parallelizing over frequencies may then be useful. When choosing a parallelization scheme, it should be noted that the response function involves a sum over all k-points and not just those in the irreducible part of reciprocal space. The total number of cpus should be equal to the number of frequency domains (divisible in frequency points) times the number of k-point domains (specified by kcommsize). The directions keyword tells the calculator to consider one direction paralle to the graphene layers weighted by 2/3 and one direction orthogonal to the layers weighted by 1/3 when doing the optical limit for q=[0,0,0].
+The kcommsize=64 keyword tells the calculator to use 64 k-point domains and the calculation is thus parallelized with 9 k-points on each CPU. If the number of cpus is larger than kcommsize, parallelization over freqency points will be initiated, which is much less efficient than k-point parallelization. However, the memory consumption may sometimes be exceedingly high since the full response function is stored in all frequency points and parallelizing over frequencies may then be useful. When choosing a parallelization scheme, it should be noted that the response function involves a sum over all k-points and not just those in the irreducible part of reciprocal space. The total number of cpus should be equal to the number of frequency domains (divisible in frequency points) times the number of k-point domains (specified by kcommsize). The directions keyword tells the calculator to consider one direction paralle to the graphene layers weighted by 2/3 and one direction orthogonal to the layers weighted by 1/3 when doing the optical limit for q=[0,0,0]. Finally, the keyword restart defines a file to which the contributions from each irreducible q-point is written. These contributions are calculated in serial and when a calculation is initialized, the calculator checks the restart file for contributions from calculated q-points.
 
-The result can be plotted with the script:: 
+The result can be plotted with the script
 
 .. literalinclude:: plot_graph.py
 
-and is shown below along with the results obtained from LDA, PBE, vdW-DF, experiments, and Quamtum Monte Carlo (QMC)
+and is shown below along with the results obtained from LDA, PBE, vdW-DF, experiments, and Quantum Monte Carlo (QMC) calculations.
 
 .. image:: graphite.png
 	   :height: 400 px
 
-The RPA potential energy surface was obtained by adding the RPA c	orrelation energy to the Hartree-Fock energy which is calculated by
+The RPA potential energy surface was obtained by adding the RPA correlation energy to the Hartree-Fock energy which is calculated by
     
 .. literalinclude:: hf_graph.py  
 
