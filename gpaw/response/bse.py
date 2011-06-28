@@ -111,9 +111,9 @@ class BSE(BASECHI):
 
         if self.use_W:
             # q points init
-            self.kd.get_bz_q_points()
-            self.nq = len(self.kd.bzq_kc)
-
+            self.ibzq_kc = kd.ibzk_kc.copy()
+            self.nq = len(self.ibzq_kc)
+            
         # parallel init
         self.Scomm = world
         # kcomm and wScomm is only to be used when wavefunctions r parallelly distributed.
@@ -146,10 +146,13 @@ class BSE(BASECHI):
         f_kn = self.f_kn
         e_kn = self.e_kn
         ibzk_kc = self.ibzk_kc
+        ibzq_kc = ibzk_kc
         bzk_kc = self.bzk_kc
+        bzq_kc = bzk_kc
         kq_k = self.kq_k
         focc_S = self.focc_S
         e_S = self.e_S
+        op_scc = calc.wfs.symmetry.op_scc
 
         if self.use_W:
             if type(self.use_W) is str:
@@ -165,9 +168,17 @@ class BSE(BASECHI):
                 W_qGG = self.screened_interaction_kernel()
             else:
                 raise ValueError('use_W can only be string or bool ')
-        else:
-            self.get_phi_aGp()
 
+            if not len(self.phi_qaGp) == self.nkpt:
+                del self.phi_qaGp
+                self.phi_qaGp = {}
+                for iq in range(self.nkpt):
+                    q_c = bzq_kc[iq]
+                    self.phi_qaGp[iq] = self.get_phi_aGp(q_c)
+
+        else:
+            self.phi_aGp = self.get_phi_aGp()
+        self.printtxt('Finished phi_aGp !')
         
        # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
@@ -176,7 +187,8 @@ class BSE(BASECHI):
 
         t0 = time()
         self.printtxt('Calculating BSE matrix elements.')
-        
+
+        noGmap = 0
         for iS in range(self.nS_start, self.nS_end):
             k1, n1, m1 = self.Sindex_S3[iS]
             rho1_G = self.density_matrix(n1,m1,k1)
@@ -193,8 +205,35 @@ class BSE(BASECHI):
                     rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],self.kq_k[k2])
                     
                     q_c = bzk_kc[k2] - bzk_kc[k1]
-                    iq = self.kd.where_is_q(q_c)
-                    W_GG = W_qGG[iq].copy()
+                    q_c[np.where(q_c > 0.501)] -= 1.
+                    q_c[np.where(q_c < -0.499)] += 1.
+
+                    ibzq, iop, timerev, diff_c = self.kd.find_ibzkpt(op_scc, ibzq_kc, q_c)
+                    invop = np.int8(np.linalg.inv(op_scc[iop]))
+
+                    W_GG_tmp = W_qGG[ibzq]
+                    Gindex = np.zeros(self.npw,dtype=int)
+
+                    for iG in range(self.npw):
+                        G_c = self.Gvec_Gc[iG]
+                        if timerev:
+                            RotG_c = -np.int8(np.dot(invop, G_c+diff_c))
+                        else:
+                            RotG_c = np.int8(np.dot(invop, G_c+diff_c))
+                        tmp_G = np.abs(self.Gvec_Gc - RotG_c).sum(axis=1)
+                        try:
+                            Gindex[iG] = np.where(tmp_G < 1e-5)[0][0]
+                        except:
+                            noGmap += 1
+                            Gindex[iG] = -1
+
+                    W_GG = np.zeros_like(W_GG_tmp)
+                    for iG in range(self.npw):
+                        for jG in range(self.npw):
+                            if Gindex[iG] == -1 or Gindex[jG] == -1:
+                                W_GG[iG, jG] = 0
+                            else:
+                                W_GG[iG, jG] = W_GG_tmp[Gindex[iG], Gindex[jG]]
                     
                     if k1 == k2:
                         if (n1==n2) or (m1==m2):
@@ -223,6 +262,7 @@ class BSE(BASECHI):
         world.sum(K_SS)
         world.sum(self.rhoG0_S)
 
+        print 'The number of G index outside the Gvec_Gc: ', noGmap
         # get and solve hamiltonian
         H_SS = np.zeros_like(K_SS)
         for iS in range(self.nS):
@@ -235,7 +275,7 @@ class BSE(BASECHI):
                 for jS in range(self.nS):
                     if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-4:
                         print H_SS[iS,jS]- H_SS[jS,iS].conj()
-                    assert np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) < 1e-4
+#                    assert np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) < 1e-4
 
 #        if not self.positive_w:
         self.w_S, self.v_SS = np.linalg.eig(H_SS)
@@ -268,7 +308,7 @@ class BSE(BASECHI):
         self.phi_qaGp = {}
         
         for iq in range(self.nq):#self.q_start, self.q_end):
-            q = self.kd.bzq_kc[iq]
+            q = self.ibzq_kc[iq]
             optical_limit=False
             if (np.abs(q) < self.ftol).all():
                 optical_limit=True
@@ -313,7 +353,7 @@ class BSE(BASECHI):
         printtxt = self.printtxt
 
         if self.use_W:
-            printtxt('Numberof q points            : %d' %(self.nq))
+            printtxt('Number of q points            : %d' %(self.nq))
         printtxt('Number of frequency points   : %d' %(self.Nw) )
         printtxt('Number of pair orbitals      : %d' %(self.nS) )
         printtxt('Parallelization scheme:')
@@ -404,11 +444,12 @@ class BSE(BASECHI):
                     iq = kd.where_is_q(np.zeros(3))
                 else:
                     iq = kd.where_is_q(q_c)
+                    assert np.abs(self.bzk_kc[iq] - q_c).sum() < 1e-8
                     
                 phi_aGp = self.phi_qaGp[iq]
             else:
                 phi_aGp = self.phi_aGp
-                
+               
             for a, id in enumerate(self.calc.wfs.setups.id_a):
                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                 gemv(1.0, phi_aGp[a], P_p, 1.0, rho_G)

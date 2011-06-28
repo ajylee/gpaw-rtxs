@@ -135,7 +135,8 @@ class CHI(BASECHI):
         # PAW part init
         # calculate <phi_i | e**(-i(q+G).r) | phi_j>
         # G != 0 part
-        self.get_phi_aGp()
+        self.phi_aGp = self.get_phi_aGp()
+        self.printtxt('Finished phi_aGp !')
 
         # Calculate Coulomb kernel
         self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,

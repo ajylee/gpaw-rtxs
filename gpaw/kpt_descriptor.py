@@ -13,6 +13,7 @@ This module contains classes for defining combinations of two indices:
 import numpy as np
 from ase.units import Bohr
 from ase.dft import monkhorst_pack
+from ase.dft.kpoints import get_monkhorst_shape
 
 from gpaw.symmetry import Symmetry
 from gpaw.kpoint import KPoint
@@ -302,8 +303,7 @@ class KPointDescriptor:
 
     def get_bz_q_points(self):
         """Return the q=k1-k2."""
-
-        bzk_kc = self.bzk_kc
+        
         # Get all q-points
         all_qs = []
         for k1 in bzk_kc:
@@ -331,21 +331,56 @@ class KPointDescriptor:
 
         return
 
+    def find_ibzkpt(self, symrel, ibzk_kc, bzk_c):
+        """Given a certain kpoint, find its index in IBZ and related symmetry operations."""
+        find = False
+        ibzkpt = 0
+        iop = 0
+        timerev = False
+    
+        for ioptmp, op in enumerate(symrel):
+            for i, ibzk in enumerate(ibzk_kc):
+                diff_c = bzk_c - np.dot(op, ibzk)
+                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
+                    ibzkpt = i
+                    iop = ioptmp
+                    find = True
+                    break
+    
+                diff_c = np.dot(op, ibzk) + bzk_c
+                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():            
+                    ibzkpt = i
+                    iop = ioptmp
+                    find = True
+                    timerev = True
+                    break
+                
+            if find == True:
+                break
+            
+        if find == False:        
+            print bzk_c
+            print ibzk_kc
+            raise ValueError('Cant find corresponding IBZ kpoint!')
+    
+        return ibzkpt, iop, timerev, diff_c.round()
+
+
     def where_is_q(self, q_c):
-        """Find the index of q points."""
+        """Find the index of q points in BZ."""
 
         q_c[np.where(q_c > 0.501)] -= 1
         q_c[np.where(q_c < -0.499)] += 1
 
         found = False
-        for ik in range(len(self.bzq_kc)):
-            if (np.abs(self.bzq_kc[ik] - q_c) < 1e-8).all():
+        for ik in range(len(self.bzk_kc)):
+            if (np.abs(self.bzk_kc[ik] - q_c) < 1e-8).all():
                 found = True
                 return ik
                 break
             
         if found is False:
-            print(self.bzq_kc, q_c)
+            print(self.bzk_kc, q_c)
             raise ValueError('q-points can not be found!')
         
     def get_count(self, rank=None):

@@ -215,29 +215,39 @@ class BASECHI:
         return
 
 
-    def get_phi_aGp(self):
+    def get_phi_aGp(self, q_c=None):
+        if q_c is None:
+            q_c = self.q_c
+            qq_v = self.qq_v
+            optical_limit = self.optical_limit
+        else:
+            optical_limit = False
+            if np.abs(q_c).sum() < 1e-8:
+                q_c = np.array([0.0001, 0, 0])
+                optical_limit = True
+            qq_v = np.dot(q_c, self.bcell_cv)
+            
         setups = self.calc.wfs.setups
         spos_ac = self.calc.atoms.get_scaled_positions()
         
-        kk_Gv = gemmdot(self.q_c + self.Gvec_Gc, self.bcell_cv.copy(), beta=0.0)
+        kk_Gv = gemmdot(q_c + self.Gvec_Gc, self.bcell_cv.copy(), beta=0.0)
         phi_aGp = {}
         for a, id in enumerate(setups.id_a):
             phi_aGp[a] = two_phi_planewave_integrals(kk_Gv, setups[a])
             for iG in range(self.npw):
                 phi_aGp[a][iG] *= np.exp(-1j * 2. * pi *
-                                         np.dot(self.q_c + self.Gvec_Gc[iG], spos_ac[a]) )
+                                         np.dot(q_c + self.Gvec_Gc[iG], spos_ac[a]) )
 
         # For optical limit, G == 0 part should change
-        if self.optical_limit:
+        if optical_limit:
             for a, id in enumerate(setups.id_a):
                 nabla_iiv = setups[a].nabla_iiv
-                phi_aGp[a][0] = -1j * (np.dot(nabla_iiv, self.qq_v)).ravel()
+                phi_aGp[a][0] = -1j * (np.dot(nabla_iiv, qq_v)).ravel()
 
-        self.phi_aGp = phi_aGp
+#        self.phi_aGp = phi_aGp
         self.printtxt('')
-        self.printtxt('Finished phi_Gp !')
 
-        return
+        return phi_aGp
 
 
     def get_wavefunction(self, ibzk, n, check_focc=True, spin=0):
