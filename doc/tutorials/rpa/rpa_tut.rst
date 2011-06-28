@@ -54,7 +54,7 @@ Gauss-Legendre points     Frequency cutoff           Frequency scale       Integ
  8	          		400	 	        2.0		   -6.24096953919
  8	          		800	 	        2.0		   -6.22671709039
  8	          	 	1600	 	        2.0		   -6.26677707702
- 8	          		800	 	        1.0		   -6.36563675431		   
+ 8	          		800	 	        1.0		   -6.36563675431
  8	          		800	 	        1.5		   -6.23973197929
  8	          		800	 	        2.5		   -6.23421988399
  16	          		100	 	        2.0		   -6.23479287788
@@ -116,63 +116,44 @@ PBE      HF      RPA     HF+RPA       Experimental
 
 The RPA result seems to be much better than the PBE result. However, one should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x6 cell used here is not expected to be fully converged with respect to super cell size. See ref. \ [#Harl]_ for more details on this.
 
-Example 2: Correlation energy of bulk Kr
-=============================================
+Example 2: Interlayer separation in graphite
+============================================
 
-As an example involving k-point sampling, we calculate the correlation energy of an fcc Krypton lattice with a unit cell volume of :math:`40\AA^3`
+As an example involving k-point sampling, we calculate the interlayer separation of graphite
 
 Ground state calculation
 --------------------------
 
-The following script performs a ground state calculation with the number of bands corresponding to 300 eV:
+The following script performs a ground state calculation at various distances with the number of bands corresponding to 250 eV:
 
-.. literalinclude:: gs_Kr.py
+.. literalinclude:: gs_graph.py
 
-Note that for the large non-selfconsistent calculation, we use the conjugate gradient eigensolver, which is better suited for converging many unoccupied states. It also helps the eigensolver to include the 50 extra states, which are not converged.
+Note that we define a Gamma-centered k-point grid in order to use the q-point symmetry in the response function calculation below.
+For the large non-selfconsistent calculation, we use the conjugate gradient eigensolver, which is better suited for converging many unoccupied states. It also helps the eigensolver to include the 200 extra states, which are not converged. In the end, the RPA calculation needs to be converged with respect to the cutoff energy and it is often an advantage to set the cutoff at a higher level. Then one does not have to redo the ground state calculations to check if the RPA result changes when going to 300 eV.
 
 Obtaining the RPA correlation energy
 ------------------------------------
 
-In principle on should start by converging the frequency sampling as in Example 1. However, the integrand is extremly flat for a wide gap system as Kr and the default frequency sampling is expected to be good enough. In fact it is properly enough to use less frequency points than the default value of 16 points and one could most likely save some time by examining this, but below we just use the default value.
+In principle one should start by converging the frequency sampling as in Example 1, but in this tutorial we will just assume that the default sampling sampling of 16 Gauss-Legendre points is sufficient.
 
-It is not possible to fully converge the RPA correlation energy with respect to the energy and number of unoccupied bands, but as in Example 1, the results of a few calculations are easily extrapolated to the value corresponding to infinite cutoff. The following script calculates the RPA correlation energy for a few cutoff energies (the number of bands in the calculation is equal to the number of plane waves defined by the cutoff):
+It is not possible to fully converge the RPA correlation energy with respect to the energy and number of unoccupied bands, but as in Example 1, the results of a few calculations can be extrapolated to the value corresponding to infinite cutoff. However, when taken as a function of cutoff energy, the slope of the extrapolated function is often independent of the unit cell volume. Therefore, energy differences often converge much faster and instead of extrapolating the correlation energy at all interlayer separations, we just comptre a few energy differences as a function of cutoff energy and check for convergence. Below we just assume that our cutoff energy is converged, but one should check this by a reference calculation at 300 eV. The following script calculates the RPA correlation energy at 250 eV at various interlayer separations.
 
-.. literalinclude:: rpa_Kr.py
+.. literalinclude:: rpa_graph.py
 
-The kcommsize=8 keyword tells the calculator to use 8 k-point domains and the calculation is thus fully parallelized over k-points. If the number of cpus is larger than kcommsize, parallelization over freqency points will be initiated, which is much less efficient than k-point parallelization. However, the memory consumption may sometimes be exceedingly high since the full response function is stored in all frequency points and parallelizing over frequencies may then be useful. When choosing a parallelization scheme, it should be noted that the response function involves a sum over all k-points and not just those in the irreducible part of reciprocal space. The total number of cpus should be equal to the number of frequency domains (divisible in frequency points) times the number of k-point domains (specified by kcommsize). The directions keyword tells the calculator to only consider the x direction when doing the optical limit for q=[0,0,0].
+The kcommsize=64 keyword tells the calculator to use 64 k-point domains and the calculation is thus parallelized with 9 k-points on each CPU. If the number of cpus is larger than kcommsize, parallelization over freqency points will be initiated, which is much less efficient than k-point parallelization. However, the memory consumption may sometimes be exceedingly high since the full response function is stored in all frequency points and parallelizing over frequencies may then be useful. When choosing a parallelization scheme, it should be noted that the response function involves a sum over all k-points and not just those in the irreducible part of reciprocal space. The total number of cpus should be equal to the number of frequency domains (divisible in frequency points) times the number of k-point domains (specified by kcommsize). The directions keyword tells the calculator to consider one direction paralle to the graphene layers weighted by 2/3 and one direction orthogonal to the layers weighted by 1/3 when doing the optical limit for q=[0,0,0].
 
 The result can be plotted with the script:: 
 
-    import numpy as np
-    from pylab import *
+.. literalinclude:: plot_graph.py
 
-    A = np.loadtxt('rpa_Kr.dat').transpose()
-    xs = np.array([170 +i*100. for i in range(500)])
+and is shown below along with the results obtained from LDA, PBE, vdW-DF, experiments, and Quamtum Monte Carlo (QMC)
 
-    plot(A[0]**(-1.5), A[1], 'o', markersize=8, label='Calculated points')
-    plot(xs**(-1), -10.4805+4080.97*xs**(-1.5), label='Fit: -10.48+4081*E^(-1.5)')
-    t = [int(A[0,i]) for i in range(len(A[0]))]
-    xticks(A[0]**(-1.5), t)
-    xlabel('Cutoff energy [eV]', fontsize=16)
-    ylabel('Correlation energy', fontsize=16)
-    axis([0.,None,None,None])
-    title('RPA correlation energy of fcc Kr lattice at $V=40\,\AA^3$')
-    legend(loc='upper left')
-    show()
-
-and is shown below. The calculated points are very well fitted by the function: :math:`E_c(n)=E_c^{RPA}+A/n` where :math:`n` is the number of bands (defined by the cutoff values) and we can read off an RPA correlation energy of -10.48 eV. 
-
-.. image:: extrapolate_Kr.png
+.. image:: graphite.png
 	   :height: 400 px
 
-One can proceed like this for a range of different unit cell volumes and obtain the figure below. Here the correlation energy of an isolated Kr atom (the value extrapolated to infinite volume) has been subtracted from the plotted values. One sees a clear :math:`V^{-2}` dependence, which is characteristic of van der Waals bonded systems.
-
-.. image:: volume.png
-	   :height: 400 px
-
-In order to obtain the total energy, the correlation energy should be added to the Hartree-fock energy, which can be obtained (non-selfconsistently) by:
+The RPA potential energy surface was obtained by adding the RPA c	orrelation energy to the Hartree-Fock energy which is calculated by
     
-.. literalinclude:: hf_Kr.py  
+.. literalinclude:: hf_graph.py  
 
 .. [#Furche] F. Furche,
              *Phys. Rev. B* **64**, 195120 (2001)
