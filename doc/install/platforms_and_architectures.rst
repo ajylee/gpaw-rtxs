@@ -31,6 +31,13 @@ BSD:
 
    BSD/FreeBSD
 
+Bull:
+
+.. toctree::
+   :maxdepth: 1
+
+   Bull/curie
+
 Cray:
 
 .. toctree::
