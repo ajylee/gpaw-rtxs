@@ -131,8 +131,8 @@ class Channel:
 
             # Find classical turning point:
             g0 = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()
-            r1_g = r_g[:g + 1]
-            r2_g = -r_g[:g - 1:-1]
+            r1_g = r_g[:g0 + 1]
+            r2_g = -r_g[:g0 - 1:-1]
 
             iter = 0
             while True:
@@ -141,6 +141,7 @@ class Channel:
                 du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e)
                 u2 = u_g[g0]
                 A = du1dr / u1 - du2dr / u2
+                #print n, l, e, A
                 u_g[g0:] *= u1 / u2
                 u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
 
@@ -479,28 +480,27 @@ class AllElectronAtom:
                 dn = self.rgd.integrate(abs(self.n_sg - n_old_sg).sum(0))
                 pb(log(dnmax / dn))
                 if dn <= dnmax:
+                    self.log('\nConverged in', iter, 'steps')
                     break
 
             vr_old_sg = self.vr_sg
             n_old_sg = self.n_sg
             self.step()
 
-        self.summary(iter)
+        self.summary()
         if dn > dnmax:
             raise RuntimeError('Did not converge!')
 
     def refine(self):
         self.mode = 'ode'
-        #self.step()
-        self.run(dnmax=1e-6, mix=0.7)
+        self.run(dnmax=1e-6, mix=0.4, maxiter=200)
         
-    def summary(self, iter=0):
+    def summary(self):
         self.write_states()
         self.write_energies()
-        if iter > 0:
-            self.log('Converged in', iter, 'steps')
             
     def write_states(self):
+        self.log('=====================================================')
         self.log('\n state  occupation         eigenvalue          <r>')
         if self.dirac:
             self.log(' nl(j)               [Hartree]        [eV]    [Bohr]')

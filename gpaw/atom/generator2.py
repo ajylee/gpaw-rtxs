@@ -117,8 +117,7 @@ class PAWWaves:
         
         #self.e_n[1] = 1.5
         for n in range(N):
-            u[:gcut+29] = self.ch.integrate_outwards(vr, r_g[:gcut + 10],
-                                                     self.e_n[n])[:,0]
+            self.ch.integrate_outwards(u, rgd, vtr_g, gcut + 10, self.e_n[n])
             u[1:]/=r_g[1:]
         a_nb = []
         s_nb = []
@@ -171,7 +170,6 @@ class PAWSetupGenerator:
         self.gcmax = self.rgd.ceil(self.rcmax)
 
         self.waves_l = []
-        vr = interp1d(self.rgd.r_g, aea.vr_sg[0], 'cubic')
         for l, nn in enumerate(states):
             waves = PAWWaves(self.rgd, l, radii[l])
             for n in nn:
@@ -188,8 +186,8 @@ class PAWSetupGenerator:
                     phi_g = self.rgd.zeros()
                     gc = self.gcmax + 10
                     ch = Channel(l)
-                    u_g = ch.integrate_outwards(vr, self.rgd.r_g[:gc], e)[0]
-                    phi_g[1:gc] = u_g[1:] / self.rgd.r_g[1:gc]
+                    ch.integrate_outwards(phi_g, self.rgd, aea.vr_sg[0], gc, e)
+                    phi_g[1:gc] /= self.rgd.r_g[1:gc]
                     if l == 0:
                         phi_g[0] = phi_g[1]
                 waves.add(phi_g, n, e, f)
@@ -300,9 +298,9 @@ class PAWSetupGenerator:
         vr = interp1d(self.rgd.r_g, self.aea.vr_sg[0], 'cubic')
         gc = self.gcmax + 20
         ch = Channel(l)
-        u_g = ch.integrate_outwards(vr, self.rgd.r_g[:gc], e)[0]
         phi_g = self.rgd.zeros()
-        phi_g[1:gc] = u_g[1:] / self.rgd.r_g[1:gc]
+        ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e)
+        phi_g[1:gc] /= self.rgd.r_g[1:gc]
         if l == 0:
             phi_g[0] = phi_g[1]
         P = 6

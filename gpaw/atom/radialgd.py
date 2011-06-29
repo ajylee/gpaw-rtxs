@@ -73,8 +73,8 @@ class RadialGridDescriptor:
         ng = int(round(1.0 / self.b))
         assert abs(ng - 1 / self.b) < 1e-5
         hartree(l, nrdr_g, beta, ng, vr_g)
-        vrp_g = self.purepythonpoisson(n_g,l)
-        assert abs(vr_g-vrp_g).max() < 1e-12
+        #vrp_g = self.purepythonpoisson(n_g,l)
+        #assert abs(vr_g-vrp_g).max() < 1e-12
         return vr_g
 
     def pseudize(self, a_g, gc, l=0, points=4):
