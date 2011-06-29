@@ -73,8 +73,8 @@ class RadialGridDescriptor:
         ng = int(round(1.0 / self.b))
         assert abs(ng - 1 / self.b) < 1e-5
         hartree(l, nrdr_g, beta, ng, vr_g)
-        #vrp_g = self.ppoisson(n_g,l)
-        #print l,len(n_g),vr_g[[0,1,-1]],abs(vr_g-vrp_g).sum()
+        vrp_g = self.purepythonpoisson(n_g,l)
+        assert abs(vr_g-vrp_g).max() < 1e-12
         return vr_g
 
     def pseudize(self, a_g, gc, l=0, points=4):
@@ -123,7 +123,8 @@ class RadialGridDescriptor:
         
     def plot(self, a_g, n=0, rc=4.0, show=False):
         import matplotlib.pyplot as plt
-        plt.plot(self.r_g, a_g * self.r_g**n)
+        r_g = self.r_g[:len(a_g)]
+        plt.plot(r_g, a_g * r_g**n)
         plt.axis(xmax=rc)
         if show:
             plt.show()

@@ -15,7 +15,7 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
 from gpaw.basis_data import Basis
-from gpaw.hgh import null_xc_correction
+#from gpaw.hgh import null_xc_correction
 from gpaw.setup_data import SetupData
 from gpaw.version import version
 
@@ -214,10 +214,10 @@ class PAWSetupGenerator:
             for n, f in enumerate(ch.f_n):
                 if (l >= len(self.waves_l) or
                     (l < len(self.waves_l) and
-                    n + l + 1 not in self.waves_l[l].n_n)):
+                     n + l + 1 not in self.waves_l[l].n_n)):
                     self.nc_g += f * ch.calculate_density(n)
                     self.ncore += f
-                    self.ekincore += f * e
+                    self.ekincore += f * ch.e_n[n]
                 else:
                     self.nvalence += f
         
@@ -239,10 +239,14 @@ class PAWSetupGenerator:
         self.vtr_g = self.find_local_potential()
 
         self.log('Projectors:')
-        self.log('=====================================================')
-        self.log(' state  occupation             energy        norm')
-        self.log(' nl                  [Hartree]  [eV]      [electrons]')
-        self.log('=====================================================')
+        self.log(
+            '================================================================')
+        self.log(
+            ' state  occupation             energy        norm        rcut')
+        self.log(
+            ' nl                  [Hartree]  [eV]      [electrons]   [Bohr]')
+        self.log(
+            '================================================================')
         for waves in self.waves_l:
             waves.pseudize()
             self.nt_g += waves.nt_g
@@ -250,11 +254,13 @@ class PAWSetupGenerator:
             for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
                                   waves.dS_nn.diagonal()):
                 if n == -1:
-                    self.log('  %s                 %10.6f %10.5f' %
-                             ('spdf'[waves.l], e, e * Hartree))
+                    self.log('  %s                 %10.6f %10.5f %10.2f' %
+                             ('spdf'[waves.l], e, e * Hartree, waves.rcut))
                 else:
-                    self.log(' %d%s        %2d       %10.6f %10.5f    %5.3f' %
-                             (n, 'spdf'[waves.l], f, e, e * Hartree, 1 - ds))
+                    self.log(
+                        ' %d%s        %2d       %10.6f %10.5f    %5.3f %4.2f' %
+                             (n, 'spdf'[waves.l], f, e, e * Hartree, 1 - ds,
+                              waves.rcut))
         self.log('=====================================================')
                     
         self.rhot_g = self.nt_g + self.Q * self.ghat_g
@@ -512,9 +518,10 @@ def main(AEA=AllElectronAtom):
             lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives, r)
             for l in lvalues:
                 ld = aea.logarithmic_derivative(l, energies, r)
-                plt.plot(energies, ld, colors[l])
+                plt.plot(energies, ld, colors[l], label='spdfg'[l])
                 ld = gen.logarithmic_derivative(l, energies, r)
                 plt.plot(energies, ld, '--' + colors[l])
+            plt.legend(loc='best')
 
         if opt.plot:
             gen.plot()

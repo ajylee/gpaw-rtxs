@@ -8,8 +8,6 @@ import numpy as np
 from numpy.linalg import eigh
 
 from scipy.special import gamma
-from scipy.integrate import odeint
-from scipy.interpolate import interp1d
 
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 from ase.utils import devnull, prnt
@@ -127,29 +125,32 @@ class Channel:
         rgd = self.basis.rgd
         r_g = rgd.r_g
         l = self.l
-        vr = interp1d(r_g, vr_g, 'cubic')
         u_g = rgd.empty()
         for n in range(len(self.f_n)):
             e = self.e_n[n]
+
             # Find classical turning point:
-            g = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()
+            g0 = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()
             r1_g = r_g[:g + 1]
             r2_g = -r_g[:g - 1:-1]
-            #print g, r_g[g], e
+
             iter = 0
             while True:
-                u1_g, du1dr_g = self.integrate_outwards(vr, r1_g, e)
-                u2_g, du2dr_g = self.integrate_inwards(vr, r2_g, e)
-                A = du1dr_g[-1] / u1_g[-1] + du2dr_g[-1] / u2_g[-1]
-                u_g[:g + 1] = u1_g
-                u_g[g:] = u2_g[::-1] * u1_g[-1] / u2_g[-1]
+                du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e)
+                u1 = u_g[g0]
+                du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e)
+                u2 = u_g[g0]
+                A = du1dr / u1 - du2dr / u2
+                u_g[g0:] *= u1 / u2
                 u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
+
                 if abs(A) < 1e-5:
                     break
-                e += 0.5 * A * u_g[g]**2
+
+                e += 0.5 * A * u_g[g0]**2
                 iter += 1
-                #print iter,e,A
-                assert iter < 20, (n,l,e)
+                assert iter < 20, (n, l, e)
+
             self.e_n[n] = e
             self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
             if self.l == 0:
@@ -169,29 +170,64 @@ class Channel:
         f_n = self.f_n
         return np.dot(f_n, self.e_n[:len(f_n)])
 
-    def integrate_outwards(self, vr, r_g, e, p=lambda x: 0.0):
+    def integrate_outwards(self, u_g, rgd, vr_g, g0, e, p=lambda x: 0.0):
         l = self.l
-        def f(y, r):
-            return [y[1],
-                    2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0] -
-                    2 * p(r) * r]
-        u_g = np.zeros_like(r_g)
-        dudr_g = np.zeros_like(r_g)
-        r1 = r_g[1]
-        u_g[1:], dudr_g[1:] = odeint(f, [r1**(l + 1), (l + 1) * r1**l],
-                                     r_g[1:]).T
-        return u_g, dudr_g
+        d2gdr2_g = rgd.d2gdr2()
+
+        g = 1
+        agm1 = 1
+        u_g[0] = 0.0
+        ag = agm1 + vr_g[0] * rgd.dr_g[0]
+
+        while True:
+            r = rgd.r_g[g]
+            u_g[g] = ag * r**(l + 1)
+            dr = rgd.dr_g[g]
+            x0 = 2 * (e * r - vr_g[g])
+            x1 = 2 * (l + 1) / dr + r * d2gdr2_g[g]
+            x2 = r / dr**2
+            agp1 = (agm1 * (x1 / 2 - x2) +
+                    ag * (2 * x2 - x0)) / (x1 / 2 + x2)
+            if g == g0:
+                break
+            g += 1
+            agm1 = ag
+            ag = agp1
+
+        da = 0.5 * (agp1 - agm1)
+        dudr = (l + 1) * r**l * ag + r**(l + 1) * da / dr
+
+        return dudr
     
-    def integrate_inwards(self, vr, r_g, e):
+    def integrate_inwards(self, u_g, rgd, vr_g, g0, e):
         l = self.l
-        def f(y, r):
-            r = -r
-            return [y[1],
-                    2 * (vr(r) / r + 0.5 * l * (l + 1) / r**2 - e) * y[0]]
-        a = np.sqrt(-2 * e)
-        u = np.exp(a * r_g[0])
-        return odeint(f, [u, a * u], r_g, hmax=0.2).T
-    
+        d2gdr2_g = rgd.d2gdr2()
+
+        g = len(u_g) - 2
+        agp1 = np.exp(-(-2 * e)**0.5 * rgd.r_g[-1])
+        u_g[-1] = agp1
+        ag = np.exp(-(-2 * e)**0.5 * rgd.r_g[-2])
+
+        while True:
+            r = rgd.r_g[g]
+            u_g[g] = ag
+            dr = rgd.dr_g[g]
+            x0 = 2 * (e - 0.5 * l * (l + 1) / r**2 - vr_g[g] / r)
+            x1 = d2gdr2_g[g]
+            x2 = 1 / dr**2
+            agm1 = (agp1 * (x1 / 2 + x2) +
+                    ag * (x0 - 2 * x2)) / (x1 / 2 - x2)
+            if g == g0:
+                break
+            g -= 1
+            agp1 = ag
+            ag = agm1
+
+        da = 0.5 * (agp1 - agm1)
+        dudr = da / dr
+
+        return dudr
+
 
 class DiracChannel(Channel):
     def __init__(self, k, f_n, basis):
@@ -347,6 +383,7 @@ class AllElectronAtom:
         # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
         a = 1 / alpha2**0.5 / 50        
         b = (rcut - a * ngpts) / (rcut * ngpts)
+        b = 1 / round(1 / b)
         self.rgd = AERadialGridDescriptor(a, b, ngpts)
         
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
@@ -538,13 +575,14 @@ class AllElectronAtom:
         plt.show()
 
     def logarithmic_derivative(self, l, energies, rcut):
-        vr = interp1d(self.rgd.r_g, self.vr_sg[0], 'cubic')
         ch = Channel(l)
         gcut = self.rgd.round(rcut)
+        u_g = self.rgd.empty()
         logderivs = []
         for e in energies:
-            u, dudr = ch.integrate_outwards(vr, self.rgd.r_g[:gcut + 1], e)
-            logderivs.append(dudr[-1] / u[-1])
+            dudr = ch.integrate_outwards(u_g, self.rgd, self.vr_sg[0],
+                                         gcut, e)
+            logderivs.append(dudr / u_g[gcut])
         return logderivs
             
 
