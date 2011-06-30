@@ -5,12 +5,11 @@ from gpaw.response.df import DF
 from ase.dft import monkhorst_pack
 from ase.dft.kpoints import get_monkhorst_shape
 from gpaw.response.bse import BSE
+from gpaw.mpi import rank, size
 
-
-# kpoint must be Gamma centered if you use symmetry for bse
+# generate kmesh
 kpts =(2,2,2)
 bzk_kc = monkhorst_pack(kpts)
-
 Nk_c = get_monkhorst_shape(bzk_kc)
 
 shift_c = []
@@ -20,50 +19,39 @@ for Nk in Nk_c:
     else:
         shift_c.append(0.)
 
-bzk_kc += shift_c
-        
-
-# no symmetry GS
 atoms = bulk('Si', 'diamond', a=5.431) 
 
-calc = GPAW(h=0.20, kpts=bzk_kc, usesymm=None)      
-atoms.set_calculator(calc)               
-atoms.get_potential_energy()
-calc.write('Si_nosym.gpw','all')
+kpts1 = bzk_kc # not Gamma centered
+kpts2 = bzk_kc + shift_c # Gamma centered
 
-# no symmetry BSE
-eshift = 0.8
-bse = BSE('Si_nosym.gpw',w=np.linspace(0,10,201),
-              q=np.array([0.0001,0,0.0]),optical_limit=True,ecut=150.,
-              nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
-              nbands=8,positive_w=True,use_W=True)
-bse.get_dielectric_function('bse_nosymm.dat')
+for kpts in (kpts1, kpts2):
 
-
-# with symmetry GS
-calc = GPAW(h=0.20, kpts=bzk_kc)      
-atoms.set_calculator(calc)               
-atoms.get_potential_energy()          
-calc.write('Si_sym.gpw','all')
-
-# with symmetry BSE
-eshift = 0.8
-bse = BSE('Si_sym.gpw',w=np.linspace(0,10,201),
-              q=np.array([0.0001,0,0.0]),optical_limit=True,ecut=150.,
-              nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
-              nbands=8,positive_w=True,use_W=True)
-bse.get_dielectric_function('bse_symm.dat')
-
-from pylab import *
-d1 = np.loadtxt('bse_nosymm.dat')
-d2 = np.loadtxt('bse_symm.dat')
-print np.abs(d1[:,2] - d2[:,2]).max()
-print np.abs(d1[:,2] - d2[:,2]).sum()
-#29.080429065
-#277.852820767
-
-plot(d1[:,0],d1[:,2],'-k')
-plot(d2[:,0],d2[:,2],'-r')
+    calc = GPAW(h=0.20, kpts=kpts)      
+    atoms.set_calculator(calc)               
+    atoms.get_potential_energy()
+    calc.write('Si.gpw','all')
+    
+    # no symmetry BSE
+    eshift = 0.8
+    bse = BSE('Si.gpw',w=np.linspace(0,10,201),
+                  q=np.array([0.0001,0,0.0]),optical_limit=True,ecut=150.,
+                  nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
+                  nbands=8,positive_w=True,use_W=True,qsymm=False)
+    bse.get_dielectric_function('bse_nosymm.dat')
+    
+    
+    # with symmetry BSE
+    eshift = 0.8
+    bse = BSE('Si.gpw',w=np.linspace(0,10,201),
+                  q=np.array([0.0001,0,0.0]),optical_limit=True,ecut=150.,
+                  nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
+                  nbands=8,positive_w=True,use_W=True,qsymm=True)
+    bse.get_dielectric_function('bse_symm.dat')
 
 
-#show()
+    d1 = np.loadtxt('bse_nosymm.dat')
+    d2 = np.loadtxt('bse_symm.dat')
+    print np.abs(d1[:,2] - d2[:,2]).max() #0.015336443
+    print np.abs(d1[:,2] - d2[:,2]).sum() #0.217433477941 
+
+
