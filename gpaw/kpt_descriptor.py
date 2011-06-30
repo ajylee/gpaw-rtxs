@@ -326,7 +326,10 @@ class KPointDescriptor:
         ibzq_qc_tmp = []
         ibzq_qc_tmp.append(bzq_qc[-1])
 
-        assert np.abs(op_scc[0] - np.eye(3)).sum() < 1e-8
+        for i, op_cc in enumerate(op_scc):
+            if np.abs(op_cc - np.eye(3)).sum() < 1e-8:
+                identity_iop = i
+                break
 
         ibzq_q_tmp ={}
         iop_q = {}
@@ -347,7 +350,7 @@ class KPointDescriptor:
             except ValueError:
                 ibzq_qc_tmp.append(bzq_qc[i])
                 ibzq_q_tmp[i] = len(ibzq_qc_tmp) - 1
-                iop_q[i] = 0
+                iop_q[i] = identity_iop
                 timerev_q[i] = False
                 diff_qc[i] = np.zeros(3)
 
