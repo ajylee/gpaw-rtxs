@@ -1,5 +1,7 @@
 # creates: graphite.png
 
+import matplotlib
+matplotlib.use('Agg')
 from pylab import *
 import numpy as np
 
