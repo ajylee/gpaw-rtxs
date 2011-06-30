@@ -31,7 +31,8 @@ class BSE(BASECHI):
                  txt=None,
                  optical_limit=False,
                  positive_w=False, # True : use Tamm-Dancoff Approx
-                 use_W=True): # True: include screened interaction kernel
+                 use_W=True, # True: include screened interaction kernel
+                 qsymm=True): 
 
         BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
                          eshift=eshift, ecut=ecut, eta=eta, rpad=rpad,
@@ -43,6 +44,7 @@ class BSE(BASECHI):
         self.nc = nc # conduction band index
         self.nv = nv # valence band index
         self.use_W = use_W
+        self.qsymm = qsymm
 
     def initialize(self):
 
@@ -111,8 +113,17 @@ class BSE(BASECHI):
 
         if self.use_W:
             # q points init
-            self.ibzq_kc = kd.ibzk_kc.copy()
-            self.nq = len(self.ibzq_kc)
+            self.bzq_qc = kd.get_bz_q_points()
+            if not self.qsymm:
+                self.ibzq_qc = self.bzq_qc
+            else:
+                # if use q symmetry, kpoint and qpoint grid should be the same
+                (self.ibzq_qc, self.ibzq_q, self.iop_q,
+                 self.timerev_q, self.diff_qc) = kd.get_ibz_q_points(self.bzq_qc,
+                                                             calc.wfs.symmetry.op_scc)
+                if np.abs(self.bzq_qc - self.bzk_kc).sum() < 1e-8:
+                    assert np.abs(self.ibzq_qc - kd.ibzk_kc).sum() < 1e-8
+            self.nq = len(self.ibzq_qc)
             
         # parallel init
         self.Scomm = world
@@ -146,9 +157,9 @@ class BSE(BASECHI):
         f_kn = self.f_kn
         e_kn = self.e_kn
         ibzk_kc = self.ibzk_kc
-        ibzq_kc = ibzk_kc
+        ibzq_qc = self.ibzq_qc
         bzk_kc = self.bzk_kc
-        bzq_kc = bzk_kc
+        bzq_qc = self.bzq_qc
         kq_k = self.kq_k
         focc_S = self.focc_S
         e_S = self.e_S
@@ -173,7 +184,7 @@ class BSE(BASECHI):
                 del self.phi_qaGp
                 self.phi_qaGp = {}
                 for iq in range(self.nkpt):
-                    q_c = bzq_kc[iq]
+                    q_c = bzq_qc[iq]
                     self.phi_qaGp[iq] = self.get_phi_aGp(q_c)
 
         else:
@@ -208,7 +219,14 @@ class BSE(BASECHI):
                     q_c[np.where(q_c > 0.501)] -= 1.
                     q_c[np.where(q_c < -0.499)] += 1.
 
-                    ibzq, iop, timerev, diff_c = self.kd.find_ibzkpt(op_scc, ibzq_kc, q_c)
+                    if not self.qsymm:
+                        ibzq, iop, timerev, diff_c = self.kd.find_ibzkpt(op_scc, ibzq_qc, q_c)
+                    else:
+                        iq = self.kd.where_is_q(q_c, self.bzq_qc)
+                        ibzq = self.ibzq_q[iq]
+                        iop = self.iop_q[iq]
+                        timerev = self.timerev_q[iq]
+                        diff_c = self.diff_qc[iq]
                     invop = np.int8(np.linalg.inv(op_scc[iop]))
 
                     W_GG_tmp = W_qGG[ibzq]
@@ -308,7 +326,7 @@ class BSE(BASECHI):
         self.phi_qaGp = {}
         
         for iq in range(self.nq):#self.q_start, self.q_end):
-            q = self.ibzq_kc[iq]
+            q = self.ibzq_qc[iq]
             optical_limit=False
             if (np.abs(q) < self.ftol).all():
                 optical_limit=True
@@ -441,10 +459,10 @@ class BSE(BASECHI):
 
             if self.use_W:
                 if optical_limit:
-                    iq = kd.where_is_q(np.zeros(3))
+                    iq = kd.where_is_q(np.zeros(3), self.bzq_qc)
                 else:
-                    iq = kd.where_is_q(q_c)
-                    assert np.abs(self.bzk_kc[iq] - q_c).sum() < 1e-8
+                    iq = kd.where_is_q(q_c, self.bzq_qc)
+                    assert np.abs(self.bzq_qc[iq] - q_c).sum() < 1e-8
                     
                 phi_aGp = self.phi_qaGp[iq]
             else:

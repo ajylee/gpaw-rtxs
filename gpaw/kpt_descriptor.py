@@ -247,6 +247,7 @@ class KPointDescriptor:
                                               kibz_c, kbz_c)
                 return b_g
 
+
     def find_k_plus_q(self, q_c, kpts_k=None):
         """Find the indices of k+q for all kpoints in the Brillouin zone.
         
@@ -301,35 +302,66 @@ class KPointDescriptor:
 
         return kplusq_k
 
+
     def get_bz_q_points(self):
-        """Return the q=k1-k2."""
+        """Return the q=k1-k2. q-mesh is always Gamma-centered."""
+        Nk_c = get_monkhorst_shape(self.bzk_kc)
+        bzq_qc = monkhorst_pack(Nk_c)
         
-        # Get all q-points
-        all_qs = []
-        for k1 in bzk_kc:
-            for k2 in bzk_kc:
-                all_qs.append(k1 - k2)
-        all_qs = np.array(all_qs)
+        shift_c = []
+        for Nk in Nk_c:
+            if Nk % 2 == 0:
+                shift_c.append(0.5 / Nk)
+            else:
+                shift_c.append(0.)
+        
+        bzq_qc += shift_c
+        return bzq_qc
 
-        # Fold q-points into Brillouin zone
-        all_qs[np.where(all_qs > 0.501)] -= 1.
-        all_qs[np.where(all_qs < -0.499)] += 1.
 
-        # Make list of non-identical q-points in full BZ
-        bz_qs = [all_qs[0]]
-        for q_a in all_qs:
-            q_in_list = False
-            for q_b in bz_qs:
-                if (abs(q_a[0] - q_b[0]) < 0.01 and
-                    abs(q_a[1] - q_b[1]) < 0.01 and
-                    abs(q_a[2] - q_b[2]) < 0.01):
-                    q_in_list = True
-                    break
-            if q_in_list == False:
-                bz_qs.append(q_a)
-        self.bzq_kc = bz_qs
+    def get_ibz_q_points(self, bzq_qc, op_scc):
+        """Return ibz q points and the corresponding symmetry operations that
+        work for k-mesh as well."""
 
-        return
+        ibzq_qc_tmp = []
+        ibzq_qc_tmp.append(bzq_qc[-1])
+
+        assert np.abs(op_scc[0] - np.eye(3)).sum() < 1e-8
+
+        ibzq_q_tmp ={}
+        iop_q = {}
+        timerev_q = {}
+        diff_qc = {}
+        for i in range(len(bzq_qc)-1,-1,-1): #  loop opposite to kpoint
+            try:
+                ibzk, iop, timerev, diff_c = self.find_ibzkpt(op_scc, ibzq_qc_tmp, bzq_qc[i])
+                invop = np.int8(np.linalg.inv(op_scc[iop]))
+                for bzk_c in self.bzk_kc:
+                    k_c = np.dot(invop, bzk_c)
+                    self.where_is_q(k_c, self.bzk_kc)
+                    
+                ibzq_q_tmp[i] = ibzk
+                iop_q[i] = iop
+                timerev_q[i] = timerev
+                diff_qc[i] = diff_c                
+            except ValueError:
+                ibzq_qc_tmp.append(bzq_qc[i])
+                ibzq_q_tmp[i] = len(ibzq_qc_tmp) - 1
+                iop_q[i] = 0
+                timerev_q[i] = False
+                diff_qc[i] = np.zeros(3)
+
+        # reverse the order.
+        nq = len(ibzq_qc_tmp)
+        ibzq_qc = np.zeros((nq,3))
+        ibzq_q = np.zeros(len(bzq_qc),dtype=int)
+        for i in range(nq):
+            ibzq_qc[i] = ibzq_qc_tmp[nq-i-1]
+        for i in range(len(bzq_qc)):
+            ibzq_q[i] = nq - ibzq_q_tmp[i] - 1
+
+        return ibzq_qc, ibzq_q, iop_q, timerev_q, diff_qc
+
 
     def find_ibzkpt(self, symrel, ibzk_kc, bzk_c):
         """Given a certain kpoint, find its index in IBZ and related symmetry operations."""
@@ -354,35 +386,32 @@ class KPointDescriptor:
                     find = True
                     timerev = True
                     break
-                
+        
             if find == True:
                 break
-            
+
         if find == False:        
-            print bzk_c
-            print ibzk_kc
-            raise ValueError('Cant find corresponding IBZ kpoint!')
-    
+            raise ValueError('Cant find corresponding IBZ kpoint!')    
         return ibzkpt, iop, timerev, diff_c.round()
 
 
-    def where_is_q(self, q_c):
+    def where_is_q(self, q_c, bzq_qc):
         """Find the index of q points in BZ."""
 
         q_c[np.where(q_c > 0.501)] -= 1
         q_c[np.where(q_c < -0.499)] += 1
 
         found = False
-        for ik in range(len(self.bzk_kc)):
-            if (np.abs(self.bzk_kc[ik] - q_c) < 1e-8).all():
+        for ik in range(len(bzq_qc)):
+            if (np.abs(bzq_qc[ik] - q_c) < 1e-8).all():
                 found = True
                 return ik
                 break
             
         if found is False:
-            print(self.bzk_kc, q_c)
             raise ValueError('q-points can not be found!')
-        
+
+
     def get_count(self, rank=None):
         """Return the number of ks-pairs which belong to a given rank."""
 

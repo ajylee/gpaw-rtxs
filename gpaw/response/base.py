@@ -244,9 +244,6 @@ class BASECHI:
                 nabla_iiv = setups[a].nabla_iiv
                 phi_aGp[a][0] = -1j * (np.dot(nabla_iiv, qq_v)).ravel()
 
-#        self.phi_aGp = phi_aGp
-        self.printtxt('')
-
         return phi_aGp
 
 
