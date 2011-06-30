@@ -1135,6 +1135,27 @@ class Transport_Plotter:
             data1 = cPickle.load(file('temperary_data/KC_1_DC_0AD_bias_0','r'))
 	    output = [data['charge'], data1['charge']]
 	    output=np.sum(output,axis=1)
+	elif name == 'current':
+            # temperary lines
+	    ee = np.linspace(-5,5,201) 	
+	    interval = 10. / 200
+	    kt = 0.02
+	    lead_ef1 = data['bias'][0]
+	    lead_ef2 = data['bias'][1]
+	    ns, npk, npl, ne = data['transmission_dimension']
+	    tc = []
+	    for i in range(kpt_size):
+	        ltc = []
+	        for j in range(domain_size):
+ 	            ltc.append(data['K_' + str(i) + 'D_' + str(j) + '_tc'])
+	    	ltc = np.concatenate(ltc, axis=-1)
+		tc.append(ltc)
+	    tc = np.array(tc)
+	    tc.shape = (ns, npk,  ne)
+	    tc = np.sum(tc, axis=1) / npk
+	    fd = fermidistribution
+            fermi_factor = fd(ee - lead_ef1, kt) - fd(ee - lead_ef2, kt)
+            output = np.sum(tc * fermi_factor * interval, axis=-1)
 	else:
 	    output = data[name]
         return output	    
