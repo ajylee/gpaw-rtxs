@@ -220,38 +220,45 @@ class BSE(BASECHI):
                     q_c[np.where(q_c < -0.499)] += 1.
 
                     if not self.qsymm:
-                        ibzq, iop, timerev, diff_c = self.kd.find_ibzkpt(op_scc, ibzq_qc, q_c)
+                        ibzq = self.kd.where_is_q(q_c, self.bzq_qc)
+                        W_GG = W_qGG[ibzq].copy()
                     else:
                         iq = self.kd.where_is_q(q_c, self.bzq_qc)
                         ibzq = self.ibzq_q[iq]
                         iop = self.iop_q[iq]
                         timerev = self.timerev_q[iq]
                         diff_c = self.diff_qc[iq]
-                    invop = np.int8(np.linalg.inv(op_scc[iop]))
+                        invop = np.linalg.inv(op_scc[iop])
+                        if len(ibzk_kc) == len(ibzq_qc):
+                            if np.abs(ibzq_qc - ibzk_kc).sum() < 1e-8:
+                                ibzq1, iop1, timerev1, diff1_c = self.kd.find_ibzkpt(op_scc, ibzq_qc, q_c)
+                                assert ibzq == ibzq1
+                                assert iop == iop1
+                                assert timerev == timerev1
 
-                    W_GG_tmp = W_qGG[ibzq]
-                    Gindex = np.zeros(self.npw,dtype=int)
-
-                    for iG in range(self.npw):
-                        G_c = self.Gvec_Gc[iG]
-                        if timerev:
-                            RotG_c = -np.int8(np.dot(invop, G_c+diff_c))
-                        else:
-                            RotG_c = np.int8(np.dot(invop, G_c+diff_c))
-                        tmp_G = np.abs(self.Gvec_Gc - RotG_c).sum(axis=1)
-                        try:
-                            Gindex[iG] = np.where(tmp_G < 1e-5)[0][0]
-                        except:
-                            noGmap += 1
-                            Gindex[iG] = -1
-
-                    W_GG = np.zeros_like(W_GG_tmp)
-                    for iG in range(self.npw):
-                        for jG in range(self.npw):
-                            if Gindex[iG] == -1 or Gindex[jG] == -1:
-                                W_GG[iG, jG] = 0
+                        W_GG_tmp = W_qGG[ibzq]
+                        Gindex = np.zeros(self.npw,dtype=int)
+    
+                        for iG in range(self.npw):
+                            G_c = self.Gvec_Gc[iG]
+                            if timerev:
+                                RotG_c = -np.int8(np.dot(invop, G_c+diff_c).round())
                             else:
-                                W_GG[iG, jG] = W_GG_tmp[Gindex[iG], Gindex[jG]]
+                                RotG_c = np.int8(np.dot(invop, G_c+diff_c).round())
+                            tmp_G = np.abs(self.Gvec_Gc - RotG_c).sum(axis=1)
+                            try:
+                                Gindex[iG] = np.where(tmp_G < 1e-5)[0][0]
+                            except:
+                                noGmap += 1
+                                Gindex[iG] = -1
+    
+                        W_GG = np.zeros_like(W_GG_tmp)
+                        for iG in range(self.npw):
+                            for jG in range(self.npw):
+                                if Gindex[iG] == -1 or Gindex[jG] == -1:
+                                    W_GG[iG, jG] = 0
+                                else:
+                                    W_GG[iG, jG] = W_GG_tmp[Gindex[iG], Gindex[jG]]
                     
                     if k1 == k2:
                         if (n1==n2) or (m1==m2):

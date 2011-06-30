@@ -4,18 +4,19 @@ from ase.structure import bulk
 from ase.units import Hartree, Bohr
 from gpaw import GPAW, FermiDirac
 from gpaw.response.bse import BSE
-
+from ase.dft import monkhorst_pack
 
 GS = 1
 bse = 1
 check = 1
 
 if GS:
-
+    kpts = (4,4,4)
+ 
     a = 5.431 # From PRB 73,045112 (2006)
     atoms = bulk('Si', 'diamond', a=a)
     calc = GPAW(h=0.2,
-                kpts=(4,4,4),
+                kpts=kpts,
                 occupations=FermiDirac(0.001),
                 nbands=8,
                 convergence={'bands':'all'})
@@ -24,6 +25,7 @@ if GS:
     atoms.get_potential_energy()
     calc.write('Si.gpw','all')
 
+
 if bse:
 
     eshift = 0.8
@@ -31,7 +33,7 @@ if bse:
     bse = BSE('Si.gpw',w=np.linspace(0,10,201),
               q=np.array([0.0001,0,0.0]),optical_limit=True,ecut=50.,
               nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
-              nbands=8,positive_w=True,use_W=True)
+              nbands=8,positive_w=True,use_W='W_qGG.pckl',qsymm=False)
     
     bse.get_dielectric_function('Si_bse.dat')
 
@@ -47,8 +49,10 @@ if check:
     else:
         raise ValueError('Absorption peak not correct ! ')
 
-    if np.abs(d[Nw1, 2] - 53.2632489785) > 1e-1 \
-        or np.abs(d[Nw2, 2] -  63.4535530656) > 1e-1:
+    if np.abs(d[Nw1, 2] - 52.6078505001) > 1e-1 \
+        or np.abs(d[Nw2, 2] -  61.4560345532) > 1e-1:
         print d[Nw1, 2], d[Nw2, 2]
         raise ValueError('Please check spectrum strength ! ')
+
+#52.7387629051 61.1251454247
 
