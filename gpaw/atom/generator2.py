@@ -15,7 +15,6 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
 from gpaw.basis_data import Basis
-#from gpaw.hgh import null_xc_correction
 from gpaw.setup_data import SetupData
 from gpaw.version import version
 
@@ -54,6 +53,7 @@ class PAWWaves:
         self.c_np = []
         for n in range(N):
             phit_ng[n], c_p = rgd.pseudize(phi_ng[n], gcut, self.l, points=6)
+            print gcut,self.l,n,c_p
             self.c_np.append(c_p)
             self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
             
@@ -66,14 +66,19 @@ class PAWWaves:
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
     def construct_projectors(self, vtr_g):
+        N = len(self)
+        if N == 0:
+            self.pt_ng = []
+            return
+
         rgd = self.rgd
         phit_ng = self.phit_ng
-        N = len(phit_ng)
         gcut = rgd.ceil(self.rcut)
         r_g = rgd.r_g
         l = self.l
         P = len(self.c_np[0]) - 1
         p = np.arange(2 * P, 0, -2) + l
+
         A_nn = np.empty((N, N))
         q_ng = rgd.zeros(N)
         for n in range(N):
@@ -91,6 +96,8 @@ class PAWWaves:
         self.dH_nn = self.e_n * self.dS_nn - A_nn.T
 
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
+        if len(self) == 0:
+            return
         self.dekin_nn = (self.rgd.integrate(self.phi_ng[:, np.newaxis] *
                                            self.phi_ng *
                                            vr_g, -1) / (4 * pi) -
@@ -199,11 +206,11 @@ class PAWSetupGenerator:
             for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
                                   waves.dS_nn.diagonal()):
                 if n == -1:
-                    self.log('  %s             %10.6f %10.5f %10.2f' %
+                    self.log('  %s         %10.6f %10.5f   %19.2f' %
                              ('spdf'[l], e, e * Hartree, waves.rcut))
                 else:
                     self.log(
-                        ' %d%s     %2d       %10.6f %10.5f    %5.3f %9.2f' %
+                        ' %d%s     %2d  %10.6f %10.5f      %5.3f %9.2f' %
                              (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
                               waves.rcut))
                     
@@ -262,17 +269,35 @@ class PAWSetupGenerator:
         plt.legend()
         
         plt.figure()
-        for waves in self.waves_l:
-            for phi_g, phit_g in zip(waves.phi_ng, waves.phit_ng):
-                plt.plot(r_g, phi_g * r_g)
-                plt.plot(r_g, phit_g * r_g, '--')
+        i = 0
+        for l, waves in enumerate(self.waves_l):
+            for n, e, phi_g, phit_g in zip(waves.n_n, waves.e_n,
+                                           waves.phi_ng, waves.phit_ng):
+                if n == -1:
+                    gc = self.rgd.ceil(waves.rcut)
+                    name = '*%s (%.2f Ha)' % ('spdf'[l], e)
+                else:
+                    gc = len(self.rgd)
+                    name = '%d%s (%.2f Ha)' % (n + l + 1, 'spdf'[l], e)
+                plt.plot(r_g[:gc], (phi_g * r_g)[:gc], color=colors[i],
+                         label=name)
+                plt.plot(r_g[:gc], (phit_g * r_g)[:gc], '--', color=colors[i])
+                i += 1
         plt.axis(xmax=3 * self.rcmax)
+        plt.legend()
 
         plt.figure()
-        for waves in self.waves_l:
-            for pt_g in waves.pt_ng:
-                plt.plot(r_g, pt_g * r_g)
-        plt.axis(xmax=3 * self.rcmax)
+        i = 0
+        for l, waves in enumerate(self.waves_l):
+            for n, e, pt_g in zip(waves.n_n, waves.e_n, waves.pt_ng):
+                if n == -1:
+                    name = '*%s (%.2f Ha)' % ('spdf'[l], e)
+                else:
+                    name = '%d%s (%.2f Ha)' % (n + l + 1, 'spdf'[l], e)
+                plt.plot(r_g, pt_g * r_g, color=colors[i], label=name)
+                i += 1
+        plt.axis(xmax=self.rcmax)
+        plt.legend()
 
     def logarithmic_derivative(self, l, energies, rcut):
         rgd = self.rgd
@@ -429,6 +454,10 @@ def main(AEA=AllElectronAtom):
             if (isinstance(n, int) and
                 (l not in aea.f_lsn or n - l > len(aea.f_lsn[l][0]))):
                 aea.add(n, l, 0)
+
+    for l in range(lmax):
+        if l not in states:
+            states[l] = []
 
     aea.initialize()
     aea.run()

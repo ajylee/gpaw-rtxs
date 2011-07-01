@@ -14,7 +14,10 @@ class RadialGridDescriptor:
         self.N = len(r_g)
         self.dv_g = 4 * pi * r_g**2 * dr_g
         self.default_spline_points = default_spline_points
-        
+
+    def __len__(self):
+        return self.N
+
     def zeros(self, x=()):
         a_xg = self.empty(x)
         a_xg[:] = 0

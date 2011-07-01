@@ -22,7 +22,7 @@ from gpaw.xc import XC
 c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
 
 # Colors for s, p, d, f, g:
-colors = 'rgbky'
+colors = 'krgbycm'
 
 
 class GaussianBasis:
@@ -174,29 +174,36 @@ class Channel:
         l = self.l
         d2gdr2_g = rgd.d2gdr2()
 
+        r_g = rgd.r_g.copy()
+
+        x0_g = 2 * (e * r_g - vr_g)
+        x1_g = 2 * (l + 1) / rgd.dr_g + r_g * rgd.d2gdr2()
+        x2_g = r_g / rgd.dr_g**2
+
+        yp1_g = x1_g / 2 + x2_g
+        ym1_g = (x1_g / 2 - x2_g) / yp1_g
+        y_g = (2 * x2_g - x0_g) / yp1_g
+        if pt_g is not None:
+            y0_g = 2 * pt_g * r_g / yp1_g
+        else:
+            y0_g = rgd.zeros()
+
         g = 1
         agm1 = 1
         u_g[0] = 0.0
         ag = agm1 + vr_g[0] * rgd.dr_g[0]
-        x = 0.0
 
         while True:
-            r = rgd.r_g[g]
-            u_g[g] = ag * r**(l + 1)
-            dr = rgd.dr_g[g]
-            x0 = 2 * (e * r - vr_g[g])
-            x1 = 2 * (l + 1) / dr + r * d2gdr2_g[g]
-            x2 = r / dr**2
-            if pt_g is not None:
-                x = 2 * pt_g[g] * r
-            agp1 = ((x + agm1 * (x1 / 2 - x2) + ag * (2 * x2 - x0)) /
-                    (x1 / 2 + x2))
+            u_g[g] = ag * r_g[g]**(l + 1)
+            agp1 = y0_g[g] + agm1 * ym1_g[g] + ag * y_g[g]
             if g == g0:
                 break
             g += 1
             agm1 = ag
             ag = agp1
 
+        r = r_g[g]
+        dr = rgd.dr_g[g]
         da = 0.5 * (agp1 - agm1)
         dudr = (l + 1) * r**l * ag + r**(l + 1) * da / dr
 
@@ -204,7 +211,17 @@ class Channel:
     
     def integrate_inwards(self, u_g, rgd, vr_g, g0, e):
         l = self.l
-        d2gdr2_g = rgd.d2gdr2()
+
+        r_g = rgd.r_g.copy()
+        r_g[0] = 1.0
+
+        x0_g = 2 * (e - 0.5 * l * (l + 1) / r_g**2 - vr_g / r_g)
+        x1_g = rgd.d2gdr2()
+        x2_g = 1 / rgd.dr_g**2
+
+        ym1_g = x1_g / 2 - x2_g
+        yp1_g = (x1_g / 2 + x2_g) / ym1_g
+        y_g = (x0_g - 2 * x2_g) / ym1_g
 
         g = len(u_g) - 2
         agp1 = np.exp(-(-2 * e)**0.5 * rgd.r_g[-1])
@@ -212,14 +229,8 @@ class Channel:
         ag = np.exp(-(-2 * e)**0.5 * rgd.r_g[-2])
 
         while True:
-            r = rgd.r_g[g]
             u_g[g] = ag
-            dr = rgd.dr_g[g]
-            x0 = 2 * (e - 0.5 * l * (l + 1) / r**2 - vr_g[g] / r)
-            x1 = d2gdr2_g[g]
-            x2 = 1 / dr**2
-            agm1 = (agp1 * (x1 / 2 + x2) +
-                    ag * (x0 - 2 * x2)) / (x1 / 2 - x2)
+            agm1 = agp1 * yp1_g[g] + ag * y_g[g]
             if g == g0:
                 break
             g -= 1
@@ -227,7 +238,7 @@ class Channel:
             ag = agm1
 
         da = 0.5 * (agp1 - agm1)
-        dudr = da / dr
+        dudr = da / rgd.dr_g[g]
 
         return dudr
 
@@ -476,6 +487,7 @@ class AllElectronAtom:
         
         for iter in range(maxiter):
             self.log('.', end='')
+            self.fd.flush()
             if iter > 1:
                 self.vr_sg *= mix
                 self.vr_sg += (1 - mix) * vr_old_sg
@@ -549,7 +561,6 @@ class AllElectronAtom:
 
     def plot_wave_functions(self, rc=4.0):
         import matplotlib.pyplot as plt
-        colors = 'krgbycm'
         for ch in self.channels:
             for n in range(len(ch.f_n)):
                 fr_g = ch.basis.expand(ch.C_nb[n]) * self.rgd.r_g

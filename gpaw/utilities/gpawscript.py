@@ -55,7 +55,7 @@ def build_parser():
 
     behavior = optparse.OptionGroup(parser, 'Behavior')
     behavior.add_option('--read', action='store_true',
-                        help="Don't alculate anything - read from file.")
+                        help="Don't calculate anything - read from file.")
     behavior.add_option('-p', '--plot', action='store_true',
                         help='Plot results.')
     behavior.add_option('-G', '--gui', action='store_true',
