@@ -16,7 +16,6 @@ import ase.units as units
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
-from gpaw.utilities.progressbar import ProgressBar
 
 
 # Velocity of light in atomic units:
@@ -171,7 +170,7 @@ class Channel:
         f_n = self.f_n
         return np.dot(f_n, self.e_n[:len(f_n)])
 
-    def integrate_outwards(self, u_g, rgd, vr_g, g0, e, p=lambda x: 0.0):
+    def integrate_outwards(self, u_g, rgd, vr_g, g0, e, pt_g=None):
         l = self.l
         d2gdr2_g = rgd.d2gdr2()
 
@@ -179,6 +178,7 @@ class Channel:
         agm1 = 1
         u_g[0] = 0.0
         ag = agm1 + vr_g[0] * rgd.dr_g[0]
+        x = 0.0
 
         while True:
             r = rgd.r_g[g]
@@ -187,8 +187,10 @@ class Channel:
             x0 = 2 * (e * r - vr_g[g])
             x1 = 2 * (l + 1) / dr + r * d2gdr2_g[g]
             x2 = r / dr**2
-            agp1 = (agm1 * (x1 / 2 - x2) +
-                    ag * (2 * x2 - x0)) / (x1 / 2 + x2)
+            if pt_g is not None:
+                x = 2 * pt_g[g] * r
+            agp1 = ((x + agm1 * (x1 / 2 - x2) + ag * (2 * x2 - x0)) /
+                    (x1 / 2 + x2))
             if g == g0:
                 break
             g += 1
@@ -470,15 +472,14 @@ class AllElectronAtom:
             self.initialize()
 
         dn = self.Z
-        pb = ProgressBar(log(dnmax / dn), 0, 53, self.fd)
         self.log()
         
         for iter in range(maxiter):
+            self.log('.', end='')
             if iter > 1:
                 self.vr_sg *= mix
                 self.vr_sg += (1 - mix) * vr_old_sg
                 dn = self.rgd.integrate(abs(self.n_sg - n_old_sg).sum(0))
-                pb(log(dnmax / dn))
                 if dn <= dnmax:
                     self.log('\nConverged in', iter, 'steps')
                     break
@@ -500,13 +501,12 @@ class AllElectronAtom:
         self.write_energies()
             
     def write_states(self):
-        self.log('=====================================================')
         self.log('\n state  occupation         eigenvalue          <r>')
         if self.dirac:
             self.log(' nl(j)               [Hartree]        [eV]    [Bohr]')
         else:
             self.log(' nl                  [Hartree]        [eV]    [Bohr]')
-        self.log('=====================================================')
+        self.log('-----------------------------------------------------')
         states = []
         for ch in self.channels:
             for n, f in enumerate(ch.f_n):
@@ -520,11 +520,10 @@ class AllElectronAtom:
             rave = self.rgd.integrate(n_g, 1)
             self.log(' %-7s  %6.3f %13.6f  %13.5f %6.3f' %
                      (name, ch.f_n[n], e, e * units.Hartree, rave))
-        self.log('=====================================================')
 
     def write_energies(self):
         self.log('\nEnergies:          [Hartree]           [eV]')
-        self.log('============================================')
+        self.log('--------------------------------------------')
         for text, e in [('kinetic      ', self.ekin),
                         ('coulomb (e-e)', self.eH),
                         ('coulomb (e-n)', self.eZ),
@@ -532,7 +531,6 @@ class AllElectronAtom:
                         ('total        ',
                          self.ekin + self.eH + self.eZ + self.exc)]:
             self.log(' %s %+13.6f  %+13.5f' % (text, e, units.Hartree * e))
-        self.log('============================================')
 
     def get_channel(self, l=None, s=0, k=None):
         if self.dirac:

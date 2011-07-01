@@ -226,7 +226,7 @@ class PAWSetupGenerator:
         self.log('Core electrons:', self.ncore)
         self.log('Pseudo core electrons: %.3f' % self.rgd.integrate(self.nct_g))
         
-    def generate(self):
+    def generate(self, old=True):
         self.log('Generating PAW setup.')
         
         self.calculate_core_density()
@@ -234,17 +234,13 @@ class PAWSetupGenerator:
         self.nt_g = self.nct_g.copy()
         self.Q = -self.aea.Z + self.ncore - self.npseudocore
 
-        self.vtr_g = self.find_local_potential()
+        if not old:
+            self.vtr_g = self.find_local_potential()
 
-        self.log('Projectors:')
-        self.log(
-            '================================================================')
-        self.log(
-            ' state  occupation             energy        norm        rcut')
-        self.log(
-            ' nl                  [Hartree]  [eV]      [electrons]   [Bohr]')
-        self.log(
-            '================================================================')
+        self.log('\nProjectors:')
+        self.log(' state  occ         energy             norm        rcut')
+        self.log(' nl            [Hartree]  [eV]      [electrons]   [Bohr]')
+        self.log('----------------------------------------------------------')
         for waves in self.waves_l:
             waves.pseudize()
             self.nt_g += waves.nt_g
@@ -252,14 +248,13 @@ class PAWSetupGenerator:
             for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
                                   waves.dS_nn.diagonal()):
                 if n == -1:
-                    self.log('  %s                 %10.6f %10.5f %10.2f' %
+                    self.log('  %s             %10.6f %10.5f %10.2f' %
                              ('spdf'[waves.l], e, e * Hartree, waves.rcut))
                 else:
                     self.log(
-                        ' %d%s        %2d       %10.6f %10.5f    %5.3f %4.2f' %
+                        ' %d%s     %2d       %10.6f %10.5f    %5.3f %9.2f' %
                              (n, 'spdf'[waves.l], f, e, e * Hartree, 1 - ds,
                               waves.rcut))
-        self.log('=====================================================')
                     
         self.rhot_g = self.nt_g + self.Q * self.ghat_g
         self.vHtr_g = self.rgd.poisson(self.rhot_g)
@@ -269,24 +264,17 @@ class PAWSetupGenerator:
         self.exct = self.aea.xc.calculate_spherical(
             self.rgd, self.nt_g.reshape((1, -1)), self.vxct_g.reshape((1, -1)))
 
-        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+        if old:
+            vtr_g = self.vHtr_g + self.vxct_g * self.rgd.r_g
+            self.vtr_g = self.rgd.pseudize(vtr_g, self.gcmax, 1, 4)[0]
+            self.v0r_g = self.vtr_g - vtr_g
+        else:
+            self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
 
         for waves in self.waves_l:
             waves.construct_projectors(self.vtr_g)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
-
-    def generate2(self):
-        ntold_g = 0.0
-        while True:
-            self.update()
-            dn = self.rgd.integrate(abs(self.nt_g - ntold_g))
-            sys.stdout.write('.')
-            sys.stdout.flush()
-            if dn < 1.0e-7:
-                break
-            ntold_g = self.nt_g
-        print
 
     def find_local_potential(self):
         l = len(self.waves_l)
@@ -295,7 +283,6 @@ class PAWSetupGenerator:
         self.log('Local potential matching %s-state at %.3f eV' %
                  ('spdf'[l], e * Hartree))
         
-        vr = interp1d(self.rgd.r_g, self.aea.vr_sg[0], 'cubic')
         gc = self.gcmax + 20
         ch = Channel(l)
         phi_g = self.rgd.zeros()
@@ -344,39 +331,45 @@ class PAWSetupGenerator:
         plt.axis(xmax=3 * self.rcmax)
 
     def logarithmic_derivative(self, l, energies, rcut):
-        vtr = interp1d(self.rgd.r_g, self.vtr_g, 'cubic')
+        rgd = self.rgd
         ch = Channel(l)
-        gcut = self.rgd.round(rcut)
-        r_g = self.rgd.r_g[:gcut + 1]
+        gcut = rgd.round(rcut)
 
         if l < len(self.waves_l):
             # Nonlocal PAW stuff:
             waves = self.waves_l[l]
-            pt_n = [interp1d(self.rgd.r_g, -pt_g, 'cubic')
-                    for pt_g in waves.pt_ng]
+            pt_ng = waves.pt_ng
             dH_nn = waves.dH_nn
             dS_nn = waves.dS_nn
-            N = len(pt_n)
+            N = len(pt_ng)
         else:
             N = 0
 
-        u_xg = self.rgd.zeros(2)
-        u_nxg = self.rgd.zeros((N, 2))
+        u_g = rgd.zeros()
+        u_ng = rgd.zeros(N)
+        dudr_n = np.empty(N)
+
         logderivs = []
         for e in energies:
-            u_xg[:, :gcut + 1] = ch.integrate_outwards(vtr, r_g, e)
+            dudr = ch.integrate_outwards(u_g, rgd, self.vtr_g, gcut, e)
+            u = u_g[gcut]
+            
             if N:
-                u_nxg[:, :, :gcut + 1] = [ch.integrate_outwards(vtr, r_g,
-                                                                e, pt)
-                                          for pt in pt_n]
+                for n in range(N):
+                    dudr_n[n] = ch.integrate_outwards(u_ng[n], rgd,
+                                                      self.vtr_g, gcut, e,
+                                                      pt_ng[n])
+            
                 A_nn = dH_nn - e * dS_nn
-                pt_ng = -self.waves_l[l].pt_ng
-                B_nn = self.rgd.integrate(pt_ng * u_nxg[:, :1], -1) / (4 * pi)
-                c_n  = self.rgd.integrate(pt_ng * u_xg[0], -1) / (4 * pi)
-                d_n = np.linalg.solve(np.dot(A_nn, B_nn) + np.eye(N),
+                B_nn = rgd.integrate(pt_ng * u_ng[:, np.newaxis], -1)
+                c_n  = rgd.integrate(pt_ng * u_g, -1)
+                d_n = np.linalg.solve(np.dot(A_nn, B_nn) - 4 * pi * np.eye(N),
                                       np.dot(A_nn, c_n))
-                u_xg -= np.dot(u_nxg.T, d_n).T
-            logderivs.append(u_xg[1, gcut] / u_xg[0, gcut])
+                u -= np.dot(u_ng[:, gcut], d_n)
+                dudr -= np.dot(dudr_n, d_n)
+            
+            logderivs.append(dudr / u)
+
         return logderivs
     
     def make_paw_setup(self):

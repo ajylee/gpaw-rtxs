@@ -80,11 +80,13 @@ class RadialGridDescriptor:
     def pseudize(self, a_g, gc, l=0, points=4):
         """Construct smooth continuation of a_g for g<gc.
         
-        Returns (b_g, c_p) such that b_g=a_g for g >= gc::
+        Returns (b_g, c_p) such that b_g=a_g for g >= gc and::
         
-                   P-1      2(P-1-p)+l
-            b(r) = Sum c_p r 
-                   p=0
+                P-1      2(P-1-p)+l
+            b = Sum c_p r 
+             g  p=0      g
+
+        for g < gc+P.
         """
         assert isinstance(gc, int) and gc > 10
         
