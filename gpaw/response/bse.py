@@ -157,15 +157,17 @@ class BSE(BASECHI):
         f_kn = self.f_kn
         e_kn = self.e_kn
         ibzk_kc = self.ibzk_kc
-        ibzq_qc = self.ibzq_qc
+      #  ibzq_qc = self.ibzq_qc
         bzk_kc = self.bzk_kc
-        bzq_qc = self.bzq_qc
+#        bzq_qc = self.bzq_qc
         kq_k = self.kq_k
         focc_S = self.focc_S
         e_S = self.e_S
         op_scc = calc.wfs.symmetry.op_scc
 
         if self.use_W:
+            bzq_qc=self.bzq_qc
+            ibzq_qc = self.ibzq_qc
             if type(self.use_W) is str:
                 # read 
                 data = pickle.load(open(self.use_W))
