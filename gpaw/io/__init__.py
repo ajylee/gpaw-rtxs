@@ -121,6 +121,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if paw.forces.F_av is not None:
             w.add('CartesianForces', ('natoms', '3'), paw.forces.F_av,
                   units=(-1, 1, 0))
+        w.add('DipoleMoment', ('3',),
+              density.finegd.calculate_dipole_moment(density.rhot_g),
+              units=(1, 1, 0))
 
         # Write the k-points:
         if wfs.kd.N_c is not None:
@@ -544,6 +547,7 @@ def read(paw, reader):
         energy_error = r['EnergyError']
         if energy_error is not None:
             paw.scf.energies = [Etot, Etot + energy_error, Etot]
+        wfs.eigensolver.error = r['EigenstateError']
     else:
         paw.scf.converged = r['Converged']
 
@@ -588,12 +592,14 @@ def read(paw, reader):
     nbands = r.dimension('nbands')
     nslice = wfs.bd.get_slice()
 
-    if (nibzkpts == len(wfs.ibzk_kc) and
-        nbands == band_comm.size * wfs.mynbands):
-
+    if (nibzkpts != len(wfs.ibzk_kc) or
+        nbands != band_comm.size * wfs.mynbands):
+        wfs.eigensolver.error = np.inf
+    else:
         # Verify that symmetries for for k-point reduction hasn't changed:
-        assert np.abs(r.get('IBZKPoints')-wfs.kd.ibzk_kc).max() < 1e-12
-        assert np.abs(r.get('IBZKPointWeights')-wfs.kd.weight_k).max() < 1e-12
+        assert np.abs(r.get('IBZKPoints') - wfs.kd.ibzk_kc).max() < 1e-12
+        assert np.abs(r.get('IBZKPointWeights') -
+                      wfs.kd.weight_k).max() < 1e-12
 
         for kpt in wfs.kpt_u:
             # Eigenvalues and occupation numbers:
@@ -611,9 +617,6 @@ def read(paw, reader):
                     kpt.ne_o[o] = r.get('LinearExpansionOccupations',  s, k, o)
                     c_n = r.get('LinearExpansionCoefficients', s, k, o)
                     kpt.c_on[o,:] = c_n[nslice]
-
-        if version > 0.3:
-            wfs.eigensolver.error = r['EigenstateError']
 
         if (r.has_array('PseudoWaveFunctions') and
             paw.input_parameters.mode == 'fd'):
