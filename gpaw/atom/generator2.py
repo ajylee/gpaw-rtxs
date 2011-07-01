@@ -99,60 +99,6 @@ class PAWWaves:
                                            vtr_g, -1) / (4 * pi) -
                         self.dH_nn)
 
-    def solve(self, vtr_g, s_g):
-        rgd = self.rgd
-        r_g = rgd.r_g
-
-        phi_ng = self.phi_ng
-        N = len(phi_ng)
-        phit_ng = self.phit_ng = rgd.empty(N)
-        pt_ng = self.pt_ng = rgd.empty(N)
-        
-        s_kg = [s_g, s_g * r_g**2]
-
-        
-        gcut = rgd.get_index(self.rcut)
-        
-        vtr = interp1d(r_g, vtr_g, 'cubic')
-        
-        #self.e_n[1] = 1.5
-        for n in range(N):
-            self.ch.integrate_outwards(u, rgd, vtr_g, gcut + 10, self.e_n[n])
-            u[1:]/=r_g[1:]
-        a_nb = []
-        s_nb = []
-        for n in range(N):
-            e = self.e_n[n]
-            a_kb = [np.linalg.solve(A_bb - e * np.eye(len(A_bb)), s_b)
-                    for s_b in s_kb]
-            phit_kg = np.array([self.basis.expand(a_b) for a_b in a_kb])
-            b_k = np.linalg.solve(phit_kg[:, gcut:gcut + 2].T,
-                                  phi_ng[n][gcut:gcut + 2])
-            a_nb.append(np.dot(b_k, a_kb))
-            s_nb.append(np.dot(b_k, s_kb))
-            phit_ng[n] = np.dot(b_k, phit_kg)
-            phit_ng[n, gcut + 2:] = phi_ng[n][gcut + 2:]
-        
-        A_nn = np.inner(s_nb, a_nb)
-        C_nn = np.linalg.inv(A_nn)
-        
-        pt_ng[:] = np.array([self.basis.expand(s_b)
-                             for s_b in np.dot(C_nn, s_nb)])
-        
-        self.dS_nn = np.empty((N, N))
-        for n1 in range(N):
-            for n2 in range(N):
-                self.dS_nn[n1, n2] = rgd.integrate(
-                    phi_ng[n1] * phi_ng[n2] -
-                    phit_ng[n1] * phit_ng[n2]) / (4 * pi)
-                #print rgd.integrate(phit_ng[n1] * pt_ng[n2]) / (4 * pi)
-
-        self.nt_g = self.phit_ng[0]**2 / (4 * pi)
-
-        self.dH_nn = np.dot(self.dS_nn, np.diag(self.e_n[:N])) - A_nn.T
-        self.Q = self.dS_nn[0, 0]
-        print A_nn,C_nn, pt_ng[0,0],self.dS_nn,self.dH_nn
-
 
 class PAWSetupGenerator:
     def __init__(self, aea, states, radii, fd=sys.stdout):
@@ -165,6 +111,8 @@ class PAWSetupGenerator:
         if fd is None:
             fd = devnull
         self.fd = fd
+
+        self.log('Generating PAW setup.')
 
         self.rcmax = max(radii)
         self.gcmax = self.rgd.ceil(self.rcmax)
@@ -226,36 +174,15 @@ class PAWSetupGenerator:
         self.log('Core electrons:', self.ncore)
         self.log('Pseudo core electrons: %.3f' % self.rgd.integrate(self.nct_g))
         
-    def generate(self, old=True):
-        self.log('Generating PAW setup.')
-        
-        self.calculate_core_density()
-
         self.nt_g = self.nct_g.copy()
         self.Q = -self.aea.Z + self.ncore - self.npseudocore
 
-        if not old:
-            self.vtr_g = self.find_local_potential()
-
-        self.log('\nProjectors:')
-        self.log(' state  occ         energy             norm        rcut')
-        self.log(' nl            [Hartree]  [eV]      [electrons]   [Bohr]')
-        self.log('----------------------------------------------------------')
+    def pseudize(self):
         for waves in self.waves_l:
             waves.pseudize()
             self.nt_g += waves.nt_g
             self.Q += waves.Q
-            for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
-                                  waves.dS_nn.diagonal()):
-                if n == -1:
-                    self.log('  %s             %10.6f %10.5f %10.2f' %
-                             ('spdf'[waves.l], e, e * Hartree, waves.rcut))
-                else:
-                    self.log(
-                        ' %d%s     %2d       %10.6f %10.5f    %5.3f %9.2f' %
-                             (n, 'spdf'[waves.l], f, e, e * Hartree, 1 - ds,
-                              waves.rcut))
-                    
+
         self.rhot_g = self.nt_g + self.Q * self.ghat_g
         self.vHtr_g = self.rgd.poisson(self.rhot_g)
 
@@ -264,43 +191,60 @@ class PAWSetupGenerator:
         self.exct = self.aea.xc.calculate_spherical(
             self.rgd, self.nt_g.reshape((1, -1)), self.vxct_g.reshape((1, -1)))
 
-        if old:
-            vtr_g = self.vHtr_g + self.vxct_g * self.rgd.r_g
-            self.vtr_g = self.rgd.pseudize(vtr_g, self.gcmax, 1, 4)[0]
+        self.log('\nProjectors:')
+        self.log(' state  occ         energy             norm        rcut')
+        self.log(' nl            [Hartree]  [eV]      [electrons]   [Bohr]')
+        self.log('----------------------------------------------------------')
+        for l, waves in enumerate(self.waves_l):
+            for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
+                                  waves.dS_nn.diagonal()):
+                if n == -1:
+                    self.log('  %s             %10.6f %10.5f %10.2f' %
+                             ('spdf'[l], e, e * Hartree, waves.rcut))
+                else:
+                    self.log(
+                        ' %d%s     %2d       %10.6f %10.5f    %5.3f %9.2f' %
+                             (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
+                              waves.rcut))
+                    
+    def find_polynomial_potential(self, r0, P, e0=None):
+        g0 = self.rgd.ceil(r0)
+        vtr_g = self.vHtr_g + self.vxct_g * self.rgd.r_g
+        if e0 is None:
+            self.vtr_g = self.rgd.pseudize(vtr_g, g0, 1, P)[0]
             self.v0r_g = self.vtr_g - vtr_g
         else:
-            self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+            asdgfkljh
 
+    def find_local_potential(self, l0, r0, P, e0):
+        self.log('Local potential matching %s-state at %.3f eV' %
+                 ('spdfg'[l0], e0 * Hartree))
+        
+        g0 = self.rgd.ceil(r0)
+        gc = g0 + 20
+
+        ch = Channel(l0)
+        phi_g = self.rgd.zeros()
+        ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e0)
+        phi_g[1:gc] /= self.rgd.r_g[1:gc]
+        if l0 == 0:
+            phi_g[0] = phi_g[1]
+
+        phit_g, c_p = self.rgd.pseudize_normalized(phi_g, g0, l=l0, points=P)
+        r_g = self.rgd.r_g[1:g0]
+        p = np.arange(2 * P, 0, -2) + l0
+        t_g = np.polyval(-0.5 * c_p[:P] * (p * (p + 1) - l0 * (l0 + 1)),
+                          r_g**2) 
+        self.vtr_g = self.aea.vr_sg[0].copy()
+        self.vtr_g[0] = 0.0
+        self.vtr_g[1:g0] = e0 * r_g - t_g * r_g**(l0 + 1) / phit_g[1:g0]
+        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+
+    def construct_projectors(self):
         for waves in self.waves_l:
             waves.construct_projectors(self.vtr_g)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
-
-    def find_local_potential(self):
-        l = len(self.waves_l)
-        e = 0.0
-
-        self.log('Local potential matching %s-state at %.3f eV' %
-                 ('spdf'[l], e * Hartree))
-        
-        gc = self.gcmax + 20
-        ch = Channel(l)
-        phi_g = self.rgd.zeros()
-        ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e)
-        phi_g[1:gc] /= self.rgd.r_g[1:gc]
-        if l == 0:
-            phi_g[0] = phi_g[1]
-        P = 6
-        phit_g, c_p = self.rgd.pseudize_normalized(phi_g, self.gcmax, l=l,
-                                                  points=P)
-        r_g = self.rgd.r_g[1:self.gcmax]
-        p = np.arange(2 * P, 0, -2) + l
-        t_g = np.polyval(-0.5 * c_p[:P] * (p * (p + 1) - l * (l + 1)), r_g**2) 
-        vr_g = self.aea.vr_sg[0].copy()
-        vr_g[0] = 0.0
-        vr_g[1:self.gcmax] = (e * r_g -
-                              t_g * r_g**(l + 1) / phit_g[1:self.gcmax])
-        return vr_g
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -441,6 +385,9 @@ def build_parser():
                       'Example: 2s,0.5s,2p,0.5p,0.0d.')
     parser.add_option('-r', '--radius',
                       help='1.2 or 1.2,1.1,1.1')
+    parser.add_option('-0', '--zero-potential',
+                      metavar='type,nderivs,radius,e0',
+                      help='Parameters for zero potential.')
     parser.add_option('-p', '--plot', action='store_true')
     parser.add_option('-l', '--logarithmic-derivatives',
                       metavar='spdfg,e1:e2:de,radius',
@@ -496,8 +443,33 @@ def main(AEA=AllElectronAtom):
         radii += [radii[-1]] * (lmax + 1 - len(radii))
 
     projectors = [states[l] for l in range(lmax + 1)]
+
     gen = PAWSetupGenerator(aea, projectors, radii)
-    gen.generate()
+
+    gen.calculate_core_density()
+    gen.pseudize()
+
+    if opt.zero_potential:
+        x = opt.zero_potential.split(',')
+        type = x[0]
+        nderiv = int(x[1])
+        r0 = float(x[2])
+        if len(x) == 4:
+            e0 = float(x[3])
+        elif type == 'poly':
+            e0 = None
+        else:
+            e0 = 0.0
+
+        if type == 'poly':
+            gen.find_polynomial_potential(r0, nderiv, e0)
+        else:
+            l0 = 'spdfg'.find(type)
+            gen.find_local_potential(l0, r0, nderiv, e0)
+    else:
+        gen.find_polynomial_potential(max(radii), 4)
+        
+    gen.construct_projectors()
 
     if opt.write:
         gen.make_paw_setup().write_xml()
