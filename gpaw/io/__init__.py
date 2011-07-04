@@ -121,9 +121,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if paw.forces.F_av is not None:
             w.add('CartesianForces', ('natoms', '3'), paw.forces.F_av,
                   units=(-1, 1, 0))
-        w.add('DipoleMoment', ('3',),
-              density.finegd.calculate_dipole_moment(density.rhot_g),
-              units=(1, 1, 0))
+        #w.add('DipoleMoment', ('3',),
+        #      density.finegd.calculate_dipole_moment(density.rhot_g),
+        #      units=(1, 1, 0))
 
         # Write the k-points:
         if wfs.kd.N_c is not None:
