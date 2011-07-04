@@ -1,14 +1,15 @@
 import numpy as np
-from numpy.fft import fftn, ifftn
 import ase.units as units
 
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
+import gpaw.fftw as fftw
 
 
 class PWDescriptor:
-    def __init__(self, ecut, gd, ibzk_qc=[(0, 0, 0)]):
+    def __init__(self, ecut, gd, ibzk_qc=[(0, 0, 0)],
+                 fftwflags=fftw.FFTW_MEASURE):
         assert gd.pbc_c.all() and gd.comm.size == 1
 
         self.ecut = ecut
@@ -36,7 +37,11 @@ class PWDescriptor:
         self.comm = gd.comm
 
         self.n_c = self.Q_G  # used by hs_operators.py XXX
-        
+
+        self.tmp_R = fftw.empty(N_c, complex)
+        self.fftplan = fftw.FFTPlan(self.tmp_R, -1, fftwflags)
+        self.ifftplan = fftw.FFTPlan(self.tmp_R, 1, fftwflags)
+
     def bytecount(self, dtype=float):
         return len(self.Q_G) * np.array(1, dtype).itemsize
     
@@ -54,15 +59,16 @@ class PWDescriptor:
         shape = n + self.Q_G.shape
         return np.empty(shape, complex)
     
-    def fft(self, a_xR):
-        a_xQ = fftn(a_xR, axes=(-3, -2, -1))
-        return a_xQ.reshape(a_xR.shape[:-3] + (-1,))[..., self.Q_G].copy()
+    def fft(self, a_R):
+        self.tmp_R[:] = a_R
+        self.fftplan.execute()
+        return self.tmp_R.ravel()[self.Q_G]
 
-    def ifft(self, a_xG):
-        xshape = a_xG.shape[:-1]
-        a_xQ = self.gd.zeros(xshape, complex)
-        a_xQ.reshape(xshape + (-1,))[..., self.Q_G] = a_xG
-        return ifftn(a_xQ, axes=(-3, -2, -1)).copy()
+    def ifft(self, a_G):
+        self.tmp_R[:] = 0.0
+        self.tmp_R.ravel()[self.Q_G] = a_G
+        self.ifftplan.execute()
+        return self.tmp_R * (1.0 / self.tmp_R.size)
 
 
 class Preconditioner:
@@ -75,10 +81,13 @@ class Preconditioner:
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
-    def __init__(self, ecut, diagksl, orthoksl, initksl,
+    def __init__(self, ecut, fftwflags,
+                 diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
                  world, kd, timer):
         self.ecut =  ecut / units.Hartree
+        self.fftwflags = fftwflags
+
         # Set dtype=complex and gamma=False:
         kd.gamma = False
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
@@ -90,8 +99,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.wd = self.pd        
 
     def set_setups(self, setups):
-
-        self.pd = PWDescriptor(self.ecut, self.gd, self.kd.ibzk_qc)
+        self.timer.start('PWDescriptor')
+        self.pd = PWDescriptor(self.ecut, self.gd, self.kd.ibzk_qc,
+                               self.fftwflags)
+        self.timer.stop('PWDescriptor')
         pt = LFC(self.gd, [setup.pt_j for setup in setups],
                  self.kpt_comm, dtype=self.dtype, forces=True)
         self.pt = PWLFC(pt, self.pd)
@@ -123,7 +134,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             self, basis_functions, density, hamiltonian, spos_ac)
 
         for kpt in self.kpt_u:
-            kpt.psit_nG = self.pd.fft(kpt.psit_nG)
+            psit_nG = self.pd.empty(self.bd.mynbands, complex)
+            for n, psit_R in enumerate(kpt.psit_nG):
+                psit_nG[n] = self.pd.fft(psit_R)
+            kpt.psit_nG = psit_nG
 
 
 class PWLFC:
@@ -144,26 +158,42 @@ class PWLFC:
         self.expikr_qR = np.exp(2j * np.pi * np.dot(np.indices(N_c).T,
                                                     (ibzk_qc / N_c).T).T)
 
-    def add(self, a_xG, C_axi, q):
-        a_xR = self.pd.gd.zeros(a_xG.shape[:-1], complex)
-        self.lfc.add(a_xR, C_axi, q)
-        a_xG[:] += self.pd.fft(a_xR / self.expikr_qR[q])
+    def add(self, a_xG, c_axi, q):
+        a_R = self.pd.tmp_R
+        xshape = a_xG.shape[:-1]
+        for x in np.indices(xshape).reshape((len(xshape), -1)).T:
+            c_ai = {}
+            for a, c_xi in c_axi.items():
+                c_ai[a] = c_xi[x]
+            a_R[:] = 0.0
+            self.lfc.add(a_R, c_ai, q)
+            a_xG[x] += self.pd.fft(a_R / self.expikr_qR[q])
 
-    def integrate(self, a_xG, C_axi, q):
-        a_xR = self.pd.ifft(a_xG) * self.expikr_qR[q]
-        #C_axi[0][:] = 0.0  # XXXXX
-        self.lfc.integrate(a_xR, C_axi, q)
+    def integrate(self, a_xG, c_axi, q):
+        c_ai = self.dict()
+        xshape = a_xG.shape[:-1]
+        for x in np.indices(xshape).reshape((len(xshape), -1)).T:
+            a_R = self.pd.ifft(a_xG[x]) * self.expikr_qR[q]
+            self.lfc.integrate(a_R, c_ai, q)
+            for a, c_i in c_ai.items():
+                c_axi[a][x] = c_i
 
-    def derivative(self, a_xG, C_axiv, q):
-        a_xR = self.pd.ifft(a_xG) * self.expikr_qR[q]
-        #C_axiv[0][:] = 0.0  # XXXXX
-        self.lfc.derivative(a_xR, C_axiv, q)
+    def derivative(self, a_xG, c_axiv, q):
+        c_aiv = self.dict(derivative=True)
+        xshape = a_xG.shape[:-1]
+        for x in np.indices(xshape).reshape((len(xshape), -1)).T:
+            a_R = self.pd.ifft(a_xG[x]) * self.expikr_qR[q]
+            self.lfc.derivative(a_R, c_aiv, q)
+            for a, c_iv in c_aiv.items():
+                c_axiv[a][x] = c_iv
 
 
-class PW: ####### use mode='pw'?  ecut=???
-    def __init__(self, ecut=340):
+class PW:
+    def __init__(self, ecut=340, fftwflags=fftw.FFTW_MEASURE):
         self.ecut = ecut
+        self.fftwflags = fftwflags
 
     def __call__(self, diagksl, orthoksl, initksl, *args):
-        wfs = PWWaveFunctions(self.ecut, diagksl, orthoksl, initksl, *args)
+        wfs = PWWaveFunctions(self.ecut, self.fftwflags,
+                              diagksl, orthoksl, initksl, *args)
         return wfs
