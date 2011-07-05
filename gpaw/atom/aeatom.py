@@ -41,6 +41,7 @@ class GaussianBasis:
         self.l = l
         self.alpha_B = alpha_B
         self.rgd = rgd
+        self.eps = eps
 
         A_BB = np.add.outer(alpha_B, alpha_B)
         M_BB = np.multiply.outer(alpha_B, alpha_B)
