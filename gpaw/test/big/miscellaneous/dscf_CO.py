@@ -9,7 +9,7 @@ from gpaw.test import equal
 calc_mol = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
                 convergence={'energy': 100,
                              'density': 100,
-                             'eigenstates': 1.0e-9,
+                             #'eigenstates': 1.0e-9,
                              'bands': -1})
 
 CO = molecule('CO')
@@ -31,7 +31,7 @@ p_uai = [dict([(molecule[a], P_ni[n]) for a, P_ni in kpt.P_ani.items()])
 calc_1 = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
               convergence={'energy': 100,
                            'density': 100,
-                           'eigenstates': 1.0e-9,
+                           #'eigenstates': 1.0e-9,
                            'bands': -1})
 CO.set_calculator(calc_1)
 weights = {0: [0.,0.,0.,1.], 1: [0.,0.,0.,-1.]}
@@ -44,7 +44,7 @@ calc_1.write('dscf_CO_es1.gpw', mode='all')
 calc_2 = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
               convergence={'energy': 100,
                           'density': 100,
-                           'eigenstates': 1.0e-9,
+                           #'eigenstates': 1.0e-9,
                            'bands': -1})
 CO.set_calculator(calc_2)
 lumo = dscf.AEOrbital(calc_2, wf_u, p_uai)
