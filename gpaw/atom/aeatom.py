@@ -82,7 +82,7 @@ class GaussianBasis:
         old_settings = np.seterr(divide='ignore')
         self.basis_bg = (np.dot(
                 Q_Bb.T,
-                (2 * (2 * alpha_B[:, np.newaxis])**(l + 1.5) /
+                (2 * (2 * alpha_B[:, None])**(l + 1.5) /
                  gamma(l + 1.5))**0.5 *
                 np.exp(-np.multiply.outer(alpha_B, r_g**2))) * r_g**l)
         np.seterr(**old_settings)
@@ -185,18 +185,19 @@ class Channel:
         ym1_g = (x1_g / 2 - x2_g) / yp1_g
         y_g = (2 * x2_g - x0_g) / yp1_g
         if pt_g is not None:
-            y0_g = 2 * pt_g * r_g / yp1_g
+            y0_g = 2 * pt_g * r_g**(1 - l) / yp1_g
+            agm1 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
         else:
             y0_g = rgd.zeros()
+            agm1 = 1
 
         g = 1
-        agm1 = 1
         u_g[0] = 0.0
         ag = agm1 + vr_g[0] * rgd.dr_g[0]
 
         while True:
             u_g[g] = ag * r_g[g]**(l + 1)
-            agp1 = y0_g[g] + agm1 * ym1_g[g] + ag * y_g[g]
+            agp1 = agm1 * ym1_g[g] + ag * y_g[g] - y0_g[g]
             if g == g0:
                 break
             g += 1

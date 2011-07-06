@@ -85,11 +85,6 @@ class PAWWaves:
 
         q_ng = rgd.zeros(N)
         for n in range(N):
-            q_g = ((vtr_g - self.e_n[n] * r_g) * self.phit_ng[n] +
-                   np.polyval(-0.5 * self.c_np[n][:P] *
-                               (p * (p + 1) - l * (l + 1)), r_g**2) *
-                   r_g**(1 + l))
-
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
             a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
             a_g[0] = self.c_np[n][-1]
@@ -101,20 +96,40 @@ class PAWWaves:
                 r_g * d2adg2_g * dgdr_g**2)
             q_g[gcut:] = 0
             q_ng[n] = q_g
-        A_nn = rgd.integrate(q_ng[:, np.newaxis] * phit_ng, -1) / (4 * pi)
 
-        self.pt_ng = np.dot(np.linalg.inv(A_nn), q_ng)
+        A_nn = rgd.integrate(phit_ng[:, None] * q_ng, -1) / (4 * pi)
+        self.dH_nn = self.e_n * self.dS_nn - A_nn
+
+        L_nn = np.eye(N)
+        U_nn = A_nn.copy()
+
+        if N - self.n_n.count(-1) == 1:
+            assert self.n_n[0] != -1
+            # We have a single bound-state projector.
+            for n1 in range(N):
+                for n2 in range(n1 + 1, N):
+                    L_nn[n2, n1] = U_nn[n2, n1] / U_nn[n1, n1]
+                    U_nn[n2] -= U_nn[n1] * L_nn[n2, n1]
+
+            iL_nn = np.linalg.inv(L_nn)
+            phit_ng[:] = np.dot(iL_nn, phit_ng)
+            self.phi_ng[:] = np.dot(iL_nn, self.phi_ng)
+
+            self.dS_nn = np.dot(np.dot(iL_nn, self.dS_nn), iL_nn.T)
+            self.dH_nn = np.dot(np.dot(iL_nn, self.dH_nn), iL_nn.T)
+
+        self.pt_ng = np.dot(np.linalg.inv(U_nn.T), q_ng)
         self.pt_ng[:, 1:] /= r_g[1:]
-        self.pt_ng[:, 0] = self.pt_ng[:, 1]
-        self.dH_nn = self.e_n * self.dS_nn - A_nn.T
+        if l == 0:
+            self.pt_ng[:, 0] = self.pt_ng[:, 1]
 
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
         if len(self) == 0:
             return
-        self.dekin_nn = (self.rgd.integrate(self.phi_ng[:, np.newaxis] *
+        self.dekin_nn = (self.rgd.integrate(self.phi_ng[:, None] *
                                             self.phi_ng *
                                             vr_g, -1) / (4 * pi) -
-                         self.rgd.integrate(self.phit_ng[:, np.newaxis] *
+                         self.rgd.integrate(self.phit_ng[:, None] *
                                             self.phit_ng *
                                             vtr_g, -1) / (4 * pi) -
                          self.dH_nn)
@@ -286,11 +301,12 @@ class PAWSetupGenerator:
                                           waves.pt_ng) / (4 * pi)
                 H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
                 S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
-
+                
             e_b = np.empty(len(basis))
             general_diagonalize(H_bb, e_b, S_bb)
-            print l, e_b[:5]
-
+            print l
+            print e_b[:5]
+            print self.aea.channels[l].e_n[:5]
     def plot(self):
         import matplotlib.pyplot as plt
         r_g = self.rgd.r_g
@@ -367,10 +383,10 @@ class PAWSetupGenerator:
                                                       self.vtr_g, gcut, e,
                                                       pt_ng[n])
             
-                A_nn = dH_nn - e * dS_nn
-                B_nn = rgd.integrate(pt_ng * u_ng[:, np.newaxis], -1)
+                A_nn = (dH_nn - e * dS_nn) / (4 * pi)
+                B_nn = rgd.integrate(pt_ng[:, None] * u_ng, -1)
                 c_n  = rgd.integrate(pt_ng * u_g, -1)
-                d_n = np.linalg.solve(np.dot(A_nn, B_nn) - 4 * pi * np.eye(N),
+                d_n = np.linalg.solve(np.dot(A_nn, B_nn) + np.eye(N),
                                       np.dot(A_nn, c_n))
                 u -= np.dot(u_ng[:, gcut], d_n)
                 dudr -= np.dot(dudr_n, d_n)
