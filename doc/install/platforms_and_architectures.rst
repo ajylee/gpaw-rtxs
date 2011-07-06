@@ -81,6 +81,7 @@ Linux:
    Linux/sepeli
    Linux/supernova
    Linux/uranus
+   Linux/vsc.univie
 
 MacOSX:
 
