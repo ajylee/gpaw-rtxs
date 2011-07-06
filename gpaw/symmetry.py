@@ -297,7 +297,7 @@ def map_k_points(bzk_kc, U_scc, inversion, comm=None, tol=1e-11):
     bz2bz_ks[k1, s] = -1.
     """
 
-    if comm is None:
+    if comm is None or isinstance(comm, mpi.DryRunCommunicator):
         comm = mpi.serial_comm
 
     nbzkpts = len(bzk_kc)
