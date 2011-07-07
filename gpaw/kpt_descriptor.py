@@ -335,13 +335,17 @@ class KPointDescriptor:
         iop_q = {}
         timerev_q = {}
         diff_qc = {}
+
         for i in range(len(bzq_qc)-1,-1,-1): #  loop opposite to kpoint
             try:
                 ibzk, iop, timerev, diff_c = self.find_ibzkpt(op_scc, ibzq_qc_tmp, bzq_qc[i])
-                invop = np.int8(np.linalg.inv(op_scc[iop]))
-                for bzk_c in self.bzk_kc:
-                    k_c = np.dot(invop, bzk_c)
-                    self.where_is_q(k_c, self.bzk_kc)
+                find = False
+                for ii, iop1 in enumerate(self.sym_k):
+                    if iop1 == iop and self.time_reversal_k[ii] == timerev:
+                        find = True
+                        break
+                if find is False:
+                    raise ValueError('cant find k!')
                     
                 ibzq_q_tmp[i] = ibzk
                 iop_q[i] = iop

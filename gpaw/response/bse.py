@@ -123,8 +123,8 @@ class BSE(BASECHI):
                                                              calc.wfs.symmetry.op_scc)
                 if np.abs(self.bzq_qc - self.bzk_kc).sum() < 1e-8:
                     assert np.abs(self.ibzq_qc - kd.ibzk_kc).sum() < 1e-8
-            self.nq = len(self.ibzq_qc)
-            
+            self.nibzq = len(self.ibzq_qc)
+
         # parallel init
         self.Scomm = world
         # kcomm and wScomm is only to be used when wavefunctions r parallelly distributed.
@@ -133,8 +133,6 @@ class BSE(BASECHI):
         
         self.nS, self.nS_local, self.nS_start, self.nS_end = parallel_partition(
                                self.nS, world.rank, world.size, reshape=False)
-#        self.nq, self.nq_local, self.q_start, self.q_end = parallel_partition(
-#                               self.nkpt, world.rank, world.size, reshape=False)
         self.print_bse()
 
         # Coulomb kernel init
@@ -183,12 +181,7 @@ class BSE(BASECHI):
                 raise ValueError('use_W can only be string or bool ')
 
             if not len(self.phi_qaGp) == self.nkpt:
-                del self.phi_qaGp
-                self.phi_qaGp = {}
-                for iq in range(self.nkpt):
-                    q_c = bzq_qc[iq]
-                    self.phi_qaGp[iq] = self.get_phi_aGp(q_c)
-
+                self.get_phi_qaGp()
         else:
             self.phi_aGp = self.get_phi_aGp()
         self.printtxt('Finished phi_aGp !')
@@ -231,12 +224,6 @@ class BSE(BASECHI):
                         timerev = self.timerev_q[iq]
                         diff_c = self.diff_qc[iq]
                         invop = np.linalg.inv(op_scc[iop])
-                        if len(ibzk_kc) == len(ibzq_qc):
-                            if np.abs(ibzq_qc - ibzk_kc).sum() < 1e-8:
-                                ibzq1, iop1, timerev1, diff1_c = self.kd.find_ibzkpt(op_scc, ibzq_qc, q_c)
-                                assert ibzq == ibzq1
-                                assert iop == iop1
-                                assert timerev == timerev1
 
                         W_GG_tmp = W_qGG[ibzq]
                         Gindex = np.zeros(self.npw,dtype=int)
@@ -261,7 +248,7 @@ class BSE(BASECHI):
                                     W_GG[iG, jG] = 0
                                 else:
                                     W_GG[iG, jG] = W_GG_tmp[Gindex[iG], Gindex[jG]]
-                    
+
                     if k1 == k2:
                         if (n1==n2) or (m1==m2):
 
@@ -289,7 +276,7 @@ class BSE(BASECHI):
         world.sum(K_SS)
         world.sum(self.rhoG0_S)
 
-        print 'The number of G index outside the Gvec_Gc: ', noGmap
+        self.printtxt('The number of G index outside the Gvec_Gc: %d'%(noGmap))
         # get and solve hamiltonian
         H_SS = np.zeros_like(K_SS)
         for iS in range(self.nS):
@@ -327,14 +314,14 @@ class BSE(BASECHI):
     def screened_interaction_kernel(self):
         """Calcuate W_GG(q)"""
 
-        dfinv_qGG = np.zeros((self.nq, self.npw, self.npw),dtype=complex)
-        kc_qGG = np.zeros((self.nq, self.npw, self.npw))
+        dfinv_qGG = np.zeros((self.nibzq, self.npw, self.npw),dtype=complex)
+        kc_qGG = np.zeros((self.nibzq, self.npw, self.npw))
         dfinvG0_G = np.zeros(self.npw,dtype=complex) # save the wing elements
 
         t0 = time()
         self.phi_qaGp = {}
         
-        for iq in range(self.nq):#self.q_start, self.q_end):
+        for iq in range(self.nibzq):#self.q_start, self.q_end):
             q = self.ibzq_qc[iq]
             optical_limit=False
             if (np.abs(q) < self.ftol).all():
@@ -351,7 +338,7 @@ class BSE(BASECHI):
             self.phi_qaGp[iq] = df.phi_aGp 
             kc_qGG[iq] = df.Kc_GG
 
-            self.timing(iq, t0, self.nq, 'iq')
+            self.timing(iq, t0, self.nibzq, 'iq')
             assert df.npw == self.npw
 
             if optical_limit:
@@ -380,13 +367,54 @@ class BSE(BASECHI):
         printtxt = self.printtxt
 
         if self.use_W:
-            printtxt('Number of q points            : %d' %(self.nq))
+            printtxt('Number of q points            : %d' %(self.nibzq))
         printtxt('Number of frequency points   : %d' %(self.Nw) )
         printtxt('Number of pair orbitals      : %d' %(self.nS) )
         printtxt('Parallelization scheme:')
         printtxt('   Total cpus         : %d' %(world.size))
         printtxt('   pair orb parsize   : %d' %(self.Scomm.size))        
         
+        return
+
+
+    def get_phi_qaGp(self):
+
+        phi_aGp = self.phi_qaGp[0].copy()
+
+        N1_max = 0
+        N2_max = 0
+        natoms = len(phi_aGp)
+        for id in range(natoms):
+            N1, N2 = phi_aGp[id].shape
+            if N1 > N1_max:
+                N1_max = N1
+            if N2 > N2_max:
+                N2_max = N2
+        
+        del self.phi_qaGp
+        self.phi_qaGp = {}
+        nbzq = self.nkpt
+        phimax_qaGp = np.zeros((nbzq, natoms, N1_max, N2_max), dtype=complex)
+        nbzq, nq_local, q_start, q_end = parallel_partition(
+                                    nbzq, world.rank, world.size, reshape=False)
+        for iq in range(q_start, q_end):
+            self.printtxt('%d' %(iq))
+            q_c = self.bzq_qc[iq]
+            tmp_aGp = self.get_phi_aGp(q_c)
+            for id in range(natoms):
+                N1, N2 = tmp_aGp[id].shape
+                phimax_qaGp[iq, id, :N1, :N2] = tmp_aGp[id]
+        world.sum(phimax_qaGp)
+
+        for iq in range(nbzq):
+            phi2_aGp = self.get_phi_aGp(self.bzq_qc[iq])
+            tmp_aGp = {}
+            for id in range(natoms):
+                N1, N2 = phi_aGp[id].shape
+                tmp_aGp[id] = phimax_qaGp[iq, id, :N1, :N2]
+            self.phi_qaGp[iq] = tmp_aGp
+
+        del phimax_qaGp
         return
 
 
