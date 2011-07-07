@@ -17,7 +17,8 @@ Setup the root directory::
 Set the versions::
 
   export nose=0.11.3
-  export numpy=1.6.0
+  # Warning: version 1.6.0 seems inconsistent about C-, Fortran-contiguous
+  export numpy=1.5.1
   export scipy=0.9.0
 
   export acml=4.0.1
