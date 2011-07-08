@@ -48,10 +48,11 @@ for kpts in (kpts1, kpts2):
                   nbands=8,positive_w=True,use_W=True,qsymm=True)
     bse.get_dielectric_function('bse_symm.dat')
 
-
+check = 1
+if check:
     d1 = np.loadtxt('bse_nosymm.dat')
     d2 = np.loadtxt('bse_symm.dat')
-    print np.abs(d1[:,2] - d2[:,2]).max() #0.015336443
-    print np.abs(d1[:,2] - d2[:,2]).sum() #0.217433477941 
+    assert np.abs(np.abs(d1[:,2] - d2[:,2]).max() - 0.015336443) < 1e-4
+    assert np.abs(np.abs(d1[:,2] - d2[:,2]).sum() - 0.217433477941) < 1e-2 
 
 

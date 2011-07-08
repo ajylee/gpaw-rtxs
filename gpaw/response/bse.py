@@ -404,6 +404,7 @@ class BSE(BASECHI):
             for id in range(natoms):
                 N1, N2 = tmp_aGp[id].shape
                 phimax_qaGp[iq, id, :N1, :N2] = tmp_aGp[id]
+        world.barrier()
         world.sum(phimax_qaGp)
 
         for iq in range(nbzq):

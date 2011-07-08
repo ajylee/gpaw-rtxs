@@ -346,11 +346,11 @@ class KPointDescriptor:
                         break
                 if find is False:
                     raise ValueError('cant find k!')
-                    
+
                 ibzq_q_tmp[i] = ibzk
                 iop_q[i] = iop
                 timerev_q[i] = timerev
-                diff_qc[i] = diff_c                
+                diff_qc[i] = diff_c
             except ValueError:
                 ibzq_qc_tmp.append(bzq_qc[i])
                 ibzq_q_tmp[i] = len(ibzq_qc_tmp) - 1
@@ -376,24 +376,20 @@ class KPointDescriptor:
         ibzkpt = 0
         iop = 0
         timerev = False
-    
-        for ioptmp, op in enumerate(symrel):
-            for i, ibzk in enumerate(ibzk_kc):
-                diff_c = bzk_c - np.dot(op, ibzk)
-                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
-                    ibzkpt = i
-                    iop = ioptmp
-                    find = True
+
+        for sign in (-1, 1):
+            for ioptmp, op in enumerate(symrel):
+                for i, ibzk in enumerate(ibzk_kc):
+                    diff_c = bzk_c + np.dot(op, ibzk) * sign
+                    if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
+                        ibzkpt = i
+                        iop = ioptmp
+                        find = True
+                        if sign == 1:
+                            timerev = True
+                        break
+                if find == True:
                     break
-    
-                diff_c = np.dot(op, ibzk) + bzk_c
-                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():            
-                    ibzkpt = i
-                    iop = ioptmp
-                    find = True
-                    timerev = True
-                    break
-        
             if find == True:
                 break
 
