@@ -99,7 +99,7 @@ This is how you can download and install cblas::
         ( mkdir tmp && cd tmp && cp $(CBLIB) . && ar x $(CBLIB) && $(CC) -shared -o libcblas.so.1.0.0 *.o -Wl,-soname=libcblas.so.1 && cp -p libcblas.so.1.0.0 ../lib && cd ../lib && ln -s libcblas.so.1.0.0 libcblas.so.1 && ln -s libcblas.so.1.0.0 libcblas.so )
 
   make all 2>&1 | tee make_all.log
-  make share 2>&1 | tee make_share.log
+  make shared 2>&1 | tee make_shared.log
 
   # create link: numpy needs all the libraries in one directory
   # separate directories in site.cfg do not work
