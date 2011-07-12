@@ -1,21 +1,20 @@
+import numpy as np
+import copy
+import sys
+from math import pi, sqrt
+from time import time, ctime
+from datetime import timedelta
+from ase.parallel import paropen
+from ase.units import Hartree, Bohr
 from gpaw import GPAW
 from gpaw.response.sigma import SIGMA
-from gpaw.response.gw_parallel import parallel_partition
+from gpaw.response.parallel import parallel_partition
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.response.df import DF
 from gpaw.response.cell import get_primitive_cell, set_Gvectors
 from gpaw.utilities import devnull
 from gpaw.xc.hybridk import HybridXC
 from gpaw.xc.tools import vxc
-
-import numpy as np
-import copy
-import sys
-from ase.parallel import paropen
-from ase.units import Hartree, Bohr
-from math import pi, sqrt
-from time import time, ctime
-from datetime import timedelta
 
 class GW:
 
@@ -119,7 +118,7 @@ class GW:
         Z_kn = np.zeros((nkptout, nbandsout), dtype=float)
 
         qcomm = world
-        nq, nq_local, q_start, q_end = parallel_partition(nqpt, world.rank, world.size)
+        nq, nq_local, q_start, q_end = parallel_partition(nqpt, world.rank, world.size, reshape=False)
 
         self.printtxt("calculating Sigma")
         self.printtxt("------------------------------------------------")
