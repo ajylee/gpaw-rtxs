@@ -4,10 +4,12 @@ import pickle
 from math import pi
 from ase.units import Hartree
 from ase.io import write
+from gpaw.io.tar import Writer, Reader
 from gpaw.fd_operators import Gradient
 from gpaw.mpi import world, size, rank, serial_comm
 from gpaw.utilities.blas import gemmdot, gemm, gemv
 from gpaw.utilities import devnull
+from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
 from gpaw.response.parallel import parallel_partition
 from gpaw.response.df import DF
@@ -135,6 +137,9 @@ class BSE(BASECHI):
                                self.nS, world.rank, world.size, reshape=False)
         self.print_bse()
 
+        if calc.input_parameters['mode'] == 'lcao':
+            calc.initialize_positions()        
+
         # Coulomb kernel init
         self.kc_G = np.zeros(self.npw)
         for iG in range(self.npw):
@@ -155,14 +160,13 @@ class BSE(BASECHI):
         f_kn = self.f_kn
         e_kn = self.e_kn
         ibzk_kc = self.ibzk_kc
-      #  ibzq_qc = self.ibzq_qc
         bzk_kc = self.bzk_kc
-#        bzq_qc = self.bzq_qc
         kq_k = self.kq_k
         focc_S = self.focc_S
         e_S = self.e_S
         op_scc = calc.wfs.symmetry.op_scc
 
+        self.phi_aGp = self.get_phi_aGp()
         if self.use_W:
             bzq_qc=self.bzq_qc
             ibzq_qc = self.ibzq_qc
@@ -181,10 +185,15 @@ class BSE(BASECHI):
                 raise ValueError('use_W can only be string or bool ')
 
             if not len(self.phi_qaGp) == self.nkpt:
-                self.get_phi_qaGp()
-        else:
-            self.phi_aGp = self.get_phi_aGp()
-        self.printtxt('Finished phi_aGp !')
+                import os.path
+                if not os.path.isfile('phi_qaGp'):
+                    self.printtxt('Calculating phi_qaGp')
+                    self.get_phi_qaGp()
+                    
+        world.barrier()
+        self.reader = Reader('phi_qaGp')
+        self.printtxt('Finished reading phi_aGp !')
+        self.printtxt('Memory used %f' %(maxrss() / 1024.**2))
         
        # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
@@ -379,7 +388,7 @@ class BSE(BASECHI):
 
     def get_phi_qaGp(self):
 
-        phi_aGp = self.phi_qaGp[0].copy()
+        phi_aGp = self.phi_aGp.copy()
 
         N1_max = 0
         N2_max = 0
@@ -392,31 +401,64 @@ class BSE(BASECHI):
                 N2_max = N2
         
         del self.phi_qaGp
-        self.phi_qaGp = {}
+#        self.phi_qaGp = {}
         nbzq = self.nkpt
-        phimax_qaGp = np.zeros((nbzq, natoms, N1_max, N2_max), dtype=complex)
         nbzq, nq_local, q_start, q_end = parallel_partition(
                                     nbzq, world.rank, world.size, reshape=False)
-        for iq in range(q_start, q_end):
+        phimax_qaGp = np.zeros((nq_local, natoms, N1_max, N2_max), dtype=complex)
+        for iq in range(nq_local):
             self.printtxt('%d' %(iq))
-            q_c = self.bzq_qc[iq]
+            q_c = self.bzq_qc[iq + q_start]
             tmp_aGp = self.get_phi_aGp(q_c)
             for id in range(natoms):
                 N1, N2 = tmp_aGp[id].shape
                 phimax_qaGp[iq, id, :N1, :N2] = tmp_aGp[id]
         world.barrier()
-        world.sum(phimax_qaGp)
 
-        for iq in range(nbzq):
-            phi2_aGp = self.get_phi_aGp(self.bzq_qc[iq])
-            tmp_aGp = {}
-            for id in range(natoms):
-                N1, N2 = phi_aGp[id].shape
-                tmp_aGp[id] = phimax_qaGp[iq, id, :N1, :N2]
-            self.phi_qaGp[iq] = tmp_aGp
+        # write to disk
+        filename = 'phi_qaGp'
+        if world.rank == 0:
+            w = Writer(filename)
+            w.dimension('nbzq', nbzq)
+            w.dimension('natoms', natoms)
+            w.dimension('nG', N1_max)
+            w.dimension('nii', N2_max)
+            w.add('phi_qaGp', ('nbzq', 'natoms', 'nG', 'nii',), dtype=complex)
 
-        del phimax_qaGp
+        for q in range(nbzq):
+            if nbzq % size != 0:
+                qrank = q // (nbzq // size + 1)
+            else:
+                qrank = q // (nbzq // size)
+
+            if qrank == 0:
+                if world.rank == 0:
+                    phi_aGp = phimax_qaGp[q - q_start]
+            else:
+                if world.rank == qrank:
+                    phi_aGp = phimax_qaGp[q - q_start]
+                    world.send(phi_aGp, 0, q)
+                elif world.rank == 0:
+                    world.receive(phi_aGp, qrank, q)
+            if world.rank == 0:
+                w.fill(phi_aGp)
+        world.barrier()
+        if world.rank == 0:
+            w.close()
+        
         return
+
+    def load_phi_aGp(self, reader, iq):
+
+        phimax_aGp = np.array(reader.get('phi_qaGp', iq), complex)
+
+        phi_aGp = {}
+        natoms = len(phimax_aGp)
+        for a in range(natoms):
+            N1, N2 = self.phi_aGp[a].shape
+            phi_aGp[a] = phimax_aGp[a, :N1, :N2]
+
+        return phi_aGp
 
 
     def density_matrix(self,n,m,k,kq=None,Gspace=True):
@@ -502,7 +544,7 @@ class BSE(BASECHI):
                     iq = kd.where_is_q(q_c, self.bzq_qc)
                     assert np.abs(self.bzq_qc[iq] - q_c).sum() < 1e-8
                     
-                phi_aGp = self.phi_qaGp[iq]
+                phi_aGp = self.load_phi_aGp(self.reader, iq) #phi_qaGp[iq]
             else:
                 phi_aGp = self.phi_aGp
                
