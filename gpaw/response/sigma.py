@@ -57,6 +57,8 @@ class SIGMA(BASECHI):
         self.nkptout = np.shape(self.kpoints)[0]
         self.nbandsout = np.shape(self.bands)[0]
 
+        self.phi_aGp = self.get_phi_aGp()
+
 
     def get_self_energy(self, W_wGG):
 
@@ -135,8 +137,6 @@ class SIGMA(BASECHI):
         gd = self.gd
         kd = self.kd
 
-        phi_aGp = self.get_phi_aGp()
-
         expqr_g = self.expqr_g
         q_v = self.qq_v
         optical_limit = self.optical_limit
@@ -179,7 +179,7 @@ class SIGMA(BASECHI):
                             
         for a, id in enumerate(self.calc.wfs.setups.id_a):
             P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
-            gemv(1.0, phi_aGp[a], P_p, 1.0, rho_G)
+            gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
     
         if optical_limit:
             if n==m:
