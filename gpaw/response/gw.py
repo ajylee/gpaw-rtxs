@@ -106,7 +106,7 @@ class GW:
         self.printtxt(nikpt)
         self.printtxt("------------------------------------------------")
 
-        bzq_kc = self.get_bz_q_points()
+        bzq_kc = kd.get_bz_q_points()
         nqpt = np.shape(bzq_kc)[0]
 
         nG = calc.get_number_of_grid_points()
@@ -279,28 +279,3 @@ class GW:
     def printtxt(self, text):
         print >> self.txt, text
 
-
-    def get_bz_q_points(self):
-        """Return the q=k1-k2."""
-
-        bzk_kc = self.bzk_kc
-        # Get all q-points
-        all_qs = []
-        for k1 in bzk_kc:
-            for k2 in bzk_kc:
-                all_qs.append(k1 - k2)
-        all_qs = np.array(all_qs)
-
-        # Make list of non-identical q-points in full BZ
-        bz_qs = [all_qs[0]]
-        for q_a in all_qs:
-            q_in_list = False
-            for q_b in bz_qs:
-                if (abs(q_a[0] - q_b[0]) < 0.01 and
-                    abs(q_a[1] - q_b[1]) < 0.01 and
-                    abs(q_a[2] - q_b[2]) < 0.01):
-                    q_in_list = True
-                    break
-            if q_in_list == False:
-                bz_qs.append(q_a)
-        return bz_qs
