@@ -7,7 +7,7 @@ from datetime import timedelta
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
 from gpaw import GPAW
-from sigma import SIGMA
+#from sigma import SIGMA
 from gpaw.response.parallel import parallel_partition
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.response.df import DF
@@ -15,8 +15,9 @@ from gpaw.response.cell import get_primitive_cell, set_Gvectors
 from gpaw.utilities import devnull
 from gpaw.xc.hybridk import HybridXC
 from gpaw.xc.tools import vxc
+from gpaw.response.base import BASECHI
 
-class GW:
+class GW(BASECHI):
 
     def __init__(
                  self,
@@ -29,29 +30,49 @@ class GW:
                  txt=None,
                 ):
 
-        self.file = file
+        BASECHI.__init__(self, calc=file, w=w, ecut=ecut, eta=eta, txt=txt)
+
         self.bands = bands
         self.kpoints = kpoints
-        self.w_w = w
-        self.ecut = ecut
-        self.eta = eta
-        self.txtname = txt
 
-        self.output_init()
+    def initialize(self):
+
+        self.printtxt('')
+        self.printtxt('-----------------------------------------------')
+        self.printtxt('GW calculation started at:')
+        self.printtxt(ctime())
+
+        BASECHI.initialize(self)
+        self.kd = self.calc.wfs.kd
+
+        # frequency points init
+        self.dw = self.w_w[1] - self.w_w[0]
+        assert ((self.w_w[1:] - self.w_w[:-1] - self.dw) < 1e-10).all() # make sure its linear w grid
+        assert self.w_w.max() == self.w_w[-1]
+        
+        self.dw /= Hartree
+        self.w_w  /= Hartree
+        self.wmax = self.w_w[-1] 
+        self.wcut = self.wmax + 5. / Hartree
+        self.Nw  = int(self.wmax / self.dw) + 1
+        self.NwS = int(self.wcut / self.dw) + 1
+
+        self.nkptout = np.shape(self.kpoints)[0]
+        self.nbandsout = np.shape(self.bands)[0]
 
 
     def get_QP_spectrum(self):
 
-        calc = GPAW(self.file, communicator=serial_comm, txt=None)
-        kd = calc.wfs.kd
+        self.initialize()
+        calc = self.calc
+        kd = self.kd
         nkpt = kd.nbzkpts
         nikpt = kd.nibzkpts
         self.bzk_kc = kd.bzk_kc
         self.ibzk_kc = kd.ibzk_kc
-        nbands = calc.wfs.nbands
+        nbands = self.nbands
 
         starttime = time()
-
         self.printtxt("------------------------------------------------")
         self.printtxt('starting calculation at %s' %(ctime(starttime)))
 
@@ -87,8 +108,8 @@ class GW:
 
         wmin = frequencies.min()
         wmax = frequencies.max()
-        Nw = np.shape(frequencies)[0] - 1
-        wstep = (wmax - wmin) / Nw
+        Nw = self.Nw
+        wstep = self.dw
 
         self.printtxt("------------------------------------------------")
         self.printtxt("broadening (eV):")
@@ -110,9 +131,11 @@ class GW:
         nqpt = np.shape(bzq_kc)[0]
 
         nG = calc.get_number_of_grid_points()
-        acell_cv = calc.atoms.cell / Bohr
-        acell_cv, bcell_cv, vol, BZvol = get_primitive_cell(acell_cv, np.array([1,1,1]))
-        npw, Gvec_Gc, Gindex_G = set_Gvectors(acell_cv, bcell_cv, nG, np.ones(3) * energy_cut / Hartree)
+        acell_cv = self.acell_cv
+        bcell_cv = self.bcell_cv
+        vol = self.vol
+        npw = self.npw
+        Gvec_Gc = self.Gvec_Gc
 
         Sigma_kn = np.zeros((nkptout, nbandsout), dtype=float)
         Z_kn = np.zeros((nkptout, nbandsout), dtype=float)
@@ -154,14 +177,14 @@ class GW:
             df = DF(
                     calc=calc,
                     q=q0,
-                    w=copy.copy(w),
+                    w=self.w_w.copy() * Hartree,
                     nbands=nbands,
                     optical_limit=False,
                     hilbert_trans=True,
                     full_response=True,
                     xc='RPA',
-                    eta=eta,
-                    ecut=ecut,
+                    eta=eta*Hartree,
+                    ecut=ecut.copy()*Hartree,
                     txt='df_q_' + str(iq) + '.out',
                     comm=serial_comm
                    )
@@ -171,28 +194,14 @@ class GW:
             for iw in range(Nw):
                 W_wGG[iw] =  4*pi * ((q_G[:,np.newaxis] * (dfinv_wGG[iw] - tmp_GG)) * q_G[np.newaxis,:])
 
-            del df
             del q_G, dfinv_wGG
 
-            sigma = SIGMA(
-                          calc=calc,
-                          nbands=nbands,
-                          bands=bandsout,
-                          kpoints=kptout,
-                          w=w,
-                          q=q,
-                          ecut=ecut,
-                          eta=eta,
-                          txt='gw_q_' + str(iq) + '.out',
-                          optical_limit=optical_limit
-                         )
-
-            S, Z = sigma.get_self_energy(W_wGG)
+            S, Z = self.get_self_energy(df, W_wGG)
 
             Sigma_kn += S
             Z_kn += Z
 
-            del q0, q, w, eta, ecut
+            del q0, q, w, eta, ecut, df
 
         qcomm.barrier()
         qcomm.sum(Sigma_kn)
@@ -261,20 +270,74 @@ class GW:
         self.printtxt(Sigma_kn*Hartree)
 
 
-    def output_init(self):
 
-        if self.txtname is None:
-            if rank == 0:
-                self.txt = sys.stdout
-            else:
-                sys.stdout = devnull
-                self.txt = devnull
-        elif self.txtname == devnull:
-            self.txt = devnull
-        else:
-            assert type(self.txtname) is str
-            self.txt = paropen(self.txtname,'w')
+    def get_self_energy(self, df, W_wGG):
+
+#        self.initialize()
+
+        Sigma_kn = np.zeros((self.nkptout, self.nbandsout), dtype=complex)
+        Z_kn = np.zeros((self.nkptout, self.nbandsout), dtype=float)
+        rho_G = np.zeros(self.npw, dtype=complex)
+
+        Cplus_wGG = np.zeros((self.NwS, self.npw, self.npw), dtype=complex)
+        Cminus_wGG = np.zeros((self.NwS, self.npw, self.npw), dtype=complex)
+
+        for iw in range(self.NwS):
+            w1 = iw * self.dw
+            for jw in range(self.Nw):
+                w2 = jw * self.dw
+                Cplus_wGG[iw] += W_wGG[jw] * (1. / (w1 + w2 + 1j*self.eta) + 1. / (w1 - w2 + 1j*self.eta))
+                Cminus_wGG[iw] += W_wGG[jw] * (1. / (w1 + w2 - 1j*self.eta) + 1. / (w1 - w2 - 1j*self.eta))
+
+        Cplus_wGG *= 1j/(2*pi) * self.dw
+        Cminus_wGG *= 1j/(2*pi) * self.dw
+
+        i = 0
+        for k in self.kpoints:
+
+            kq = df.kq_k[k]
+            ibzkpt1 = df.kd.bz2ibz_k[k]
+            ibzkpt2 = df.kd.bz2ibz_k[kq]
+
+            j = 0
+            for n in self.bands:
+
+                for m in range(self.nbands):
+                    check_focc = self.f_kn[ibzkpt2, m] > self.ftol
+                    if check_focc:
+                        occ = -1
+                    else:
+                        occ = 1
+
+                    rho_G = self.density_matrix(n, m, k, kq, df.phi_aGp)
+                    rho_GG = np.outer(rho_G, rho_G.conj())
+
+                    if m==n:
+                        if (np.abs(df.q_c) < 1e-5).all():
+                            q_c = np.array([0.0001, 0., 0.])
+                            q_v = np.dot(q_c, self.bcell_cv)
+                            Cplus_wGG *= (q_v*q_v).sum() * 2./pi*(6*pi**2/self.vol)**(1./3.)*self.vol
+                            Cminus_wGG *= (q_v*q_v).sum() * 2./pi*(6*pi**2/self.vol)**(1./3.)*self.vol
+
+                    w0 = self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n]
+                    pm = occ*np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])
+                    w0_id = np.abs(int(w0 / self.dw))
+                    w1 = w0_id * self.dw
+                    w2 = (w0_id + 1) * self.dw
+
+                    if pm == 1:
+                        Sw1 = 1. / self.vol * np.sum(Cplus_wGG[w0_id] * rho_GG)
+                        Sw2 = 1. / self.vol * np.sum(Cplus_wGG[w0_id + 1] * rho_GG)
+                    if pm == -1:
+                        Sw1 = 1. / self.vol * np.sum(Cminus_wGG[w0_id] * rho_GG)
+                        Sw2 = 1. / self.vol * np.sum(Cminus_wGG[w0_id + 1] * rho_GG)
+
+                    Sw0 = (w2-np.abs(w0))/self.dw * Sw1 + (np.abs(w0)-w1)/self.dw * Sw2
+
+                    Sigma_kn[i][j] = Sigma_kn[i][j] + np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])*Sw0
+                    Z_kn[i][j] = Z_kn[i][j] + 1./(1 - np.real((Sw2 - Sw1)/(w2 - w1)))
+                j+=1
+            i+=1
+        return np.real(Sigma_kn), Z_kn/self.nbands
 
 
-    def printtxt(self, text):
-        print >> self.txt, text

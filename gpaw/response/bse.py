@@ -5,7 +5,6 @@ from math import pi
 from ase.units import Hartree
 from ase.io import write
 from gpaw.io.tar import Writer, Reader
-from gpaw.fd_operators import Gradient
 from gpaw.mpi import world, size, rank, serial_comm
 from gpaw.utilities.blas import gemmdot, gemm, gemv
 from gpaw.utilities import devnull
@@ -460,111 +459,6 @@ class BSE(BASECHI):
             phi_aGp[a] = phimax_aGp[a, :N1, :N2]
 
         return phi_aGp
-
-
-    def density_matrix(self,n,m,k,kq=None,Gspace=True):
-
-        ibzk_kc = self.ibzk_kc
-        bzk_kc = self.bzk_kc
-        gd = self.gd
-        kd = self.kd
-        optical_limit=False
-
-        if kq is None:
-            kq = self.kq_k[k]
-            expqr_g = self.expqr_g
-            q_v = self.qq_v
-            optical_limit = self.optical_limit
-            q_c = self.q_c
-        else:
-            q_c = bzk_kc[kq] - bzk_kc[k]
-            q_c[np.where(q_c>0.501)] -= 1
-            q_c[np.where(q_c<-0.499)] += 1
-            
-            if (np.abs(q_c) < self.ftol).all():
-                optical_limit=True
-                q_c = np.array([0.0001, 0, 0])
-
-            q_v = np.dot(q_c, self.bcell_cv) #
-            r_vg = gd.get_grid_point_coordinates() # (3, nG)
-            qr_g = gemmdot(q_v, r_vg, beta=0.0)
-            expqr_g = np.exp(-1j * qr_g)
-            if optical_limit:
-                expqr_g = 1
-
-        ibzkpt1 = kd.bz2ibz_k[k]
-        ibzkpt2 = kd.bz2ibz_k[kq]
-        
-        psitold_g = self.get_wavefunction(ibzkpt1, n, True)
-        psit1_g = kd.transform_wave_function(psitold_g, k)
-        
-        psitold_g = self.get_wavefunction(ibzkpt2, m, True)
-        psit2_g = kd.transform_wave_function(psitold_g, kq)
-
-
-        if (self.rpad > 1).any() or (self.pbc - True).any():
-            tmp = self.pad(psit1_g)
-            psit1_g = tmp.copy()
-            tmp = self.pad(psit2_g)
-            psit2_g = tmp.copy()
-
-        if Gspace is False:
-            return psit1_g.conj() * psit2_g * expqr_g
-        else:
-            # FFT
-            tmp_g = psit1_g.conj()* psit2_g * expqr_g
-            rho_g = np.fft.fftn(tmp_g) * self.vol / self.nG0
-
-            # Here, planewave cutoff is applied
-            rho_G = np.zeros(self.npw, dtype=complex)
-            for iG in range(self.npw):
-                index = self.Gindex_G[iG]
-                rho_G[iG] = rho_g[index[0], index[1], index[2]]
-    
-            if optical_limit:
-                d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
-                dpsit_g = gd.empty(dtype=complex)
-                tmp = np.zeros((3), dtype=complex)
-                phase_cd = np.exp(2j * pi * gd.sdisp_cd * bzk_kc[kq, :, np.newaxis])
-                for ix in range(3):
-                    d_c[ix](psit2_g, dpsit_g, phase_cd)
-                    tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
-                rho_G[0] = -1j * np.dot(q_v, tmp)
-
-
-            pt = self.pt
-            P1_ai = pt.dict()
-            pt.integrate(psit1_g, P1_ai, k)
-            P2_ai = pt.dict()
-            pt.integrate(psit2_g, P2_ai, kq)
-
-            if self.use_W:
-                if optical_limit:
-                    iq = kd.where_is_q(np.zeros(3), self.bzq_qc)
-                else:
-                    iq = kd.where_is_q(q_c, self.bzq_qc)
-                    assert np.abs(self.bzq_qc[iq] - q_c).sum() < 1e-8
-
-                if self.phi_qaGp is None:
-                    phi_aGp = self.load_phi_aGp(self.reader, iq) #phi_qaGp[iq]
-                else:
-                    phi_aGp = self.phi_qaGp[iq]
-            else:
-                phi_aGp = self.phi_aGp
-               
-            for a, id in enumerate(self.calc.wfs.setups.id_a):
-                P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
-                gemv(1.0, phi_aGp[a], P_p, 1.0, rho_G)
-
-            if optical_limit:
-                if n==m:
-                    rho_G[0] = 1.
-                elif np.abs(self.e_kn[ibzkpt2, m] - self.e_kn[ibzkpt1, n]) < 1e-5:
-                    rho_G[0] = 0.
-                else:
-                    rho_G[0] /= (self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n])
-
-            return rho_G
 
 
     def get_dielectric_function(self, filename='df.dat', readfile=None, overlap=True):
