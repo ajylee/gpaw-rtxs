@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from ase.structure import bulk
 from gpaw import GPAW
@@ -24,7 +25,7 @@ atoms = bulk('Si', 'diamond', a=5.431)
 kpts1 = bzk_kc # not Gamma centered
 kpts2 = bzk_kc + shift_c # Gamma centered
 
-for kpts in (kpts1, kpts2):
+for kpts in (kpts2,):
 
     calc = GPAW(h=0.20, kpts=kpts)      
     atoms.set_calculator(calc)               
