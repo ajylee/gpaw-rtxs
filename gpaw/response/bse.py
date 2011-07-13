@@ -184,16 +184,17 @@ class BSE(BASECHI):
             else:
                 raise ValueError('use_W can only be string or bool ')
 
-            if not len(self.phi_qaGp) == self.nkpt:
+            if not len(self.phi_qaGp) == self.nkpt:                
                 import os.path
                 if not os.path.isfile('phi_qaGp'):
                     self.printtxt('Calculating phi_qaGp')
                     self.get_phi_qaGp()
-                    
-        world.barrier()
-        self.reader = Reader('phi_qaGp')
-        self.printtxt('Finished reading phi_aGp !')
-        self.printtxt('Memory used %f' %(maxrss() / 1024.**2))
+
+                world.barrier()
+                self.reader = Reader('phi_qaGp')
+                self.printtxt('Finished reading phi_aGp !')
+                self.phi_qaGp = None
+                self.printtxt('Memory used %f M' %(maxrss() / 1024.**2))
         
        # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
@@ -543,8 +544,11 @@ class BSE(BASECHI):
                 else:
                     iq = kd.where_is_q(q_c, self.bzq_qc)
                     assert np.abs(self.bzq_qc[iq] - q_c).sum() < 1e-8
-                    
-                phi_aGp = self.load_phi_aGp(self.reader, iq) #phi_qaGp[iq]
+
+                if self.phi_qaGp is None:
+                    phi_aGp = self.load_phi_aGp(self.reader, iq) #phi_qaGp[iq]
+                else:
+                    phi_aGp = self.phi_qaGp[iq]
             else:
                 phi_aGp = self.phi_aGp
                
