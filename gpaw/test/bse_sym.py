@@ -38,7 +38,10 @@ for kpts in (kpts1, kpts2):
                   nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
                   nbands=8,positive_w=True,use_W=True,qsymm=False)
     bse.get_dielectric_function('bse_nosymm.dat')
-    
+
+    if rank == 0 and os.path.isfile('phi_qaGp'):
+        os.remove('phi_qaGp')
+
     
     # with symmetry BSE
     eshift = 0.8
@@ -47,6 +50,9 @@ for kpts in (kpts1, kpts2):
                   nc=np.array([4,6]), nv=np.array([2,4]), eshift=eshift,
                   nbands=8,positive_w=True,use_W=True,qsymm=True)
     bse.get_dielectric_function('bse_symm.dat')
+
+    if rank == 0 and os.path.isfile('phi_qaGp'):
+        os.remove('phi_qaGp')
 
 check = 1
 if check:
