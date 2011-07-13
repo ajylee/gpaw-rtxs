@@ -7,7 +7,7 @@ from datetime import timedelta
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
 from gpaw import GPAW
-from gpaw.response.sigma import SIGMA
+from sigma import SIGMA
 from gpaw.response.parallel import parallel_partition
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.response.df import DF
@@ -278,4 +278,3 @@ class GW:
 
     def printtxt(self, text):
         print >> self.txt, text
-
