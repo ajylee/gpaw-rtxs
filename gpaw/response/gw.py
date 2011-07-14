@@ -6,14 +6,13 @@ from time import time, ctime
 from datetime import timedelta
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
-from gpaw import GPAW
-from gpaw.response.parallel import parallel_partition
 from gpaw.mpi import world, rank, size, serial_comm
-from gpaw.response.df import DF
-from gpaw.response.cell import get_primitive_cell, set_Gvectors
 from gpaw.utilities import devnull
 from gpaw.xc.hybridk import HybridXC
 from gpaw.xc.tools import vxc
+from gpaw.response.parallel import parallel_partition
+from gpaw.response.df import DF
+from gpaw.response.cell import get_primitive_cell, set_Gvectors
 from gpaw.response.base import BASECHI
 
 class GW(BASECHI):
@@ -158,30 +157,13 @@ class GW(BASECHI):
             qG = np.dot(q[np.newaxis,:] + Gvec_Gc,(bcell_cv).T)
             q_G = 1. / np.sqrt((qG*qG).sum(axis=1))
 
-            df = DF(
-                    calc=calc,
-                    q=q0,
-                    w=self.w_w.copy() * Hartree,
-                    nbands=nbands,
-                    optical_limit=False,
-                    hilbert_trans=True,
-                    full_response=True,
-                    xc='RPA',
-                    eta=copy.copy(self.eta)*Hartree,
-                    ecut=copy.copy(self.ecut)*Hartree,
-                    txt='df_q_' + str(iq) + '.out',
-                    comm=serial_comm
-                   )
+            self.ibzq_qc = bzq_kc
+            self.vcut = None
+            df, W_wGG = self.screened_interaction_kernel(iq, static=False)
 
-            dfinv_wGG = df.get_inverse_dielectric_matrix(xc='RPA')
-
-            for iw in range(Nw):
-                W_wGG[iw] =  4*pi * ((q_G[:,np.newaxis] * (dfinv_wGG[iw] - tmp_GG)) * q_G[np.newaxis,:])
-                if optical_limit:
-                    W_wGG[iw,0,0:] = 0.
-                    W_wGG[iw,0:,0] = 0.
-
-            del q_G, dfinv_wGG
+            if optical_limit:
+                W_wGG[:,0,0:] = 0.
+                W_wGG[:,0:,0] = 0.
 
             S, Z = self.get_self_energy(df, W_wGG)
 
@@ -259,8 +241,6 @@ class GW(BASECHI):
 
 
     def get_self_energy(self, df, W_wGG):
-
-#        self.initialize()
 
         Sigma_kn = np.zeros((self.nkptout, self.nbandsout), dtype=complex)
         Z_kn = np.zeros((self.nkptout, self.nbandsout), dtype=float)

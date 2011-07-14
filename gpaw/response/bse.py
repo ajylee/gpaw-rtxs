@@ -172,28 +172,26 @@ class BSE(BASECHI):
             if type(self.use_W) is str:
                 # read 
                 data = pickle.load(open(self.use_W))
-                self.dfinvG0_G = data['dfinvG0_G']
                 W_qGG = data['W_qGG']
-                self.phi_qaGp = data['phi_qaGp']
+                self.dfinvG0_G = data['dfinvG0_G']
                 self.printtxt('Finished reading screening interaction kernel')
             elif type(self.use_W) is bool:
                 # calculate from scratch
                 self.printtxt('Calculating screening interaction kernel.')                
-                W_qGG = self.screened_interaction_kernel()
+                W_qGG = self.full_static_screened_interaction()
             else:
                 raise ValueError('use_W can only be string or bool ')
 
-            if not len(self.phi_qaGp) == self.nkpt:                
-                import os.path
-                if not os.path.isfile('phi_qaGp'):
-                    self.printtxt('Calculating phi_qaGp')
-                    self.get_phi_qaGp()
+            # calculate phi_qaGp
+            import os.path
+            if not os.path.isfile('phi_qaGp'):
+                self.printtxt('Calculating phi_qaGp')
+                self.get_phi_qaGp()
 
-                world.barrier()
-                self.reader = Reader('phi_qaGp')
-                self.printtxt('Finished reading phi_aGp !')
-                self.phi_qaGp = None
-                self.printtxt('Memory used %f M' %(maxrss() / 1024.**2))
+            world.barrier()
+            self.reader = Reader('phi_qaGp')
+            self.printtxt('Finished reading phi_aGp !')
+            self.printtxt('Memory used %f M' %(maxrss() / 1024.**2))
         
        # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
@@ -218,7 +216,17 @@ class BSE(BASECHI):
                     
                     rho3_G = self.density_matrix(n1,n2,k1,k2)
                     rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],self.kq_k[k2])
-                    
+
+#                    if k1 == k2:
+#                        if n1 == n2:
+#                            rho3_G[0] = 1.
+#                        else:
+#                            rho3_G[0] = 0.
+#                        if m1 == m2:
+#                            rho4_G[0] = 1.
+#                        else:
+#                            rho4_G[0] = 0.
+
                     q_c = bzk_kc[k2] - bzk_kc[k1]
                     q_c[np.where(q_c > 0.501)] -= 1.
                     q_c[np.where(q_c < -0.499)] += 1.
@@ -276,7 +284,7 @@ class BSE(BASECHI):
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
                     W_SS[iS, jS] = np.sum(tmp_GG)
-#                    self.printtxt('%d %d %s %s' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
+                    self.printtxt('%d %d %s %s' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
         K_SS *= 4 * pi / self.vol
@@ -320,51 +328,20 @@ class BSE(BASECHI):
         return 
 
 
-    def screened_interaction_kernel(self):
+    def full_static_screened_interaction(self):
         """Calcuate W_GG(q)"""
 
-        dfinv_qGG = np.zeros((self.nibzq, self.npw, self.npw),dtype=complex)
-        kc_qGG = np.zeros((self.nibzq, self.npw, self.npw))
-        dfinvG0_G = np.zeros(self.npw,dtype=complex) # save the wing elements
+        W_qGG = np.zeros((self.nibzq, self.npw, self.npw),dtype=complex)
 
         t0 = time()
-        self.phi_qaGp = {}
-        
         for iq in range(self.nibzq):#self.q_start, self.q_end):
-            q = self.ibzq_qc[iq]
-            optical_limit=False
-            if (np.abs(q) < self.ftol).all():
-                optical_limit=True
-                q = np.array([0.0001, 0, 0])
 
-            df = DF(calc=self.calc, q=q, w=(0.,), nbands=self.nbands,
-                    optical_limit=optical_limit,
-                    hilbert_trans=False, xc='RPA', rpad=self.rpad, vcut=self.vcut,
-                    eta=0.0001, ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
-
-#            df.e_kn = self.e_kn
-            dfinv_qGG[iq] = df.get_inverse_dielectric_matrix(xc='RPA')[0]
-            self.phi_qaGp[iq] = df.phi_aGp 
-            kc_qGG[iq] = df.Kc_GG
-
+            W_qGG[iq] = self.screened_interaction_kernel(iq, static=True)
             self.timing(iq, t0, self.nibzq, 'iq')
-            assert df.npw == self.npw
-
-            if optical_limit:
-                dfinvG0_G = dfinv_qGG[iq,:,0]
-                # make sure epsilon_matrix is hermitian.
-                assert np.abs(dfinv_qGG[iq,0,:] - dfinv_qGG[iq,:,0].conj()).sum() < 1e-6
-                dfinv_qGG[iq,0,0] = np.real(dfinv_qGG[iq,0,0])
-            del df
-
-        W_qGG = dfinv_qGG * kc_qGG
-#        world.sum(W_qGG)
-#        world.broadcast(dfinvG0_G, 0)
-        self.dfinvG0_G = dfinvG0_G
 
         data = {'W_qGG': W_qGG,
-                'dfinvG0_G': dfinvG0_G,
-                'phi_qaGp':self.phi_qaGp}
+                'dfinvG0_G': self.dfinvG0_G}
+
         if rank == 0:
             pickle.dump(data, open('W_qGG.pckl', 'w'), -1)
 
@@ -400,8 +377,6 @@ class BSE(BASECHI):
             if N2 > N2_max:
                 N2_max = N2
         
-        del self.phi_qaGp
-#        self.phi_qaGp = {}
         nbzq = self.nkpt
         nbzq, nq_local, q_start, q_end = parallel_partition(
                                     nbzq, world.rank, world.size, reshape=False)

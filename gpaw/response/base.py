@@ -414,13 +414,10 @@ class BASECHI:
                         iq = kd.where_is_q(q_c, self.bzq_qc)
                         assert np.abs(self.bzq_qc[iq] - q_c).sum() < 1e-8
     
-                    if self.phi_qaGp is None:
-                        phi_aGp = self.load_phi_aGp(self.reader, iq) #phi_qaGp[iq]
-                    else:
-                        phi_aGp = self.phi_qaGp[iq]
+                    phi_aGp = self.load_phi_aGp(self.reader, iq) #phi_qaGp[iq]
                 else:
                     phi_aGp = self.phi_aGp
-               
+
             for a, id in enumerate(self.calc.wfs.setups.id_a):
                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
                 gemv(1.0, phi_aGp[a], P_p, 1.0, rho_G)
@@ -434,3 +431,58 @@ class BASECHI:
                     rho_G[0] /= (self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n])
 
             return rho_G
+
+
+    def screened_interaction_kernel(self, iq, static=True):
+        """Calcuate W_GG(w) for a given q.
+        if static: return W_GG(w=0)
+        is not static: return W_GG(q,w) - Vc_GG
+        """
+
+        from gpaw.response.df import DF
+        q = self.ibzq_qc[iq]
+
+        optical_limit = False
+        if np.abs(q).sum() < 1e-8:
+            q = np.array([1e-4, 0, 0]) # arbitrary q, not really need to be calculated
+            optical_limit = True
+            
+        if static:
+            df = DF(calc=self.calc, q=q.copy(), w=(0.,), nbands=self.nbands,
+                    optical_limit=optical_limit,
+                    hilbert_trans=False, xc='RPA', rpad=self.rpad, vcut=self.vcut,
+                    eta=0.0001, ecut=self.ecut*Hartree, txt='no_output')#, comm=serial_comm)
+        else:
+            df = DF(calc=self.calc, q=q.copy(), w=self.w_w.copy()*Hartree, nbands=self.nbands,
+                    optical_limit=optical_limit, hilbert_trans=True, xc='RPA', full_response=True,
+                    rpad=self.rpad, vcut=self.vcut,
+                    eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,
+                    txt='df_q_' + str(iq) + '.out', comm=serial_comm)
+
+        dfinv_wGG = df.get_inverse_dielectric_matrix(xc='RPA')
+        assert df.npw == self.npw
+        assert df.ecut[0] == self.ecut[0]
+        if not static:
+            assert df.eta == self.eta
+            assert df.Nw == self.Nw
+            assert df.dw == self.dw
+        W_wGG = np.zeros_like(dfinv_wGG)
+
+        if static:
+            assert len(dfinv_wGG) == 1
+            W_GG = dfinv_wGG[0] * df.Kc_GG
+            if optical_limit:
+                self.dfinvG0_G = dfinv_wGG[0,:,0]
+
+            return W_GG
+        else:
+            for iw in range(df.Nw):
+                W_wGG[iw] = (dfinv_wGG[iw] - np.eye(df.npw, df.npw)) * df.Kc_GG
+            if np.abs(q).sum() < 1e-8: ## q == 0 case
+                W_wGG[:,:,0] = 0.
+                W_wGG[:,0,:] = 0.
+
+            return df, W_wGG
+
+        
+
