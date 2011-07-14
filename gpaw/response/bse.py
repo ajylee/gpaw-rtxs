@@ -505,20 +505,6 @@ class BSE(BASECHI):
         return epsilon_w
 
 
-    def timing(self, i, t0, n_local, txt):
-
-        if i == 0:
-            dt = time() - t0
-            self.totaltime = dt * n_local
-            self.printtxt('  Finished %s 0 in %f seconds, estimated %f seconds left.' %(txt, dt, self.totaltime))
-            
-        if rank == 0 and n_local // 5 > 0:            
-            if i > 0 and i % (n_local // 5) == 0:
-                dt =  time() - t0
-                self.printtxt('  Finished %s %d in %f seconds, estimated %f seconds left.  '%(txt, i, dt, self.totaltime - dt) )
-
-        return    
-
     def get_e_h_density(self, lamda=None, filename=None):
 
         if filename is not None:

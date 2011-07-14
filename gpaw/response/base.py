@@ -68,6 +68,7 @@ class BASECHI:
         self.optical_limit = optical_limit
         self.eshift = eshift
 
+
     def initialize(self):
                         
         self.eta /= Hartree
@@ -215,6 +216,20 @@ class BASECHI:
                 printtxt('|q| (1/A)                      : %f' %(sqrt(np.dot(self.qq_v / Bohr, self.qq_v / Bohr))) )
 
         return
+
+
+    def timing(self, i, t0, n_local, txt):
+
+        if i == 0:
+            dt = time() - t0
+            self.totaltime = dt * n_local
+            self.printtxt('  Finished %s 0 in %f seconds, estimated %f seconds left.' %(txt, dt, self.totaltime))
+        if rank == 0 and n_local // 5 > 0:            
+            if i > 0 and i % (n_local // 5) == 0:
+                dt =  time() - t0
+                self.printtxt('  Finished %s %d in %f seconds, estimated %f seconds left.  '%(txt, i, dt, self.totaltime - dt) )
+
+        return    
 
 
     def get_phi_aGp(self, q_c=None):
@@ -466,7 +481,6 @@ class BASECHI:
             assert df.eta == self.eta
             assert df.Nw == self.Nw
             assert df.dw == self.dw
-        W_wGG = np.zeros_like(dfinv_wGG)
 
         if static:
             assert len(dfinv_wGG) == 1
@@ -476,11 +490,9 @@ class BASECHI:
 
             return W_GG
         else:
+            W_wGG = np.zeros_like(dfinv_wGG)
             for iw in range(df.Nw):
                 W_wGG[iw] = (dfinv_wGG[iw] - np.eye(df.npw, df.npw)) * df.Kc_GG
-            if np.abs(q).sum() < 1e-8: ## q == 0 case
-                W_wGG[:,:,0] = 0.
-                W_wGG[:,0,:] = 0.
 
             return df, W_wGG
 
