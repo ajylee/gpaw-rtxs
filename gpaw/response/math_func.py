@@ -1,7 +1,5 @@
 from math import sqrt, pi
-
 import numpy as np
-
 from gpaw.utilities.blas import gemmdot
 from gpaw.gaunt import gaunt as G_LLL
 from gpaw.spherical_harmonics import Y

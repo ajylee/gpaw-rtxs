@@ -1,18 +1,13 @@
 import numpy as np
-import copy
-import sys
 from math import pi, sqrt
 from time import time, ctime
 from datetime import timedelta
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
 from gpaw.mpi import world, rank, size, serial_comm
-from gpaw.utilities import devnull
 from gpaw.xc.hybridk import HybridXC
 from gpaw.xc.tools import vxc
 from gpaw.response.parallel import parallel_partition
-from gpaw.response.df import DF
-from gpaw.response.cell import get_primitive_cell, set_Gvectors
 from gpaw.response.base import BASECHI
 
 class GW(BASECHI):
@@ -51,7 +46,8 @@ class GW(BASECHI):
         self.ibzq_qc = self.bzq_kc # q point symmetry is not used at the moment.
         self.nqpt = np.shape(self.bzq_kc)[0]
         self.qcomm = world
-        nq, self.nq_local, self.q_start, self.q_end = parallel_partition(self.nqpt, world.rank, world.size, reshape=False)
+        nq, self.nq_local, self.q_start, self.q_end = parallel_partition(
+                                  self.nqpt, world.rank, world.size, reshape=False)
         
         
         # frequency points init

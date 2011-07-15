@@ -5,18 +5,18 @@ from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import GPAW, extra_parameters
 from gpaw.utilities import unpack, devnull
-from gpaw.utilities.blas import gemmdot, gemv, scal, axpy
+from gpaw.utilities.blas import gemmdot, gemv
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.utilities.memory import maxrss
+from gpaw.fd_operators import Gradient
 from gpaw.response.cell import get_primitive_cell, set_Gvectors
-from gpaw.response.math_func import delta_function, hilbert_transform, \
+from gpaw.response.math_func import delta_function,  \
      two_phi_planewave_integrals
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.utilities.memory import maxrss
-from gpaw.fd_operators import Gradient
 
 class BASECHI:
     """This class is to store the basic common stuff for chi and bse."""

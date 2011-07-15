@@ -3,7 +3,6 @@ from math import sqrt, pi
 import pickle
 from ase.units import Hartree, Bohr
 from gpaw.mpi import rank
-from gpaw.response.math_func import delta_function
 from gpaw.response.chi import CHI
 
 class DF(CHI):
