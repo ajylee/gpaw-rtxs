@@ -149,9 +149,17 @@ class GW(BASECHI):
         Cminus_wGG *= 1j/(2*pi) * self.dw
 
         i = 0
-        for k in self.gwkpt_k:
+        for k in self.gwkpt_k: # k is bzk index
 
-            kq = df.kq_k[k]
+#            kq = df.kq_k[k]
+
+            if df.optical_limit:
+                kq_c = df.kd.bzk_kc[k]
+            else:
+                kq_c = df.kd.bzk_kc[k] - df.q_c  # k - q
+            
+            kq = df.kd.where_is_q(kq_c, df.kd.bzk_kc)
+            
             ibzkpt1 = df.kd.bz2ibz_k[k]
             ibzkpt2 = df.kd.bz2ibz_k[kq]
 
@@ -168,8 +176,10 @@ class GW(BASECHI):
                     if not self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n] == 0:
                         pm *= np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])
 
-                    rho_G = self.density_matrix(n, m, k, kq, df.phi_aGp)
-                    rho_GG = np.outer(rho_G, rho_G.conj())
+#                    rho_G = self.density_matrix(n, m, k, kq, df.phi_aGp)
+#                    rho_GG = np.outer(rho_G, rho_G.conj())
+                    rho_G = self.density_matrix(m, n, kq, k, df.phi_aGp)
+                    rho_GG = np.outer(rho_G.conj(), rho_G)
 
                     w0 = self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n]
                     w0_id = np.abs(int(w0 / self.dw))
