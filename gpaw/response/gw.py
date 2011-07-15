@@ -40,6 +40,7 @@ class GW(BASECHI):
         calc = self.calc
         self.kd = kd = self.calc.wfs.kd
         self.nkpt = kd.nbzkpts
+        self.nikpt = kd.nibzkpts
 
         # q point init
         self.bzq_kc = kd.get_bz_q_points()
@@ -67,8 +68,8 @@ class GW(BASECHI):
 
         # GW kpoints init
         if (self.kpoints == None):
-            self.gwnkpt = self.nkpt
-            self.gwkpt_k = range(self.nkpt)
+            self.gwnkpt = self.nikpt
+            self.gwkpt_k = kd.ibz2bz_k
         else:
             self.gwnkpt = np.shape(self.kpoints)[0]
             self.gwkpt_k = self.kpoints
@@ -148,7 +149,7 @@ class GW(BASECHI):
         Cminus_wGG *= 1j/(2*pi) * self.dw
 
         i = 0
-        for k in self.kpoints:
+        for k in self.gwkpt_k:
 
             kq = df.kq_k[k]
             ibzkpt1 = df.kd.bz2ibz_k[k]
