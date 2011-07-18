@@ -267,9 +267,9 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     if a.ndim == 1 and b.ndim == 1:
         assert out is None
         if trans is 'c':
-            return beta * _gpaw.dotc(b, a) # dotc conjugates *first* argument
+            return alpha * _gpaw.dotc(b, a) # dotc conjugates *first* argument
         else:
-            return beta * _gpaw.dotu(a, b)
+            return alpha * _gpaw.dotu(a, b)
 
 ##     # Use gemv if a or b is a vector, and the other is a matrix??
 ##     if a.ndim == 1 and trans == 'n':
