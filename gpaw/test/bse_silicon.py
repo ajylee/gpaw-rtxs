@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from ase import Atom, Atoms
 from ase.structure import bulk
@@ -5,6 +6,7 @@ from ase.units import Hartree, Bohr
 from gpaw import GPAW, FermiDirac
 from gpaw.response.bse import BSE
 from ase.dft import monkhorst_pack
+from gpaw.mpi import rank
 
 GS = 1
 bse = 1
@@ -36,6 +38,9 @@ if bse:
               nbands=8,positive_w=True,use_W=True,qsymm=True)
     
     bse.get_dielectric_function('Si_bse.dat')
+
+    if rank == 0 and os.path.isfile('phi_qaGp'):
+        os.remove('phi_qaGp')
 
 if check:
     
