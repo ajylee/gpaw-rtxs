@@ -345,7 +345,7 @@ class BASECHI:
         return
 
 
-    def density_matrix(self,n,m,k,kq=None,phi_aGp=None,Gspace=True):
+    def density_matrix(self,n,m,k,kq=None,phi_aGp=None,expqr_g=None,Gspace=True):
 
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
@@ -369,11 +369,12 @@ class BASECHI:
                 q_c = np.array([0.0001, 0, 0])
 
             q_v = np.dot(q_c, self.bcell_cv) #
-            r_vg = gd.get_grid_point_coordinates() # (3, nG)
-            qr_g = gemmdot(q_v, r_vg, beta=0.0)
-            expqr_g = np.exp(-1j * qr_g)
-            if optical_limit:
-                expqr_g = 1
+            if expqr_g is None:
+                r_vg = gd.get_grid_point_coordinates() # (3, nG)
+                qr_g = gemmdot(q_v, r_vg, beta=0.0)
+                expqr_g = np.exp(-1j * qr_g)
+                if optical_limit:
+                    expqr_g = 1
 
         ibzkpt1 = kd.bz2ibz_k[k]
         ibzkpt2 = kd.bz2ibz_k[kq]
@@ -383,7 +384,6 @@ class BASECHI:
         
         psitold_g = self.get_wavefunction(ibzkpt2, m, True)
         psit2_g = kd.transform_wave_function(psitold_g, kq)
-
 
         if (self.rpad > 1).any() or (self.pbc - True).any():
             tmp = self.pad(psit1_g)
@@ -403,7 +403,7 @@ class BASECHI:
             for iG in range(self.npw):
                 index = self.Gindex_G[iG]
                 rho_G[iG] = rho_g[index[0], index[1], index[2]]
-    
+
             if optical_limit:
                 d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
                 dpsit_g = gd.empty(dtype=complex)
@@ -413,7 +413,6 @@ class BASECHI:
                     d_c[ix](psit2_g, dpsit_g, phase_cd)
                     tmp[ix] = gd.integrate(psit1_g.conj() * dpsit_g)
                 rho_G[0] = -1j * np.dot(q_v, tmp)
-
 
             pt = self.pt
             P1_ai = pt.dict()

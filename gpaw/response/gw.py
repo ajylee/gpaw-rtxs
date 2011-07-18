@@ -5,6 +5,7 @@ from datetime import timedelta
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
 from gpaw.mpi import world, rank, size, serial_comm
+from gpaw.utilities.blas import gemmdot
 from gpaw.xc.hybridk import HybridXC
 from gpaw.xc.tools import vxc
 from gpaw.response.parallel import parallel_partition
@@ -82,6 +83,7 @@ class GW(BASECHI):
             self.gwnband = np.shape(self.bands)[0]
             self.gwbands_n = self.bands
 
+        self.alpha = 1j/(2*pi) * self.dw / (self.vol * self.nkpt)
         # print init
         self.print_gw_init()
         
@@ -97,19 +99,29 @@ class GW(BASECHI):
         Z_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
 
         t0 = time()
+        t_w = 0
+        t_selfenergy = 0
         for iq in range(self.q_start, self.q_end):
 
+            t1 = time()
             # get screened interaction. 
             df, W_wGG = self.screened_interaction_kernel(iq, static=False)
+            t2 = time()
+            t_w += t2 - t1
 
             # get self energy
             S, Sder = self.get_self_energy(df, W_wGG.copy())
+            t3 = time() - t2
+            t_selfenergy += t3
+            
             Sigma_kn += S
             Sigmader_kn += Sder
             
             del df
             self.timing(iq, t0, self.nq_local, 'iq')
 
+        print 'W_wGG takes %f seconds' %(t_w)
+        print 'Self energy takes %f  seconds' %(t_selfenergy)
         self.qcomm.barrier()
         self.qcomm.sum(Sigma_kn)
         self.qcomm.sum(Sigmader_kn)
@@ -126,39 +138,21 @@ class GW(BASECHI):
 
     def get_self_energy(self, df, W_wGG):
 
-        Sigma_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=complex)
+        Sigma_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
         Sigmader_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
         E_f = self.calc.get_fermi_level() / Hartree
 
-#        Cplus_wGG = np.zeros((self.NwS, self.npw, self.npw), dtype=complex)
-#        Cminus_wGG = np.zeros((self.NwS, self.npw, self.npw), dtype=complex)
-#
-#        for iw in range(self.NwS):
-#            w1 = iw * self.dw
-#            for jw in range(self.Nw):
-#                w2 = jw * self.dw
-#                Cplus_wGG[iw] += W_wGG[jw] * (1. / (w1 + w2 + 1j*self.eta) + 1. / (w1 - w2 + 1j*self.eta))
-#                Cminus_wGG[iw] += W_wGG[jw] * (1. / (w1 + w2 - 1j*self.eta) + 1. / (w1 - w2 - 1j*self.eta))
-#
-#        Cplus_wGG *= 1j/(2*pi) * self.dw
-#        Cminus_wGG *= 1j/(2*pi) * self.dw
-
         for i, k in enumerate(self.gwkpt_k): # k is bzk index
-
-#            kq = df.kq_k[k]
-
             if df.optical_limit:
                 kq_c = df.kd.bzk_kc[k]
             else:
                 kq_c = df.kd.bzk_kc[k] - df.q_c  # k - q
             
-            kq = df.kd.where_is_q(kq_c, df.kd.bzk_kc)
-            
+            kq = df.kd.where_is_q(kq_c, df.kd.bzk_kc)            
             ibzkpt1 = df.kd.bz2ibz_k[k]
             ibzkpt2 = df.kd.bz2ibz_k[kq]
 
             for j, n in enumerate(self.bands):
-
                 for m in range(self.nbands):
 
                     if k == kq:
@@ -179,66 +173,29 @@ class GW(BASECHI):
 #                      W_wGG[:,0,0:] = 0.
 #                      W_wGG[:,0:,0] = 0.
 
-                    # method 1
-                    rho_G = self.density_matrix(m, n, kq, k, df.phi_aGp)
-                    rho_GG = np.outer(rho_G.conj(), rho_G)
+                    rho_G = self.density_matrix(m, n, kq, k, df.phi_aGp, df.expqr_g)
 
-                    C_w = np.zeros(self.Nw, dtype=complex)
-                    for iw in range(self.Nw):
-                        C_w[iw] = (W_wGG[iw] * rho_GG).sum()
-                    C_w /= self.vol * self.nkpt
-                    C_w *= 1j/(2*pi) * self.dw
+                    # perform W_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
+                    W_wG = gemmdot(W_wGG, rho_G, beta=0.0)
+                    C_w = gemmdot(W_wG, rho_G, alpha=self.alpha, beta=0.0,trans='c')
 
+                    # w1 = w - epsilon_m,k-q + i*eta * sgn(epsilon_m,k-q, E_f)
+                    if self.f_kn[ibzkpt2,m] < self.ftol: #self.e_kn[ibzkpt2, m] > E_f :
+                        sign = 1.
+                    else:
+                        sign = -1.
+                    w1 = self.e_kn[ibzkpt1, n] - self.e_kn[ibzkpt2,m] + 1j*self.eta*sign
+                    w2_w = np.arange(self.Nw) * self.dw
 
-                    w1 = self.e_kn[ibzkpt1, n]
-                    for jw in range(self.Nw):
-                        w2 = jw * self.dw
-                        if self.f_kn[ibzkpt2,m] < self.ftol: #self.e_kn[ibzkpt2, m] > E_f :
-                            sign = 1.
-                        else:
-                            sign = -1.
-                        Sigma_kn[i,j] += C_w[jw] * (1./(w1-w2-self.e_kn[ibzkpt2,m]+1j*self.eta*sign)
-                                                   + 1./(w1+w2-self.e_kn[ibzkpt2,m]+1j*self.eta*sign))
+                    # calculate self energy
+                    tmp_w = 1./(w1- w2_w) + 1./(w1 + w2_w)
+                    Sigma_kn[i,j] += np.real(gemmdot(C_w, tmp_w, beta=0.0))
 
-                        Sigmader_kn[i,j] += np.real(C_w[jw] *
-                                       (1./(w1-w2-self.e_kn[ibzkpt2,m]+1j*self.eta*sign)**2 +
-                                        1./(w1+w2-self.e_kn[ibzkpt2,m]+1j*self.eta*sign)**2))
-                            
-                    # method 2
-#                    check_focc = self.f_kn[ibzkpt2, m] > 1e-3
-#                    if check_focc:
-#                        pm = -1
-#                    else:
-#                        pm = 1
-#
-#                    if not self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n] == 0:
-#                        pm *= np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])
-#
-##                    rho_G = self.density_matrix(n, m, k, kq, df.phi_aGp)
-##                    rho_GG = np.outer(rho_G, rho_G.conj())
-#                    rho_G = self.density_matrix(m, n, kq, k, df.phi_aGp)
-#                    rho_GG = np.outer(rho_G.conj(), rho_G)
-#
-#                    w0 = self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n]
-#                    w0_id = np.abs(int(w0 / self.dw))
-#                    w1 = w0_id * self.dw
-#                    w2 = (w0_id + 1) * self.dw
-#
-#                    if pm == 1:
-#                        Sw1 = 1. / self.vol * np.sum(Cplus_wGG[w0_id] * rho_GG)
-#                        Sw2 = 1. / self.vol * np.sum(Cplus_wGG[w0_id + 1] * rho_GG)
-#                    if pm == -1:
-#                        Sw1 = 1. / self.vol * np.sum(Cminus_wGG[w0_id] * rho_GG)
-#                        Sw2 = 1. / self.vol * np.sum(Cminus_wGG[w0_id + 1] * rho_GG)
-#
-#                    Sw0 = (w2-np.abs(w0))/self.dw * Sw1 + (np.abs(w0)-w1)/self.dw * Sw2
-#
-#                    Sigma_kn[i][j] = Sigma_kn[i][j] + np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])*Sw0
-#                    Z_kn[i][j] = Z_kn[i][j] + 1./(1 - np.real((Sw2 - Sw1)/(w2 - w1)))
-#
-#                j+=1
-#            i+=1
-        return np.real(Sigma_kn), Sigmader_kn 
+                    # calculate derivate of self energy with respect to w
+                    tmp_w = 1./(w1- w2_w)**2 + 1./(w1 + w2_w)**2
+                    Sigmader_kn[i,j] += np.real(gemmdot(C_w, tmp_w, beta=0.0))
+
+        return Sigma_kn, Sigmader_kn 
 
 
     def get_exx(self):
