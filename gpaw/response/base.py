@@ -493,6 +493,8 @@ class BASECHI:
             W_wGG = np.zeros_like(dfinv_wGG)
             for iw in range(df.Nw):
                 W_wGG[iw] = (dfinv_wGG[iw] - np.eye(df.npw, df.npw)) * df.Kc_GG
+            if optical_limit:
+                self.dfinvG0_wG = dfinv_wGG[:,:,0]
 
             return df, W_wGG
 
