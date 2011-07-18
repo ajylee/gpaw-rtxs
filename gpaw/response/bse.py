@@ -284,7 +284,7 @@ class BSE(BASECHI):
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
                     W_SS[iS, jS] = np.sum(tmp_GG)
-                    self.printtxt('%d %d %s %s' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
+#                    self.printtxt('%d %d %s %s' %(iS, jS, K_SS[iS,jS], W_SS[iS,jS]))
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
         K_SS *= 4 * pi / self.vol
