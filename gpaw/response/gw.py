@@ -110,7 +110,7 @@ class GW(BASECHI):
             t_w += t2 - t1
 
             # get self energy
-            S, Sder = self.get_self_energy(df, W_wGG.copy())
+            S, Sder = self.get_self_energy(df, W_wGG)
             t3 = time() - t2
             t_selfenergy += t3
             
@@ -129,11 +129,14 @@ class GW(BASECHI):
         Z_kn = 1. / (1. + Sigmader_kn)
 
         # exact exchange
+        t0 = time()
         e_kn, v_kn, e_xx = self.get_exx() # note, e_kn is different from self.e_kn
-        Sigma_kn = e_kn + Z_kn * (Sigma_kn + e_xx - v_kn)
+        print 'EXX takes %f seconds' %(time()-t0)
+        
+        Qp_kn = e_kn + Z_kn * (Sigma_kn + e_xx - v_kn)
 
         # finish
-        self.print_gw_finish(e_kn, v_kn, e_xx, Sigma_kn, Z_kn)
+        self.print_gw_finish(e_kn, v_kn, e_xx, Sigma_kn, Z_kn, Qp_kn)
 
 
     def get_self_energy(self, df, W_wGG):
@@ -141,6 +144,9 @@ class GW(BASECHI):
         Sigma_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
         Sigmader_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
         E_f = self.calc.get_fermi_level() / Hartree
+
+        Wbackup_wG0 = W_wGG[:,:,0].copy()
+        Wbackup_w0G = W_wGG[:,0,:].copy()
 
         for i, k in enumerate(self.gwkpt_k): # k is bzk index
             if df.optical_limit:
@@ -169,6 +175,10 @@ class GW(BASECHI):
                             W_wGG[:,0,:] = tmp_wG.conj()
                             W_wGG[:,0,0] = 2./pi*(6*pi**2/self.vol)**(1./3.) \
                                            * self.dfinvG0_wG[:,0] *self.vol
+                        else:
+                            W_wGG[:,:,0] = Wbackup_wG0
+                            W_wGG[:,0,:] = Wbackup_w0G
+
                     # to be checked.
 #                      W_wGG[:,0,0:] = 0.
 #                      W_wGG[:,0:,0] = 0.
@@ -180,7 +190,8 @@ class GW(BASECHI):
                     C_w = gemmdot(W_wG, rho_G, alpha=self.alpha, beta=0.0,trans='c')
 
                     # w1 = w - epsilon_m,k-q + i*eta * sgn(epsilon_m,k-q, E_f)
-                    if self.f_kn[ibzkpt2,m] < self.ftol: #self.e_kn[ibzkpt2, m] > E_f :
+                    if self.e_kn[ibzkpt2, m] > E_f :
+                    #if self.f_kn[ibzkpt2,m] < self.ftol: #self.e_kn[ibzkpt2, m] > E_f :
                         sign = 1.
                     else:
                         sign = -1.
@@ -237,7 +248,7 @@ class GW(BASECHI):
         self.printtxt('Calculate matrix elements for n = %s' %(self.gwbands_n))
 
 
-    def print_gw_finish(self, e_kn, v_kn, e_xx, Sigma_kn, Z_kn):
+    def print_gw_finish(self, e_kn, v_kn, e_xx, Sigma_kn, Z_kn, Qp_kn):
 
         self.printtxt("------------------------------------------------")
         self.printtxt("LDA eigenvalues are (eV): ")
@@ -255,4 +266,4 @@ class GW(BASECHI):
         self.printtxt("GW calculation finished in %s " %(timedelta(seconds=totaltime)))
         self.printtxt("------------------------------------------------")
         self.printtxt("Quasi-particle energies are (eV): ")
-        self.printtxt(Sigma_kn*Hartree)
+        self.printtxt(Qp_kn*Hartree)

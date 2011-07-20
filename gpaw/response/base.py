@@ -471,7 +471,7 @@ class BASECHI:
                     optical_limit=optical_limit, hilbert_trans=True, xc='RPA', full_response=True,
                     rpad=self.rpad, vcut=self.vcut,
                     eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,
-                    txt='df_q_' + str(iq) + '.out', comm=serial_comm)
+                    txt='no_output', comm=serial_comm)
 
         dfinv_wGG = df.get_inverse_dielectric_matrix(xc='RPA')
         assert df.npw == self.npw
@@ -490,8 +490,10 @@ class BASECHI:
             return W_GG
         else:
             W_wGG = np.zeros_like(dfinv_wGG)
+            tmp_GG = np.ones((self.npw, self.npw))
             for iw in range(df.Nw):
-                W_wGG[iw] = (dfinv_wGG[iw] - np.eye(df.npw, df.npw)) * df.Kc_GG
+                dfinv_wGG[iw] -= tmp_GG 
+                W_wGG[iw] = dfinv_wGG[iw] * df.Kc_GG
             if optical_limit:
                 self.dfinvG0_wG = dfinv_wGG[:,:,0]
 
