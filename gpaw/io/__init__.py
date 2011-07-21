@@ -415,6 +415,15 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     db = False
     if filename.endswith('.db'):
+        try:
+            from cmr.tools.functions import get_ase_atoms_as_dict
+            atoms_var = get_ase_atoms_as_dict(paw.get_atoms())
+            if cmr_params is None:
+                cmr_params={"ase_atoms_var":atoms_var}
+            else:
+                cmr_params["ase_atoms_var"] = atoms_var
+        except:
+            pass
         if master:
             w.write_additional_db_params(cmr_params=cmr_params)
     elif cmr_params is not None and 'db' in cmr_params:

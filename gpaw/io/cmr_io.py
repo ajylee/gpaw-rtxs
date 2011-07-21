@@ -172,6 +172,11 @@ class Writer:
         if self.verbose:
             print "close()"
         self._close_array()
+        if self.cmr_params.has_key("ase_atoms_var"):
+            ase_vars = self.cmr_params["ase_atoms_var"]
+            for key in ase_vars:
+                self.data.set_user_variable(key, ase_vars[key])
+            self.cmr_params.pop("ase_atoms_var")
         if self.filename==".db":
             self.cmr_params["output"]=create_db_filename(self.data)
         else:
