@@ -72,7 +72,7 @@ class Writer:
         self.data['user']=os.getenv('USER', '???')
         self.data['date']=time.asctime()
 
-        self.data['arch']=uname[4]
+        self.data['architecture']=uname[4]
         self.data['ase_dir']=os.path.dirname(ase.__file__)
         self.data['ase_version']=ase_version
         self.data['numpy_dir']=os.path.dirname(np.__file__)
