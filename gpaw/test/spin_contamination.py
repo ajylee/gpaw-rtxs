@@ -19,6 +19,7 @@ s.set_initial_magnetic_moments([-1])
 
 c = GPAW(xc='LDA', nbands=-3, 
          charge=q, spinpol=spin, h=h,
+         mixer=MixerDif(beta=0.05, nmaxold=5, weight=50.0),
          convergence={'eigenstates': 0.078, 'density': 1e-2, 'energy': 0.1},
          )
 c.calculate(s)
