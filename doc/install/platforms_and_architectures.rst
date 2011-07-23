@@ -77,6 +77,7 @@ Linux:
    Linux/nanolab_EL4
    Linux/neolith
    Linux/newcell
+   Linux/r410_psmn.ens-lyon
    Linux/ranger_EL4
    Linux/sepeli
    Linux/supernova

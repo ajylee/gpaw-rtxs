@@ -42,7 +42,7 @@ and create sh startup script::
   export PATH=\${HOME}/opt/nose-${nose}-1/usr/bin:\${PATH}
   #
   export PYTHONPATH=\${HOME}/opt/numpy-${numpy}-1/usr/lib64/python2.4/site-packages:\${PYTHONPATH}
-  export PATH=numpy-\${HOME}/opt/${numpy}-1/usr/bin:\${PATH}
+  export PATH=\${HOME}/opt/numpy-${numpy}-1/usr/bin:\${PATH}
   #
   export PYTHONPATH=\${HOME}/opt/scipy-${scipy}-1/usr/lib64/python2.4/site-packages:\${PYTHONPATH}
   export PATH=\${HOME}/opt/scipy-${scipy}-1/usr/bin:\${PATH}
