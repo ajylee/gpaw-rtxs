@@ -369,12 +369,11 @@ class BASECHI:
                 q_c = np.array([0.0001, 0, 0])
 
             q_v = np.dot(q_c, self.bcell_cv) #
-            if expqr_g is None:
-                r_vg = gd.get_grid_point_coordinates() # (3, nG)
-                qr_g = gemmdot(q_v, r_vg, beta=0.0)
-                expqr_g = np.exp(-1j * qr_g)
-                if optical_limit:
-                    expqr_g = 1
+            r_vg = gd.get_grid_point_coordinates() # (3, nG)
+            qr_g = gemmdot(q_v, r_vg, beta=0.0)
+            expqr_g = np.exp(-1j * qr_g)
+            if optical_limit:
+                expqr_g = 1
 
         ibzkpt1 = kd.bz2ibz_k[k]
         ibzkpt2 = kd.bz2ibz_k[kq]
