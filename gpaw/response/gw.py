@@ -163,7 +163,6 @@ class GW(BASECHI):
                 const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)
             tmp_wG *= const
             tmp_w = 2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinvG0_wG[:,0] * self.vol
-        print np.shape(W_wGG)
 
         if self.full_frequency: #method 1
             Wbackup_wG0 = W_wGG[:,:,0].copy()
