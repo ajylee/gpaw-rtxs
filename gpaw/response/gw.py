@@ -16,6 +16,7 @@ class GW(BASECHI):
     def __init__(
                  self,
                  file=None,
+                 nbands=None,
                  bands=None,
                  kpoints=None,
                  w=None,
@@ -24,7 +25,7 @@ class GW(BASECHI):
                  txt=None,
                 ):
 
-        BASECHI.__init__(self, calc=file, w=w, ecut=ecut, eta=eta, txt=txt)
+        BASECHI.__init__(self, calc=file, nbands=nbands, w=w, ecut=ecut, eta=eta, txt=txt)
 
         self.vcut = None
         self.bands = bands
@@ -122,6 +123,7 @@ class GW(BASECHI):
 
         print 'W_wGG takes %f seconds' %(t_w)
         print 'Self energy takes %f  seconds' %(t_selfenergy)
+
         self.qcomm.barrier()
         self.qcomm.sum(Sigma_kn)
         self.qcomm.sum(Sigmader_kn)
@@ -132,7 +134,10 @@ class GW(BASECHI):
         t0 = time()
         e_kn, v_kn, e_xx = self.get_exx() # note, e_kn is different from self.e_kn
         print 'EXX takes %f seconds' %(time()-t0)
-        
+
+#        for k in range(self.nkpt):
+#            print self.kd.bz2ibz_k[k], Sigma_kn[k,:] * Hartree
+
         Qp_kn = e_kn + Z_kn * (Sigma_kn + e_xx - v_kn)
 
         # finish
@@ -161,7 +166,10 @@ class GW(BASECHI):
             for j, n in enumerate(self.bands):
                 for m in range(self.nbands):
 
-                    if k == kq:
+                    W_wGG[:,:,0] = Wbackup_wG0
+                    W_wGG[:,0,:] = Wbackup_w0G
+
+                    if df.optical_limit:
                         if n == m:
                             tmp_wG = np.zeros((self.Nw,self.npw))
                             q = np.array([0.0001,0,0])
@@ -176,22 +184,19 @@ class GW(BASECHI):
                             W_wGG[:,0,0] = 2./pi*(6*pi**2/self.vol)**(1./3.) \
                                            * self.dfinvG0_wG[:,0] *self.vol
                         else:
-                            W_wGG[:,:,0] = Wbackup_wG0
-                            W_wGG[:,0,:] = Wbackup_w0G
+                            # to be checked.
+                            W_wGG[:,0,0:] = 0.
+                            W_wGG[:,0:,0] = 0.
 
-                    # to be checked.
-#                      W_wGG[:,0,0:] = 0.
-#                      W_wGG[:,0:,0] = 0.
-
-                    rho_G = self.density_matrix(m, n, kq, k, df.phi_aGp, df.expqr_g)
+                    assert df.kq_k[kq] == k
+                    rho_G = df.density_matrix(m, n, kq)
 
                     # perform W_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
                     W_wG = gemmdot(W_wGG, rho_G, beta=0.0)
                     C_w = gemmdot(W_wG, rho_G, alpha=self.alpha, beta=0.0,trans='c')
 
                     # w1 = w - epsilon_m,k-q + i*eta * sgn(epsilon_m,k-q, E_f)
-                    if self.e_kn[ibzkpt2, m] > E_f :
-                    #if self.f_kn[ibzkpt2,m] < self.ftol: #self.e_kn[ibzkpt2, m] > E_f :
+                    if self.f_kn[ibzkpt2,m] < self.ftol: #self.e_kn[ibzkpt2, m] > E_f :
                         sign = 1.
                     else:
                         sign = -1.
@@ -205,6 +210,7 @@ class GW(BASECHI):
                     # calculate derivate of self energy with respect to w
                     tmp_w = 1./(w1- w2_w)**2 + 1./(w1 + w2_w)**2
                     Sigmader_kn[i,j] += np.real(gemmdot(C_w, tmp_w, beta=0.0))
+                    
 
         return Sigma_kn, Sigmader_kn 
 

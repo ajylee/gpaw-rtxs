@@ -345,7 +345,7 @@ class BASECHI:
         return
 
 
-    def density_matrix(self,n,m,k,kq=None,phi_aGp=None,expqr_g=None,Gspace=True):
+    def density_matrix(self,n,m,k,kq=None,phi_aGp=None,Gspace=True):
 
         ibzk_kc = self.ibzk_kc
         bzk_kc = self.bzk_kc
@@ -421,15 +421,16 @@ class BASECHI:
             pt.integrate(psit2_g, P2_ai, kq)
 
             if phi_aGp is None:
-                if self.use_W:
-                    if optical_limit:
-                        iq = kd.where_is_q(np.zeros(3), self.bzq_qc)
-                    else:
-                        iq = kd.where_is_q(q_c, self.bzq_qc)
-                        assert np.abs(self.bzq_qc[iq] - q_c).sum() < 1e-8
+                try:
+                    if self.use_W:
+                        if optical_limit:
+                            iq = kd.where_is_q(np.zeros(3), self.bzq_qc)
+                        else:
+                            iq = kd.where_is_q(q_c, self.bzq_qc)
+                            assert np.abs(self.bzq_qc[iq] - q_c).sum() < 1e-8
     
                     phi_aGp = self.load_phi_aGp(self.reader, iq) #phi_qaGp[iq]
-                else:
+                except AttributeError:
                     phi_aGp = self.phi_aGp
 
             for a, id in enumerate(self.calc.wfs.setups.id_a):
@@ -469,12 +470,11 @@ class BASECHI:
         else:
             df = DF(calc=self.calc, q=q.copy(), w=self.w_w.copy()*Hartree, nbands=self.nbands,
                     optical_limit=optical_limit, hilbert_trans=True, xc='RPA', full_response=True,
-                    rpad=self.rpad, vcut=self.vcut,
+                    rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
                     eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,
                     txt='no_output', comm=serial_comm)
 
         dfinv_wGG = df.get_inverse_dielectric_matrix(xc='RPA')
-        assert df.npw == self.npw
         assert df.ecut[0] == self.ecut[0]
         if not static:
             assert df.eta == self.eta
@@ -490,7 +490,7 @@ class BASECHI:
             return W_GG
         else:
             W_wGG = np.zeros_like(dfinv_wGG)
-            tmp_GG = np.ones((self.npw, self.npw))
+            tmp_GG = np.ones((df.npw, df.npw))
             for iw in range(df.Nw):
                 dfinv_wGG[iw] -= tmp_GG 
                 W_wGG[iw] = dfinv_wGG[iw] * df.Kc_GG
