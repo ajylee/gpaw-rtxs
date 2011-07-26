@@ -22,7 +22,7 @@ class GW(BASECHI):
                  w=None,
                  ecut=150.,
                  eta=0.1,
-                 full_frequency=False,
+                 hilbert_trans=False,
                  txt=None,
                 ):
 
@@ -31,7 +31,7 @@ class GW(BASECHI):
         self.vcut = None
         self.bands = bands
         self.kpoints = kpoints
-        self.full_frequency = full_frequency
+        self.hilbert_trans = hilbert_trans
 
     def initialize(self):
 
@@ -107,6 +107,8 @@ class GW(BASECHI):
         t_selfenergy = 0
         for iq in range(self.q_start, self.q_end):
 
+            if iq >= self.nqpt:
+                continue
             t1 = time()
             # get screened interaction. 
             df, W_wGG = self.screened_interaction_kernel(iq, static=False)
@@ -124,8 +126,8 @@ class GW(BASECHI):
             del df
             self.timing(iq, t0, self.nq_local, 'iq')
 
-        print 'W_wGG takes %f seconds' %(t_w)
-        print 'Self energy takes %f  seconds' %(t_selfenergy)
+        self.printtxt('W_wGG takes %f seconds' %(t_w))
+        self.printtxt('Self energy takes %f  seconds' %(t_selfenergy))
 
         self.qcomm.barrier()
         self.qcomm.sum(Sigma_kn)
@@ -136,12 +138,10 @@ class GW(BASECHI):
         # exact exchange
         t0 = time()
         e_kn, v_kn, e_xx = self.get_exx() # note, e_kn is different from self.e_kn
-        print 'EXX takes %f seconds' %(time()-t0)
-
-#        for k in range(self.nkpt):
-#            print self.kd.bz2ibz_k[k], Sigma_kn[k,:] * Hartree
+        self.printtxt('EXX takes %f seconds' %(time()-t0))
 
         QP_kn = e_kn + Z_kn * (Sigma_kn + e_xx - v_kn)
+        self.Qp_kn = Qp_kn
 
         # finish
         self.print_gw_finish(e_kn, v_kn, e_xx, Sigma_kn, Z_kn, QP_kn)
@@ -164,7 +164,7 @@ class GW(BASECHI):
             tmp_wG *= const
             tmp_w = 2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinvG0_wG[:,0] * self.vol
 
-        if self.full_frequency: #method 1
+        if not self.hilbert_trans: #method 1
             Wbackup_wG0 = W_wGG[:,:,0].copy()
             Wbackup_w0G = W_wGG[:,0,:].copy()
 
@@ -208,7 +208,7 @@ class GW(BASECHI):
 
                     rho_G = df.density_matrix(m, n, kq)
 
-                    if self.full_frequency: #method 1
+                    if not self.hilbert_trans: #method 1
                         W_wGG[:,:,0] = Wbackup_wG0
                         W_wGG[:,0,:] = Wbackup_w0G
 
