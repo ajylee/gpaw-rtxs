@@ -1,10 +1,13 @@
 import numpy as np
+
 from ase.units import Hartree, Bohr
+from ase.dft.kpoints import monkhorst_pack
 
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
                  sl_inverse_cholesky, sl_lcao, buffer_size
+
 
 class InputParameters(dict):
     def __init__(self, **kwargs):
@@ -46,8 +49,8 @@ class InputParameters(dict):
             ('verbose',         0),
             ('eigensolver',     None),
             ('poissonsolver',   None),
-            ('communicator' ,   None),
-            ('idiotproof'   ,   True),
+            ('communicator',    None),
+            ('idiotproof',      True),
             ('mode',            'fd'),
             ('convergence',     {'energy':      0.0005,  # eV / electron
                                  'density':     1.0e-4,
@@ -102,6 +105,10 @@ class InputParameters(dict):
 
         if r.has_array('NBZKPoints'):
             self.kpts = r.get('NBZKPoints')
+            if r.has_array('MonkhorstPackOffset'):
+                offset_c = r.get('MonkhorstPackOffset')
+                if offset_c.any():
+                    self.kpts = monkhorst_pack(self.kpts) + offset_c
         else:
             self.kpts = r.get('BZKPoints')
         self.usesymm = r['UseSymmetry']
@@ -208,7 +215,7 @@ class InputParameters(dict):
 
         try:
             dtype = r['DataType']
-            if dtype=='Float':
+            if dtype == 'Float':
                 self.dtype = float
             else:
                 self.dtype = complex
