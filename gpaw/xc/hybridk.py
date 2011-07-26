@@ -166,15 +166,12 @@ class HybridXC(XCFunctional):
         print('alpha=%f' % self.alpha)
         print('ecut=%f Hartree' % ecut)
 
-        if self.kd.N_c is None:
-            self.bzk_kc = np.zeros((1, 3))
-            dfghdfgh
-        else:
-            n = self.kd.N_c * 2 - 1
-            bzk_kc = np.indices(n).transpose((1, 2, 3, 0))
-            bzk_kc.shape = (-1, 3)
-            bzk_kc -= self.kd.N_c - 1
-            self.bzk_kc = bzk_kc.astype(float) / self.kd.N_c
+        assert self.kd.N_c is not None:
+        n = self.kd.N_c * 2 - 1
+        bzk_kc = np.indices(n).transpose((1, 2, 3, 0))
+        bzk_kc.shape = (-1, 3)
+        bzk_kc -= self.kd.N_c - 1
+        self.bzk_kc = bzk_kc.astype(float) / self.kd.N_c
         
         self.pwd = PWDescriptor(ecut, self.gd, self.bzk_kc)
 
