@@ -68,6 +68,7 @@ tests = [
     'gp2.py',
     'non_periodic.py',
     'erf.py',
+    'kpt.py',
     'lf.py',
     'lxc_fxc.py',
     'Gauss.py',

@@ -11,9 +11,9 @@ This module contains classes for defining combinations of two indices:
 """
 
 import numpy as np
+
 from ase.units import Bohr
-from ase.dft import monkhorst_pack
-from ase.dft.kpoints import get_monkhorst_shape
+from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 
 from gpaw.symmetry import Symmetry
 from gpaw.kpoint import KPoint
@@ -50,12 +50,19 @@ class KPointDescriptor:
         if kpts is None:
             self.bzk_kc = np.zeros((1, 3))
             self.N_c = np.array((1, 1, 1), dtype=int)
+            self.offset_c = np.zeros(3)
         elif isinstance(kpts[0], int):
             self.bzk_kc = monkhorst_pack(kpts)
             self.N_c = np.array(kpts, dtype=int)
+            self.offset_c = np.zeros(3)
         else:
             self.bzk_kc = np.array(kpts, float)
-            self.N_c = None
+            try:
+                self.N_c, self.offset_c = get_monkhorst_pack_size_and_offset(
+                    self.bzk_kc)
+            except ValueError:
+                self.N_c = None
+                self.offset_c = None
 
         self.collinear = collinear
         self.nspins = nspins
@@ -346,11 +353,11 @@ class KPointDescriptor:
                         break
                 if find is False:
                     raise ValueError('cant find k!')
-
+                    
                 ibzq_q_tmp[i] = ibzk
                 iop_q[i] = iop
                 timerev_q[i] = timerev
-                diff_qc[i] = diff_c
+                diff_qc[i] = diff_c                
             except ValueError:
                 ibzq_qc_tmp.append(bzq_qc[i])
                 ibzq_q_tmp[i] = len(ibzq_qc_tmp) - 1
@@ -376,20 +383,24 @@ class KPointDescriptor:
         ibzkpt = 0
         iop = 0
         timerev = False
-
-        for sign in (-1, 1):
-            for ioptmp, op in enumerate(symrel):
-                for i, ibzk in enumerate(ibzk_kc):
-                    diff_c = bzk_c + np.dot(op, ibzk) * sign
-                    if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
-                        ibzkpt = i
-                        iop = ioptmp
-                        find = True
-                        if sign == 1:
-                            timerev = True
-                        break
-                if find == True:
+    
+        for ioptmp, op in enumerate(symrel):
+            for i, ibzk in enumerate(ibzk_kc):
+                diff_c = bzk_c - np.dot(op, ibzk)
+                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
+                    ibzkpt = i
+                    iop = ioptmp
+                    find = True
                     break
+    
+                diff_c = np.dot(op, ibzk) + bzk_c
+                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():            
+                    ibzkpt = i
+                    iop = ioptmp
+                    find = True
+                    timerev = True
+                    break
+        
             if find == True:
                 break
 
