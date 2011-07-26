@@ -140,11 +140,11 @@ class GW(BASECHI):
         e_kn, v_kn, e_xx = self.get_exx() # note, e_kn is different from self.e_kn
         self.printtxt('EXX takes %f seconds' %(time()-t0))
 
-        QP_kn = e_kn + Z_kn * (Sigma_kn + e_xx - v_kn)
+        Qp_kn = e_kn + Z_kn * (Sigma_kn + e_xx - v_kn)
         self.Qp_kn = Qp_kn
 
         # finish
-        self.print_gw_finish(e_kn, v_kn, e_xx, Sigma_kn, Z_kn, QP_kn)
+        self.print_gw_finish(e_kn, v_kn, e_xx, Sigma_kn, Z_kn, Qp_kn)
 
 
     def get_self_energy(self, df, W_wGG):

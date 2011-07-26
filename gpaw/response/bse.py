@@ -269,7 +269,7 @@ class BSE(BASECHI):
                     if k1 == k2:
                         if (n1==n2) or (m1==m2):
 
-                            tmp_G = np.zeros(self.npw)
+                            tmp_G = np.zeros(self.npw, dtype=complex)
                             q = np.array([0.0001,0,0])
                             for jG in range(1, self.npw):
                                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
