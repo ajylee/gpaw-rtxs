@@ -106,7 +106,6 @@ class GW(BASECHI):
         t_w = 0
         t_selfenergy = 0
         for iq in range(self.q_start, self.q_end):
-
             if iq >= self.nqpt:
                 continue
             t1 = time()
@@ -288,7 +287,7 @@ class GW(BASECHI):
         v_xc = vxc(self.calc)
 
         alpha = 5.0
-        exx = HybridXC('EXX', alpha=alpha)
+        exx = HybridXC('EXX', alpha=alpha, ecut=self.ecut.max())
         self.calc.get_xc_difference(exx)
 
         e_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
