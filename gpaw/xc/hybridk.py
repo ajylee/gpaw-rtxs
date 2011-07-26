@@ -87,7 +87,7 @@ class KPoint:
 class HybridXC(XCFunctional):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
-                 alpha=None, skip_gamma=False):
+                 alpha=None, skip_gamma=False,ecut=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -122,6 +122,7 @@ class HybridXC(XCFunctional):
         self.alpha = alpha
         self.skip_gamma = skip_gamma
         self.exx = None
+        self.ecut = ecut
         
         XCFunctional.__init__(self, name)
 
@@ -162,18 +163,21 @@ class HybridXC(XCFunctional):
             
         self.gamma = (vol / (2 * pi)**2 * sqrt(pi / self.alpha) *
                       self.kd.nbzkpts)
-        ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-        print('alpha=%f' % self.alpha)
-        print('ecut=%f Hartree' % ecut)
 
-        assert self.kd.N_c is not None:
+        if self.ecut is None:
+            self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+        
+        print('alpha=%f' % self.alpha)
+        print('ecut=%f Hartree' % self.ecut)
+
+        assert self.kd.N_c is not None
         n = self.kd.N_c * 2 - 1
         bzk_kc = np.indices(n).transpose((1, 2, 3, 0))
         bzk_kc.shape = (-1, 3)
         bzk_kc -= self.kd.N_c - 1
         self.bzk_kc = bzk_kc.astype(float) / self.kd.N_c
         
-        self.pwd = PWDescriptor(ecut, self.gd, self.bzk_kc)
+        self.pwd = PWDescriptor(self.ecut, self.gd, self.bzk_kc)
 
         n = 0
         for k_c, Gpk2_G in zip(self.bzk_kc[:], self.pwd.G2_qG):

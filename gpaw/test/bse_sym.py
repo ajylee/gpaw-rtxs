@@ -4,17 +4,15 @@ from ase.structure import bulk
 from gpaw import GPAW
 from gpaw.response.df import DF
 from ase.dft import monkhorst_pack
-from ase.dft.kpoints import get_monkhorst_shape
 from gpaw.response.bse import BSE
 from gpaw.mpi import rank, size
 
 # generate kmesh
 kpts =(2,2,2)
 bzk_kc = monkhorst_pack(kpts)
-Nk_c = get_monkhorst_shape(bzk_kc)
 
 shift_c = []
-for Nk in Nk_c:
+for Nk in kpts:
     if Nk % 2 == 0:
         shift_c.append(0.5 / Nk)
     else:

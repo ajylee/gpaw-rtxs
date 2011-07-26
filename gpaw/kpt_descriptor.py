@@ -271,15 +271,20 @@ class KPointDescriptor:
 
         """
         # Monkhorst-pack grid
-        if self.N_c is not None:
+        N_c, offset_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)
+
+        offset = True
+        if np.abs(offset_c).sum() < 1e-8:
+            offset = False
             N_c = self.N_c
             dk_c = 1. / N_c
             kmax_c = (N_c - 1) * dk_c / 2.
+            
         if kpts_k is None:
             kpts_kc = self.bzk_kc
         else:
             kpts_kc = self.bzk_kc[kpts_k]
-            
+
         # k+q vectors
         kplusq_kc = kpts_kc + q_c
 
@@ -294,7 +299,7 @@ class KPointDescriptor:
         for kplusq, kplusq_c in enumerate(kplusq_kc):
 
             # Calculate index for Monkhorst-Pack grids
-            if self.N_c is not None:
+            if not offset:
                 N = np.asarray(np.round((kplusq_c + kmax_c) / dk_c),
                                dtype=int)
                 kplusq_k.append(N[2] + N[1] * N_c[2] +
@@ -312,7 +317,7 @@ class KPointDescriptor:
 
     def get_bz_q_points(self):
         """Return the q=k1-k2. q-mesh is always Gamma-centered."""
-        Nk_c = get_monkhorst_shape(self.bzk_kc)
+        Nk_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)[0]
         bzq_qc = monkhorst_pack(Nk_c)
         
         shift_c = []
