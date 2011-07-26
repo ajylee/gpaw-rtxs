@@ -234,9 +234,9 @@ class GW(BASECHI):
                         Sigma_kn[i,j] += np.real(gemmdot(C_w, w1_w, beta=0.0))
 
                         # calculate derivate of self energy with respect to w
-                        w1_w = 1./(w1   - w2_w)**2 + 1./(w1 + w2_w)**2
+                        w1_w = 1./(w1 - w2_w)**2 + 1./(w1 + w2_w)**2
                         dSigma_kn[i,j] -= np.real(gemmdot(C_w, w1_w, beta=0.0))
-                    
+
                     else: #method 2
                         if not self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n] == 0:
                             sign *= np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])
@@ -252,8 +252,8 @@ class GW(BASECHI):
                             C_wGG = Cplus_wGG.copy()
                             if df.optical_limit:
                                 if n==m:
+                                    C_wGG[:,0,:] = Cminus_0G0.conj()
                                     C_wGG[:,:,0] = Cplus_0G0
-                                    C_wGG[:,0,:] = Cplus_0G0.conj()
                                 else:
                                     C_wGG[:,0,0:] = 0.
                                     C_wGG[:,0:,0] = 0.
@@ -261,22 +261,25 @@ class GW(BASECHI):
                             C_wGG = Cminus_wGG.copy()
                             if df.optical_limit:
                                 if n==m:
+                                    C_wGG[:,0,:] = Cplus_0G0.conj()
                                     C_wGG[:,:,0] = Cminus_0G0
-                                    C_wGG[:,0,:] = Cminus_0G0.conj()
                                 else:
                                     C_wGG[:,0,0:] = 0.
                                     C_wGG[:,0:,0] = 0.
 
                         # perform C_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
                         Sw1_G = gemmdot(C_wGG[w0_id], rho_G, beta=0.0)
-                        Sw1 = gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c')
+                        Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
                         Sw2_G = gemmdot(C_wGG[w0_id + 1], rho_G, beta=0.0)
-                        Sw2 = gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c')
+                        Sw2 = np.real(gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
 
                         # calculate self energy and derivative via linearization
                         Sw0 = (w2-np.abs(w0))/self.dw * Sw1 + (np.abs(w0)-w1)/self.dw * Sw2
-                        Sigma_kn[i][j] = Sigma_kn[i][j] + np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])*Sw0
-                        dSigma_kn[i][j] = dSigma_kn[i][j] + np.real((Sw2 - Sw1)/(w2 - w1))
+                        if not self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n] == 0:
+                            Sigma_kn[i,j] += np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])*Sw0
+                            dSigma_kn[i,j] += (Sw2 - Sw1)/(w2 - w1)
+                        else:
+                            Sigma_kn[i,j] += Sw0
 
         return Sigma_kn, dSigma_kn 
 
