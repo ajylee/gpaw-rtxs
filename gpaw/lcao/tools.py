@@ -74,7 +74,8 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
                      usesymm=None):
 
     from gpaw.symmetry import Symmetry
-    from ase.dft.kpoints import get_monkhorst_shape, monkhorst_pack
+    from ase.dft.kpoints import get_monkhorst_pack_size_and_offset, \
+        monkhorst_pack
     
     if usesymm is True:
         raise NotImplementedError, 'Only None and False have been implemented'
@@ -86,7 +87,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
     if len(bzk_kc) > 1 or np.any(bzk_kc[0] != [0, 0, 0]):
         dtype = complex
 
-    kpts_grid = get_monkhorst_shape(bzk_kc)
+    kpts_grid = get_monkhorst_pack_size_and_offset(bzk_kc)[0]
 
     # kpts in the transport direction
     nkpts_p = kpts_grid[dir]
