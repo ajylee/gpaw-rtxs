@@ -64,9 +64,9 @@ def gcd(a, b):
 def is_contiguous(array, dtype=None):
     """Check for contiguity and type."""
     if dtype is None:
-        return array.flags.contiguous
+        return array.flags.c_contiguous
     else:
-        return array.flags.contiguous and array.dtype == dtype
+        return array.flags.c_contiguous and array.dtype == dtype
 
 
 # Radial-grid Hartree solver:
@@ -301,7 +301,7 @@ def mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n):
     assert is_contiguous(coords_nc, float)
     assert is_contiguous(data_g, float)
     N_c = np.ascontiguousarray(N_c, float)
-    beg_c = np.ascontiguousarray(beg_c, float)    
+    beg_c = np.ascontiguousarray(beg_c, float)
     assert is_contiguous(target_n, float)
 
     return _gpaw.mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n)
@@ -316,33 +316,33 @@ def interpolate_mlsqr(dg_c, vt_g, order):
     """
 
     # Define the weight function
-    lsqr_weight = lambda r2 : exp(-r2)
+    lsqr_weight = lambda r2: exp(-r2)
 
     # Define the polynomial basis
     if order == 1:
-        b = lambda x : np.array([1, x[0], x[1], x[2]])
+        b = lambda x: np.array([1, x[0], x[1], x[2]])
     elif order == 2:
-        b = lambda x :  np.array([1, x[0], x[1], x[2],
-                                  x[0]*x[1], x[1]*x[2], x[2]*x[0],
-                                  x[0]**2, x[1]**2, x[2]**2])
+        b = lambda x:  np.array([1, x[0], x[1], x[2],
+                                 x[0] * x[1], x[1] * x[2], x[2] * x[0],
+                                 x[0]**2, x[1]**2, x[2]**2])
     else:
         raise NotImplementedError
 
-    def fill_X(x,y,z):
+    def fill_X(x, y, z):
         result = None
-        for i,j,k in zip(x.ravel(), y.ravel(), z.ravel()):
-            r = b(np.array([i,j,k]))*lsqr_weight(np.sum((dg_c-np.array([i,j,k]))**2))
+        for i, j, k in zip(x.ravel(), y.ravel(), z.ravel()):
+            r = b(np.array([i, j, k])) * lsqr_weight(
+                np.sum((dg_c - np.array([i, j, k]))**2))
             if result == None:
                 result = r
             else:
                 result = np.vstack((result, r))
         return result
 
-
-    def fill_w(x,y,z):
+    def fill_w(x, y, z):
         result = []
-        for i,j,k in zip(x.ravel(), y.ravel(), z.ravel()):
-            weight = lsqr_weight(np.sum((dg_c-np.array([i,j,k]))**2))
+        for i, j, k in zip(x.ravel(), y.ravel(), z.ravel()):
+            weight = lsqr_weight(np.sum((dg_c - np.array([i, j, k]))**2))
             result.append(weight * vt_g[i][j][k])
         return np.array(result)
     
@@ -354,16 +354,3 @@ def interpolate_mlsqr(dg_c, vt_g, order):
     c = linalg.solve(X2, y2)
     a = np.dot(b(dg_c), c)
     return a
-
-
-def crop_array(v_g, bg_c, Bg_c):
-    # XXX TODO: Make more efficient using special features of numpy
-    N_c = v_g.shape
-    size_c = Bg_c-bg_c+1
-    result = np.zeros(size_c)
-    for i in range(0, size_c[0]):
-        for j in range(0, size_c[1]):
-            for k in range(0, size_c[2]):
-                result[i][j][k] = v_g[(i + bg_c[0]) % N_c[0]][(j + bg_c[1]) % N_c[1]][(k + bg_c[2]) % N_c[2]]
-                
-    return result

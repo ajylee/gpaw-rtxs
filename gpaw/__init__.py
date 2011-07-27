@@ -21,6 +21,11 @@ except ImportError:
 from glob import glob
 from os.path import join, isfile
 
+import numpy as np
+
+assert not np.version.version.startswith('1.6.0')
+
+
 __all__ = ['GPAW', 'Calculator',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'PoissonSolver',
@@ -170,38 +175,19 @@ while len(sys.argv) > i:
     del sys.argv[i]
 
 if debug:
-    import numpy
-    numpy.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
+    np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
 
-    oldempty = numpy.empty
+    oldempty = np.empty
 
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
         try:
-            a.fill(numpy.nan)
+            a.fill(np.nan)
         except:
             a.fill(-100000000)
         return a
-    numpy.empty = empty
+    np.empty = empty
 
-if debug:
-    import numpy
-    olddot = numpy.dot
-
-    def dot(a, b):
-        a = numpy.asarray(a)
-        b = numpy.asarray(b)
-        if (a.ndim == 1 and b.ndim == 1 and
-            (a.dtype == complex or b.dtype == complex)):
-            if 1:
-                #print 'Warning: Bad use of dot!'
-                from numpy.core.multiarray import dot
-                return dot(a, b)
-            else:
-                raise RuntimeError('Bad use of dot!')
-        else:
-            return olddot(a, b)
-    numpy.dot = dot
 
 build_path = join(__path__[0], '..', 'build')
 arch = '%s-%s' % (get_platform(), sys.version[0:3])
@@ -239,6 +225,7 @@ def restart(filename, Class=GPAW, **kwargs):
     atoms = calc.get_atoms()
     return atoms, calc
 
+
 if trace:
     indent = '    '
     path = __path__[0]
@@ -260,6 +247,7 @@ if trace:
             indent = indent[:-2]
 
     sys.setprofile(f)
+
 
 if profile:
     from cProfile import Profile

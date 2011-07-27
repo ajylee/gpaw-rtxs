@@ -35,6 +35,7 @@ def diagonalize(a, w):
     if info != 0:
         raise RuntimeError('diagonalize error: %d' % info)
 
+
 def diagonalize_mr3(a, w, z):
     """Diagonalize a symmetric/hermitian matrix.
 
@@ -48,7 +49,7 @@ def diagonalize_mr3(a, w, z):
     assert z.flags.contiguous
     assert a.dtype in [float, complex]
     assert w.dtype == float
-    assert z.dtype == a.dtype 
+    assert z.dtype == a.dtype
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)
@@ -56,6 +57,7 @@ def diagonalize_mr3(a, w, z):
     info = _gpaw.diagonalize_mr3(a, w, z)
     if info != 0:
         raise RuntimeError('diagonalize_mr3 error: %d' % info)
+
 
 def general_diagonalize(a, w, b):
     """Diagonalize a generalized symmetric/hermitian matrix.
@@ -82,6 +84,7 @@ def general_diagonalize(a, w, b):
     if info != 0:
         raise RuntimeError('general_diagonalize error: %d' % info)
 
+
 def inverse_cholesky(a):
     """Calculate the inverse of the Cholesky decomposition of
     a symmetric/hermitian positive definite matrix `a`.
@@ -98,6 +101,7 @@ def inverse_cholesky(a):
     if info != 0:
         raise RuntimeError('inverse_cholesky error: %d' % info)
 
+
 def inverse_general(a):
     assert a.dtype in [float, complex]
     n = len(a)
@@ -105,6 +109,7 @@ def inverse_general(a):
     info = _gpaw.inverse_general(a)
     if info != 0:
         raise RuntimeError('inverse_general error: %d' % info)
+
 
 def inverse_symmetric(a):
     assert a.dtype in [float, complex]
@@ -114,6 +119,7 @@ def inverse_symmetric(a):
     tri2full(a, 'L', 'symm')
     if info != 0:
         raise RuntimeError('inverse_symmetric: %d' % info)
+
 
 def right_eigenvectors(a, w, v):
     """Get right eigenvectors and eigenvalues from a square matrix
@@ -130,47 +136,49 @@ def right_eigenvectors(a, w, v):
     n = len(a)
     assert a.shape == (n, n)
     assert w.shape == (n,)
-    assert w.shape == (n,n)
+    assert w.shape == (n, n)
     return _gpaw.right_eigenvectors(a, w, v)
+
 
 def pm(M):
     """print a matrix or a vector in mathematica style"""
-    string=''
+    string = ''
     s = M.shape
     if len(s) > 1:
-        (n,m)=s
+        n, m = s
         string += '{'
         for i in range(n):
             string += '{'
             for j in range(m):
-                string += str(M[i,j])
-                if j == m-1:
+                string += str(M[i, j])
+                if j == m - 1:
                     string += '}'
                 else:
                     string += ','
-            if i == n-1:
+            if i == n - 1:
                 string += '}'
             else:
                 string += ','
     else:
-        n=s[0]
+        n = s[0]
         string += '{'
         for i in range(n):
             string += str(M[i])
-            if i == n-1:
+            if i == n - 1:
                 string += '}'
             else:
                 string += ','
     return string
+
 
 def sqrt_matrix(a, preserve=False):
     """Get the sqrt of a symmetric matrix a (diagonalize is used).
     The matrix is kept if preserve=True, a=sqrt(a) otherwise."""
     n = len(a)
     if debug:
-         assert a.flags.contiguous
-         assert a.dtype == float
-         assert a.shape == (n, n)
+        assert a.flags.contiguous
+        assert a.dtype == float
+        assert a.shape == (n, n)
     if preserve:
         b = a.copy()
     else:
@@ -187,6 +195,5 @@ def sqrt_matrix(a, preserve=False):
     c = Z * np.sqrt(D)
 
     # sqrt(b) = c * Z^T
-    gemm(1., ZT, c, 0., b)
-
+    gemm(1., ZT, np.ascontiguousarray(c), 0., b)
     return b

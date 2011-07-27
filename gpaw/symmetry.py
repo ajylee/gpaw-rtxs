@@ -310,6 +310,7 @@ def map_k_points(bzk_kc, U_scc, inversion, comm=None, tol=1e-11):
 
     bz2bz_ks = np.zeros((nbzkpts, len(U_scc)), int)
     bz2bz_ks[ka:kb] = -1
-    _gpaw.map_k_points(bzk_kc, U_scc, tol, bz2bz_ks, ka, kb)
+    _gpaw.map_k_points(np.ascontiguousarray(bzk_kc),
+                       np.ascontiguousarray(U_scc), tol, bz2bz_ks, ka, kb)
     comm.sum(bz2bz_ks)
     return bz2bz_ks

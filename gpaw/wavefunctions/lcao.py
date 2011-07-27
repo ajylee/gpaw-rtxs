@@ -439,7 +439,8 @@ class LCAOWaveFunctions(WaveFunctions):
         Fatom_av = np.zeros_like(F_av)
         for b in my_atom_indices:
             H_ii = np.asarray(unpack(hamiltonian.dH_asp[b][kpt.s]), dtype)
-            HP_iM = gemmdot(H_ii, np.conj(self.P_aqMi[b][q].T))
+            HP_iM = gemmdot(H_ii,
+                            np.ascontiguousarray(self.P_aqMi[b][q].T.conj()))
             for v in range(3):
                 dPdR_Mi = dPdR_avMi[b][v][Mstart:Mstop]
                 ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) * rhoT_MM).real
