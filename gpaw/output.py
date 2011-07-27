@@ -89,15 +89,15 @@ class PAWTextOutput:
         self.text()
 
         uname = os.uname()
-        self.text('User:', os.getenv('USER', '???') + '@' + uname[1])
-        self.text('Date:', time.asctime())
-        self.text('Arch:', uname[4])
-        self.text('Pid: ', os.getpid())
-        self.text('Dir: ', os.path.dirname(gpaw.__file__))
-        self.text('ase:  ', os.path.dirname(ase.__file__),
-                  ' version: ', ase_version)
-        self.text('numpy:', os.path.dirname(np.__file__),
-                  ' version: ', np.version.version)
+        self.text('User: ', os.getenv('USER', '???') + '@' + uname[1])
+        self.text('Date: ', time.asctime())
+        self.text('Arch: ', uname[4])
+        self.text('Pid:  ', os.getpid())
+        self.text('Dir:  ', os.path.dirname(gpaw.__file__))
+        self.text('ase:   %s (version %s)' %
+                  (os.path.dirname(ase.__file__), ase_version))
+        self.text('numpy: %s (version %s)' %
+                  (os.path.dirname(np.__file__), np.version.version))
         self.text('units: Angstrom and eV')
         self.text('cores:', self.wfs.world.size)
 
