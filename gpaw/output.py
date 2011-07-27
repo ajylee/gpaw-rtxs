@@ -11,10 +11,9 @@ from ase.data import chemical_symbols
 from ase.units import Bohr, Hartree
 
 from gpaw.utilities import devnull
-from gpaw.mpi import size, parallel
 from gpaw.version import version
 from gpaw.utilities import scalapack
-from gpaw import sl_diagonalize, sl_inverse_cholesky, dry_run, extra_parameters
+from gpaw import dry_run, extra_parameters
 from gpaw.utilities.memory import maxrss
 import gpaw
 
@@ -97,8 +96,10 @@ class PAWTextOutput:
         self.text('Dir: ', os.path.dirname(gpaw.__file__))
         self.text('ase:  ', os.path.dirname(ase.__file__),
                   ' version: ', ase_version)
-        self.text('numpy:', os.path.dirname(np.__file__))
+        self.text('numpy:', os.path.dirname(np.__file__),
+                  ' version: ', np.version.version)
         self.text('units: Angstrom and eV')
+        self.text('cores:', self.wfs.world.size)
 
         if gpaw.debug:
             self.text('DEBUG MODE')
