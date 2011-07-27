@@ -57,6 +57,7 @@ class FDOperator:
         self.args = [coef_p, offset_p, n_c, mp,
                      neighbor_cd, dtype == float,
                      comm, cfd]
+        assert neighbor_cd.flags.c_contiguous and offset_p.flags.c_contiguous
         self.mp = mp # padding
         self.gd = gd
         self.npoints = len(coef_p)
