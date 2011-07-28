@@ -475,14 +475,14 @@ def read(paw, reader):
                 if paw.input_parameters['idiotproof']:
                     raise RuntimeError(str)
                 else:
-                    paw.warn(str)
+                    print(str)
         except (AttributeError, KeyError):
             str = 'Fingerprint of setup for %s (%s) not in restart file.' \
                 % (setup.symbol, setup.filename)
             if paw.input_parameters['idiotproof']:
                 raise RuntimeError(str)
             else:
-                paw.warn(str)
+                print(str)
     nproj = sum([setup.ni for setup in wfs.setups])
     nadm = sum([setup.ni * (setup.ni + 1) // 2 for setup in wfs.setups])
 
