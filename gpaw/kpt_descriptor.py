@@ -246,12 +246,14 @@ class KPointDescriptor:
             if time_reversal:
                 kbz_c = -np.dot(self.symmetry.op_scc[s], kibz_c)
                 _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
-                                              kibz_c, -kbz_c)
+                                              np.ascontiguousarray(kibz_c),
+                                              -kbz_c)
                 return b_g.conj()
             else:
                 kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
                 _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
-                                              kibz_c, kbz_c)
+                                              np.ascontiguousarray(kibz_c),
+                                              kbz_c)
                 return b_g
 
 
