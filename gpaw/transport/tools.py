@@ -237,8 +237,7 @@ def dot(a, b, transa='n'):
         c = a
         d = b
     e = np.zeros([c.shape[0], d.shape[1]], dtype)
-    assert d.flags.contiguous and c.flags.contiguous
-    gemm(1.0, d, c, 0.0, e, transa)
+    gemm(1.0, np.ascontiguousarray(d), np.ascontiguousarray(c), 0.0, e, transa)
     return e
 
 def gcd(m,n):
