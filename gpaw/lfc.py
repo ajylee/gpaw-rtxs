@@ -116,7 +116,8 @@ class Sphere:
         dom = gd
         pos_v = np.dot(spos_c, dom.cell_cv)
         return _gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v,
-                                    gd.h_cv, gd.n_c, gd.beg_c)
+                                    np.ascontiguousarray(gd.h_cv),
+                                    gd.n_c, gd.beg_c)
 
     spline_to_grid = staticmethod(spline_to_grid) # TODO This belongs in Spline!
 
@@ -517,7 +518,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         gd = self.gd
 
-        self.lfc.add_derivative(c_xM, a_xG, gd.h_cv, gd.n_c, cspline_M,
+        self.lfc.add_derivative(c_xM, a_xG, np.ascontiguousarray(gd.h_cv),
+                                gd.n_c, cspline_M,
                                 gd.beg_c, self.pos_Wv, a, v, q)
 
             
@@ -638,7 +640,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 cspline_M.extend([spline.spline] * nm)
                 
         gd = self.gd
-        self.lfc.derivative(a_xG, c_xMv, gd.h_cv, gd.n_c, cspline_M,
+        self.lfc.derivative(a_xG, c_xMv, np.ascontiguousarray(gd.h_cv),
+                            gd.n_c, cspline_M,
                             gd.beg_c, self.pos_Wv, q)
 
         comm = self.gd.comm
@@ -740,7 +743,9 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 nm = 2 * spline.get_angular_momentum_number() + 1
                 cspline_M.extend([spline.spline] * nm)
         gd = self.gd
-        self.lfc.normalized_derivative(a_G, c_Mv, gd.h_cv, gd.n_c, cspline_M,
+        self.lfc.normalized_derivative(a_G, c_Mv,
+                                       np.ascontiguousarray(gd.h_cv), gd.n_c,
+                                       cspline_M,
                                        gd.beg_c, self.pos_Wv)
 
         comm = self.gd.comm
@@ -836,7 +841,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             
         gd = self.gd
 
-        self.lfc.second_derivative(a_xG, c_Mvv, gd.h_cv, gd.n_c, cspline_M,
+        self.lfc.second_derivative(a_xG, c_Mvv, np.ascontiguousarray(gd.h_cv),
+                                   gd.n_c, cspline_M,
                                    gd.beg_c, self.pos_Wv, q)
 
         comm = self.gd.comm
@@ -942,7 +948,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             M1 = self.M_a[a]
             M2 = M1 + sphere.Mmax
             f_sM[:, M1:M2] = f_asi[a]
-
+  
         for nt_G, f_M in zip(nt_sG, f_sM):
             self.lfc.construct_density1(f_M, nt_G)
 
@@ -1031,14 +1037,15 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                 cspline_M.extend([spline.spline] * nm)
         gd = self.gd
         for c in range(3): # XXX
-            self.lfc.calculate_potential_matrix_derivative(vt_G, DVt_vMM[c],
-                                                           gd.h_cv,
-                                                           gd.n_c, q, c,
-                                                           np.array(cspline_M),
-                                                           gd.beg_c,
-                                                           self.pos_Wv,
-                                                           self.Mstart,
-                                                           self.Mstop)
+            self.lfc.calculate_potential_matrix_derivative(
+                vt_G, DVt_vMM[c],
+                np.ascontiguousarray(gd.h_cv),
+                gd.n_c, q, c,
+                np.array(cspline_M),
+                gd.beg_c,
+                self.pos_Wv,
+                self.Mstart,
+                self.Mstop)
 
     # Python implementations:
     if 0:
