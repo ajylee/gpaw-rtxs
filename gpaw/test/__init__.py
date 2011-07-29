@@ -81,6 +81,7 @@ tests = [
     'nabla.py',
     'aeatom.py',
     'pbc.py',
+    'pwlfc.py',
     'atoms_too_close.py',
     'poisson.py',
     'XC2.py',

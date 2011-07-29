@@ -1,10 +1,12 @@
 import numpy as np
 import ase.units as units
 
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.lfc import BaseLFC, LocalizedFunctionsCollection as LFC
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 import gpaw.fftw as fftw
+from gpaw.lcao.overlap import FourierTransformer
+from gpaw.spline import Spline
 
 
 class PWDescriptor:
@@ -105,7 +107,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.timer.stop('PWDescriptor')
         pt = LFC(self.gd, [setup.pt_j for setup in setups],
                  self.kpt_comm, dtype=self.dtype, forces=True)
-        self.pt = PWLFC(pt, self.pd)
+        self.pt = RealSpacePWLFC(pt, self.pd)
         FDPWWaveFunctions.set_setups(self, setups)
 
     def summary(self, fd):
@@ -140,7 +142,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.psit_nG = psit_nG
 
 
-class PWLFC:
+class RealSpacePWLFC:
     def __init__(self, lfc, pd):
         self.lfc = lfc
         self.pd = pd
@@ -186,6 +188,26 @@ class PWLFC:
             self.lfc.derivative(a_R, c_aiv, q)
             for a, c_iv in c_aiv.items():
                 c_axiv[a][x] = c_iv
+
+
+class PWLFC(BaseLFC):
+    def __init__(self, spline_aj, pd):
+        self.pd = pd
+        ft = FourierTransformer(10.0, 1024)
+        f_q = ft.transform(spline_aj[0][0])
+        f_q[1:] /= ft.k_q[1:]
+        f_q[0] = f_q[1]
+        f = Spline(0, ft.k_q[-1], f_q)
+        self.p_G = f.map(pd.G2_qG[0]**0.5) * 2 * np.pi**0.5 / pd.gd.dv
+
+    def set_positions(self, spos_ac):
+        pass
+
+    def set_k_points(self, ibzk_qc):
+        self.k_kc = ibzk_qc
+
+    def add(self, a_xG, c_axi, q):
+        a_xG += c_axi[0][0] * self.p_G
 
 
 class PW:
