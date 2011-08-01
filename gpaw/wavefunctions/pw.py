@@ -1,3 +1,5 @@
+from math import pi
+
 import numpy as np
 import ase.units as units
 
@@ -16,7 +18,7 @@ class PWDescriptor:
 
         self.ecut = ecut
 
-        assert 0.5 * np.pi**2 / (gd.h_cv**2).sum(1).max() >= ecut
+        assert 0.5 * pi**2 / (gd.h_cv**2).sum(1).max() >= ecut
         
         # Calculate reciprocal lattice vectors:
         N_c = gd.N_c
@@ -24,15 +26,15 @@ class PWDescriptor:
         i_Qc += N_c // 2
         i_Qc %= N_c
         i_Qc -= N_c // 2
-        B_cv = 2.0 * np.pi * gd.icell_cv
+        B_cv = 2.0 * pi * gd.icell_cv
         G_Qv = np.dot(i_Qc, B_cv).reshape((-1, 3))
         G2_Q = (G_Qv**2).sum(axis=1)
         self.Q_G = np.arange(len(G2_Q))[G2_Q <= 2 * ecut]
         K_qv = np.dot(ibzk_qc, B_cv)
-        G_Gv = G_Qv[self.Q_G]
+        self.G_Gv = G_Qv[self.Q_G]
         self.G2_qG = np.zeros((len(ibzk_qc), len(self.Q_G)))
         for q, K_v in enumerate(K_qv):
-            self.G2_qG[q] = ((G_Gv + K_v)**2).sum(1)
+            self.G2_qG[q] = ((self.G_Gv + K_v)**2).sum(1)
         
         self.gd = gd
         self.dv = gd.dv / N_c.prod()
@@ -157,7 +159,7 @@ class RealSpacePWLFC:
     def set_k_points(self, ibzk_qc):
         self.lfc.set_k_points(ibzk_qc)
         N_c = self.pd.gd.N_c
-        self.expikr_qR = np.exp(2j * np.pi * np.dot(np.indices(N_c).T,
+        self.expikr_qR = np.exp(2j * pi * np.dot(np.indices(N_c).T,
                                                     (ibzk_qc / N_c).T).T)
 
     def add(self, a_xG, c_axi, q):
@@ -193,21 +195,26 @@ class RealSpacePWLFC:
 class PWLFC(BaseLFC):
     def __init__(self, spline_aj, pd):
         self.pd = pd
-        ft = FourierTransformer(10.0, 1024)
+        ft = FourierTransformer(5.0, 2**10)
         f_q = ft.transform(spline_aj[0][0])
+        f_g = spline_aj[0][0].map(ft.r_g)
+        f_q[0] = np.dot(f_g, ft.r_g**2) * ft.dr
         f_q[1:] /= ft.k_q[1:]
-        f_q[0] = f_q[1]
         f = Spline(0, ft.k_q[-1], f_q)
-        self.p_G = f.map(pd.G2_qG[0]**0.5) * 2 * np.pi**0.5 / pd.gd.dv
-
-    def set_positions(self, spos_ac):
-        pass
+        self.p_G = f.map(pd.G2_qG[0]**0.5) * 2 * pi**0.5 / pd.gd.dv
 
     def set_k_points(self, ibzk_qc):
-        self.k_kc = ibzk_qc
+        self.k_qc = ibzk_qc
+
+    def set_positions(self, spos_ac):
+        B_cv = 2.0 * pi * self.pd.gd.icell_cv
+        K_qv = np.dot(self.k_qc, B_cv)
+        self.eikR_qa = np.exp(-2j * pi * np.dot(self.k_qc, spos_ac.T))
+        pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
+        self.eiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
 
     def add(self, a_xG, c_axi, q):
-        a_xG += c_axi[0][0] * self.p_G
+        a_xG += c_axi[0][0] * self.eikR_qa[q][0] * self.eiGR_Ga[:, 0] * self.p_G
 
 
 class PW:

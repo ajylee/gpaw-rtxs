@@ -751,4 +751,3 @@ class NewTwoCenterIntegrals:
 
     def estimate_memory(self, mem):
         mem.subnode('TCI not impl.', 0)
-
