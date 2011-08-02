@@ -7,9 +7,10 @@ from gpaw.lfc import BaseLFC, LocalizedFunctionsCollection as LFC
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
 import gpaw.fftw as fftw
-from gpaw.lcao.overlap import FourierTransformer
+from gpaw.lcao.overlap import fbt
 from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y
+from gpaw.utilities import _fact as fac
 
 
 class PWDescriptor:
@@ -51,7 +52,7 @@ class PWDescriptor:
         return len(self.Q_G)
 
     def bytecount(self, dtype=float):
-        return len(self.Q_G) * np.array(1, dtype).itemsize
+        return len(self) * np.array(1, dtype).itemsize
     
     def zeros(self, n=(), dtype=float):
         assert dtype == complex
@@ -118,7 +119,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def summary(self, fd):
         fd.write('Mode: Plane waves (%d, ecut=%.3f eV)\n' %
-                 (len(self.pd.Q_G), self.pd.ecut * units.Hartree))
+                 (len(self.pd), self.pd.ecut * units.Hartree))
         
     def make_preconditioner(self, block=1):
         return Preconditioner(self.pd)
@@ -195,25 +196,43 @@ class RealSpacePWLFC:
             for a, c_iv in c_aiv.items():
                 c_axiv[a][x] = c_iv
 
+def ft(spline):
+    l = spline.get_angular_momentum_number()
+    rc = 50.0
+    N = 2**10
+    assert spline.get_cutoff() <= rc
+
+    dr = rc / N
+    r_r = np.arange(N) * dr
+    dk = pi / 2 / rc
+    k_q = np.arange(2 * N) * dk
+    f_r = spline.map(r_r)
+
+    f_q = fbt(l, f_r, r_r, k_q)
+    f_q[1:] /= k_q[1:]**(2 * l + 1)
+    f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
+              dr * 2**l * fac[l] / fac[2 * l + 1])
+
+    return Spline(l, k_q[-1], f_q)
+
 
 class PWLFC(BaseLFC):
     def __init__(self, spline_aj, pd):
         self.pd = pd
+
         self.lf_aj = []
-        ft = FourierTransformer(5.0, 2**10)
         cache = {}
         self.lmax = 0
+
+        # Fourier transform functions:
         for a, spline_j in enumerate(spline_aj):
             self.lf_aj.append([])
             for spline in spline_j:
                 l = spline.get_angular_momentum_number()
                 if spline not in cache:
-                    f_q = ft.transform(spline)
-                    f_g = spline.map(ft.r_g)
-                    f_q[0] = np.dot(f_g, ft.r_g**2) * ft.dr
-                    f_q[1:] /= ft.k_q[1:]
-                    f = Spline(0, ft.k_q[-1], f_q)
-                    f_qG = f.map(pd.G2_qG**0.5) * 4 * pi / pd.gd.dv
+                    f = ft(spline)
+                    G_qG = pd.G2_qG**0.5
+                    f_qG = f.map(G_qG) * G_qG**l * (4 * pi / pd.gd.dv)
                     cache[spline] = f_qG
                 else:
                     f_qG = cache[spline]
@@ -224,6 +243,7 @@ class PWLFC(BaseLFC):
         self.k_qc = k_qc
         B_cv = 2.0 * pi * self.pd.gd.icell_cv
         K_qv = np.dot(k_qc, B_cv)
+
         self.Y_qLG = np.empty((len(K_qv), (self.lmax + 1)**2, len(self.pd)))
         for q, K_v in enumerate(K_qv):
             G_Gv = self.pd.G_Gv + K_v
@@ -231,7 +251,7 @@ class PWLFC(BaseLFC):
             if self.pd.G2_qG[q, 0] > 0:
                 G_Gv[0] /= self.pd.G2_qG[q, 0]**0.5
             for L in range((self.lmax + 1)**2):
-                self.Y_qLG[q] = Y(L, *G_Gv.T)
+                self.Y_qLG[q, L] = Y(L, *G_Gv.T)
 
     def set_positions(self, spos_ac):
         self.eikR_qa = np.exp(-2j * pi * np.dot(self.k_qc, spos_ac.T))
@@ -243,7 +263,7 @@ class PWLFC(BaseLFC):
             i = 0
             for l, f_qG in self.lf_aj[a]:
                 for m in range(2 * l + 1):
-                    a_xG += (c_xi[..., i:i + 1] *
+                    a_xG += (c_xi[..., i:i + 1] * (-1.0j)**l *
                              self.eikR_qa[q][a] * self.eiGR_Ga[:, a] *
                              f_qG[q] * self.Y_qLG[q, l**2 + m])
                     i += 1
