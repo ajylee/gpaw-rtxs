@@ -41,8 +41,8 @@ class Spline:
         assert r >= 0.0
         return self.spline(r)
 
-    def map(self, r_g):
-        return np.array(map(self, r_g))
+    def map(self, r_x):
+        return np.vectorize(self, [float])(r_x)
 
     def get_functions(self, gd, start_c, end_c, spos_c):
         h_cv = gd.h_cv
