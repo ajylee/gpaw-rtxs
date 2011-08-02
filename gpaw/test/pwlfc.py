@@ -1,10 +1,11 @@
 import numpy as np
+
+from gpaw.wavefunctions.pw import PWDescriptor, PWLFC, RealSpacePWLFC
 from gpaw.test import equal
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 import gpaw.mpi as mpi
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC, RealSpacePWLFC
 
 x = 2.0
 rc = 3.0

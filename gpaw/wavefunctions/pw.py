@@ -9,6 +9,7 @@ from gpaw.hs_operators import MatrixOperator
 import gpaw.fftw as fftw
 from gpaw.lcao.overlap import FourierTransformer
 from gpaw.spline import Spline
+from gpaw.spherical_harmonics import Y
 
 
 class PWDescriptor:
@@ -45,6 +46,9 @@ class PWDescriptor:
         self.tmp_R = fftw.empty(N_c, complex)
         self.fftplan = fftw.FFTPlan(self.tmp_R, -1, fftwflags)
         self.ifftplan = fftw.FFTPlan(self.tmp_R, 1, fftwflags)
+
+    def __len__(self):
+        return len(self.Q_G)
 
     def bytecount(self, dtype=float):
         return len(self.Q_G) * np.array(1, dtype).itemsize
@@ -195,26 +199,54 @@ class RealSpacePWLFC:
 class PWLFC(BaseLFC):
     def __init__(self, spline_aj, pd):
         self.pd = pd
+        self.lf_aj = []
         ft = FourierTransformer(5.0, 2**10)
-        f_q = ft.transform(spline_aj[0][0])
-        f_g = spline_aj[0][0].map(ft.r_g)
-        f_q[0] = np.dot(f_g, ft.r_g**2) * ft.dr
-        f_q[1:] /= ft.k_q[1:]
-        f = Spline(0, ft.k_q[-1], f_q)
-        self.p_G = f.map(pd.G2_qG[0]**0.5) * 2 * pi**0.5 / pd.gd.dv
+        cache = {}
+        self.lmax = 0
+        for a, spline_j in enumerate(spline_aj):
+            self.lf_aj.append([])
+            for spline in spline_j:
+                l = spline.get_angular_momentum_number()
+                if spline not in cache:
+                    f_q = ft.transform(spline)
+                    f_g = spline.map(ft.r_g)
+                    f_q[0] = np.dot(f_g, ft.r_g**2) * ft.dr
+                    f_q[1:] /= ft.k_q[1:]
+                    f = Spline(0, ft.k_q[-1], f_q)
+                    f_qG = f.map(pd.G2_qG**0.5) * 4 * pi / pd.gd.dv
+                    cache[spline] = f_qG
+                else:
+                    f_qG = cache[spline]
+                self.lf_aj[a].append((l, f_qG))
+                self.lmax = max(self.lmax, l)
 
-    def set_k_points(self, ibzk_qc):
-        self.k_qc = ibzk_qc
+    def set_k_points(self, k_qc):
+        self.k_qc = k_qc
+        B_cv = 2.0 * pi * self.pd.gd.icell_cv
+        K_qv = np.dot(k_qc, B_cv)
+        self.Y_qLG = np.empty((len(K_qv), (self.lmax + 1)**2, len(self.pd)))
+        for q, K_v in enumerate(K_qv):
+            G_Gv = self.pd.G_Gv + K_v
+            G_Gv[1:] /= self.pd.G2_qG[q, 1:, None]**0.5
+            if self.pd.G2_qG[q, 0] > 0:
+                G_Gv[0] /= self.pd.G2_qG[q, 0]**0.5
+            for L in range((self.lmax + 1)**2):
+                self.Y_qLG[q] = Y(L, *G_Gv.T)
 
     def set_positions(self, spos_ac):
-        B_cv = 2.0 * pi * self.pd.gd.icell_cv
-        K_qv = np.dot(self.k_qc, B_cv)
         self.eikR_qa = np.exp(-2j * pi * np.dot(self.k_qc, spos_ac.T))
         pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
         self.eiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
 
     def add(self, a_xG, c_axi, q):
-        a_xG += c_axi[0][0] * self.eikR_qa[q][0] * self.eiGR_Ga[:, 0] * self.p_G
+        for a, c_xi in c_axi.items():
+            i = 0
+            for l, f_qG in self.lf_aj[a]:
+                for m in range(2 * l + 1):
+                    a_xG += (c_xi[..., i:i + 1] *
+                             self.eikR_qa[q][a] * self.eiGR_Ga[:, a] *
+                             f_qG[q] * self.Y_qLG[q, l**2 + m])
+                    i += 1
 
 
 class PW:
