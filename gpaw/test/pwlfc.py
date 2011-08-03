@@ -19,34 +19,40 @@ gd = GridDescriptor((n, n, n), (a, a, a), comm=mpi.serial_comm)
 kpts = np.array([(0.25, 0.25, 0.0)])
 spos_ac = np.array([(0.15, 0.5, 0.95)])
 
+pd = PWDescriptor(45, gd, kpts)
+
+eikr = np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
+                                  (kpts / gd.N_c).T).T)[0]
+
 for l in range(3):
     s = Spline(l, rc, 2 * x**1.5 / np.pi * np.exp(-x * r**2))
 
-    c = LFC(gd, [[s]], dtype=complex)
-    c.set_k_points(kpts)
-    c.set_positions(spos_ac)
-    b = gd.zeros(dtype=complex)
+    lfc1 = LFC(gd, [[s]], dtype=complex)
+    lfc2 = RealSpacePWLFC(LFC(gd, [[s]]), pd)
+    lfc3 = PWLFC([[s]], pd)
+    
+    c_axi = {0: np.zeros((1, 2 * l + 1), complex)}
+    c_axi[0][0, 0] = 1.9 - 4.5j
 
-    c_ai = {0: np.zeros(2 * l + 1, complex)}
-    c_ai[0][0] = 1.9 - 4.5j
-
-    c.add(b, c_ai, 0)
-
-    pd = PWDescriptor(45, gd, kpts)
-    c = RealSpacePWLFC(LFC(gd, [[s]]), pd)
-    c.set_k_points(kpts)
-    c.set_positions(spos_ac)
+    b1 = gd.zeros(1, dtype=complex)
     b2 = pd.zeros(1, dtype=complex)
-    c_axi = {0: np.array([c_ai[0]])}
-    c.add(b2, c_axi, 0)
-    b3 = pd.ifft(b2[0]) * c.expikr_qR[0]
-    equal(abs(b-b3).max(), 0, 0.001)
+    b3 = pd.zeros(1, dtype=complex)
 
-    c3 = PWLFC([[s]], pd)
-    c3.set_k_points(kpts)
-    c3.set_positions(spos_ac)
-    b2 = pd.zeros(dtype=complex)
-    c3.add(b2, c_ai, 0)
-    b4 = pd.ifft(b2) * c.expikr_qR[0]
-    equal(abs(b4-b3).max(), 0, 2e-7)
+    for lfc, b in [(lfc1, b1), (lfc2, b2), (lfc3, b3)]:
+        lfc.set_k_points(kpts)
+        lfc.set_positions(spos_ac)
+        lfc.add(b, c_axi, 0)
+
+    equal(abs(b2-b3).max(), 0, 2e-5)
+    b2 = pd.ifft(b2[0]) * eikr
+    equal(abs(b2-b1[0]).max(), 0, 0.001)
+    
+    b1 = eikr[None]
+    b2 = pd.fft(b1[0] * 0 + 1)[None]
+
+    results = []
+    for lfc, b in [(lfc1, b1), (lfc2, b2), (lfc3, b2)]:
+        lfc.integrate(b, c_axi, 0)
+        results.append(c_axi[0][0].copy())
+    equal(abs(np.ptp(results, 0)).max(), 0, 3e-8)
 

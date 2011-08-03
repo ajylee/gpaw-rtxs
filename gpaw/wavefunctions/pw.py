@@ -232,7 +232,7 @@ class PWLFC(BaseLFC):
                 if spline not in cache:
                     f = ft(spline)
                     G_qG = pd.G2_qG**0.5
-                    f_qG = f.map(G_qG) * G_qG**l * (4 * pi / pd.gd.dv)
+                    f_qG = f.map(G_qG) * G_qG**l * (4 * pi)
                     cache[spline] = f_qG
                 else:
                     f_qG = cache[spline]
@@ -263,9 +263,22 @@ class PWLFC(BaseLFC):
             i = 0
             for l, f_qG in self.lf_aj[a]:
                 for m in range(2 * l + 1):
-                    a_xG += (c_xi[..., i:i + 1] * (-1.0j)**l *
+                    a_xG += (c_xi[..., i:i + 1] * (-1.0j)**l / self.pd.gd.dv *
                              self.eikR_qa[q][a] * self.eiGR_Ga[:, a] *
                              f_qG[q] * self.Y_qLG[q, l**2 + m])
+                    i += 1
+
+    def integrate(self, a_xG, c_axi, q):
+        for a, c_xi in c_axi.items():
+            i = 0
+            for l, f_qG in self.lf_aj[a]:
+                for m in range(2 * l + 1):
+                    c_xi[..., i] = (
+                        1.0j**l / self.pd.gd.N_c.prod() *
+                        self.eikR_qa[q][a].conj() *
+                        np.dot(a_xG,
+                               self.eiGR_Ga[:, a].conj() *
+                               f_qG[q] * self.Y_qLG[q, l**2 + m]))
                     i += 1
 
 
