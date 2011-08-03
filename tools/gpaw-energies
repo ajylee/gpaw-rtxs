@@ -9,7 +9,7 @@ from math import log,sqrt
 import numpy as npy
 
 #from ase import *
-from ase.units import Ha
+from ase.units import Ha, Bohr
 from gpaw.output import eigenvalue_string
 from gpaw.cluster import Cluster
 
@@ -74,7 +74,10 @@ if additional_info:
             paw.get_magnetic_moment(), fixmom
     atoms = paw.get_atoms()
     cell = atoms.get_cell().diagonal()
-    h = cell / p['gpts']
+    h_cv = paw.wfs.gd.h_cv * Bohr
+    h = ''
+    for h_c in h_cv:
+        h += str(h_c) + ' '
     print >> out, '# unit cell=', cell
     print >> out, '# h=', h
     print >> out, '# periodic=', atoms.get_pbc()
