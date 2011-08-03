@@ -5,14 +5,15 @@
 
 import os
 import re
+import sys
 from operator import mul
 from math import sqrt, exp
 
 import numpy as np
+from numpy import linalg
 
 import _gpaw
 from gpaw import debug
-from numpy import linalg
 
 elementwise_multiply_add = _gpaw.elementwise_multiply_add
 utilities_vdot = _gpaw.utilities_vdot
@@ -233,6 +234,26 @@ class _DownTheDrain:
         pass
 
 devnull = _DownTheDrain()
+
+
+def logfile(name, rank=0):
+    """Create file object from name.
+
+    Use None for /dev/null and '-' for sys.stdout.  Ranks > 0 will
+    get /dev/null."""
+
+    if rank == 0:
+        if name is None:
+            fd = devnull
+        elif name == '-':
+            fd = sys.stdout
+        elif isinstance(name, str):
+            fd = open(name, 'w')
+        else:
+            fd = name
+    else:
+        fd = devnull
+    return fd
 
 
 def uncamelcase(name):

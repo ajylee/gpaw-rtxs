@@ -5,14 +5,16 @@
 evaluation of exact exchange with k-point sampling."""
 
 from math import pi, sqrt
+from time import time
 
 import numpy as np
 from ase import Atoms
+from ase.utils import prnt
 
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCNull
 from gpaw.xc.functional import XCFunctional
-from gpaw.utilities import hartree, pack, unpack2, packed_index
+from gpaw.utilities import hartree, pack, unpack2, packed_index, logfile
 from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -87,7 +89,8 @@ class KPoint:
 class HybridXC(XCFunctional):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
-                 alpha=None, skip_gamma=False,ecut=None):
+                 alpha=None, skip_gamma=False, ecut=None,
+                 logfilename='-'):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -123,8 +126,14 @@ class HybridXC(XCFunctional):
         self.skip_gamma = skip_gamma
         self.exx = None
         self.ecut = ecut
-        
+        self.fd = logfilename
+        self.write_timing_information = True
+
         XCFunctional.__init__(self, name)
+
+    def log(self, *args, **kwargs):
+        prnt(file=self.fd, *args, **kwargs)
+        self.fd.flush()
 
     def get_setup_name(self):
         return 'PBE'
@@ -152,7 +161,9 @@ class HybridXC(XCFunctional):
         self.bd = wfs.bd
 
         self.world = wfs.world
-        
+
+        self.fd = logfile(self.fd, self.world.rank)
+
         N_c = self.gd.N_c
         N = self.gd.N_c.prod()
         vol = self.gd.dv * N
@@ -167,9 +178,6 @@ class HybridXC(XCFunctional):
         if self.ecut is None:
             self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
         
-        print('alpha=%f' % self.alpha)
-        print('ecut=%f Hartree' % self.ecut)
-
         assert self.kd.N_c is not None
         n = self.kd.N_c * 2 - 1
         bzk_kc = np.indices(n).transpose((1, 2, 3, 0))
@@ -200,6 +208,10 @@ class HybridXC(XCFunctional):
         
         self.interpolator = density.interpolator
 
+        self.log('Value of alpha parameter:', self.alpha)
+        self.log('Cutoff energy:', self.ecut, 'Hartree')
+        self.log('%d x %d x %d k-points' % tuple(self.kd.N_c))
+
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)
         self.spos_ac = spos_ac
@@ -218,14 +230,21 @@ class HybridXC(XCFunctional):
         K = kd.nibzkpts
         W = self.world.size // self.nspins
         parallel = (W > 1)
-        
-        self.exx_skn = np.zeros((self.nspins, K, self.bd.nbands))
-        self.debug_skn = np.zeros((self.nspins, K, self.bd.nbands))
 
-        #self.x_kK = np.zeros((K, kd.nbzkpts))
-        #for k1 in range(K):
-        #    for K in range(kd.nbzkpts):
-                
+        self.log("%d CPU's used for %d IBZ k-points" % (W, K))
+        self.log('Spins:', self.nspins)
+
+        B = self.bd.nbands
+        self.log('Number of bands:', B)
+        self.log('Number of valence electrons:', self.setups.nvalence)
+
+        E = B - self.setups.nvalence / 2.0  # empty bands
+        self.npairs = (K * kd.nbzkpts - 0.5 * K**2) * (B**2 - E**2)
+        self.log('Approximate number of pairs:', self.npairs)
+
+        self.exx_skn = np.zeros((self.nspins, K, B))
+        self.debug_skn = np.zeros((self.nspins, K, B))
+
         for s in range(self.nspins):
             kpt1_q = [KPoint(kd, kpt)
                       for kpt in self.kpt_u if kpt.s == s]
@@ -268,7 +287,7 @@ class HybridXC(XCFunctional):
             self.exx += 0.5 * np.dot(kpt.f_n, self.exx_skn[kpt.s, kpt.k])
         self.exx = self.world.sum(self.exx)
         self.world.sum(self.debug_skn)
-        assert (self.debug_skn == self.kd.nbzkpts * self.bd.nbands).all()
+        assert (self.debug_skn == self.kd.nbzkpts * B).all()
         self.exx += self.calculate_exx_paw_correction()
         
     def apply(self, kpt1, kpt2, k):
@@ -327,6 +346,7 @@ class HybridXC(XCFunctional):
                 if self.skip_gamma and same:
                     continue
                 
+                t0 = time()
                 nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0, k)
                 nt_G = self.pwd.fft(nt_R * eikr_R) / N
                 vt_G = nt_G.copy()
@@ -336,6 +356,13 @@ class HybridXC(XCFunctional):
                 self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
                 if is_ibz2:
                     self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
+
+                if self.write_timing_information:
+                    t = time() - t0
+                    self.log('Time for first pair-density:', t, 'seconds')
+                    self.log('Estimated total time',
+                             t * self.npairs / self.world.size, 'seconds')
+                    self.write_timing_information = False
 
     def calculate_exx_paw_correction(self):
         exx = 0
