@@ -42,15 +42,16 @@ def parallel_partition(N, commrank, commsize, reshape=True, positive=False):
         assert N % commsize == 0
 
     N_local = N // commsize
-    if N % commsize != 0:
+    N_residual = N - N_local * commsize
+    if commrank < N_residual:
         N_local += 1
-    N_start = commrank * N_local
-    N_end = (commrank + 1) * N_local
-
-    if commrank == commsize - 1:
-        N_end = N
-    N_local = N_end - N_start 
-
+        N_start = commrank * N_local
+        N_end = (commrank + 1) * N_local
+    else:
+        offset =  N_residual * (N_local + 1)
+        N_start = offset + (commrank - N_residual) * N_local
+        N_end = offset + (commrank + 1 - N_residual) * N_local
+    
     return N, N_local, N_start, N_end
 
 
