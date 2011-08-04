@@ -112,9 +112,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.pd = PWDescriptor(self.ecut, self.gd, self.kd.ibzk_qc,
                                self.fftwflags)
         self.timer.stop('PWDescriptor')
-        pt = LFC(self.gd, [setup.pt_j for setup in setups],
-                 self.kpt_comm, dtype=self.dtype, forces=True)
-        self.pt = RealSpacePWLFC(pt, self.pd)
+        if 0:
+            pt = LFC(self.gd, [setup.pt_j for setup in setups],
+                     self.kpt_comm, dtype=self.dtype, forces=True)
+            self.pt = RealSpacePWLFC(pt, self.pd)
+        else:
+            self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
         FDPWWaveFunctions.set_setups(self, setups)
 
     def summary(self, fd):
@@ -232,12 +235,18 @@ class PWLFC(BaseLFC):
                 if spline not in cache:
                     f = ft(spline)
                     G_qG = pd.G2_qG**0.5
+                    print G_qG.shape
                     f_qG = f.map(G_qG) * G_qG**l * (4 * pi)
                     cache[spline] = f_qG
                 else:
                     f_qG = cache[spline]
                 self.lf_aj[a].append((l, f_qG))
                 self.lmax = max(self.lmax, l)
+        
+        self.dtype = complex
+
+    def get_function_count(self, a):
+        return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
 
     def set_k_points(self, k_qc):
         self.k_qc = k_qc
@@ -257,6 +266,7 @@ class PWLFC(BaseLFC):
         self.eikR_qa = np.exp(-2j * pi * np.dot(self.k_qc, spos_ac.T))
         pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
         self.eiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
+        self.my_atom_indices = np.arange(len(spos_ac))
 
     def add(self, a_xG, c_axi, q):
         for a, c_xi in c_axi.items():
