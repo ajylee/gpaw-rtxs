@@ -10,6 +10,7 @@ import numpy as np
 import ase
 from ase.version import version as ase_version
 import gpaw
+from gpaw.version import version as gpaw_version
 
 try:
     #new style cmr io
@@ -77,7 +78,7 @@ class Writer:
         self.data['ase_version']=ase_version
         self.data['numpy_dir']=os.path.dirname(np.__file__)
         self.data['gpaw_dir']=os.path.dirname(gpaw.__file__)
-        #self.data['calculator_version']=gversion
+        self.data["db_calculator_version"] = gpaw_version
         self.data['calculator']="gpaw"
         self.data['location']=uname[1]
 
