@@ -558,6 +558,8 @@ def read(paw, reader):
         if energy_error is not None:
             paw.scf.energies = [Etot, Etot + energy_error, Etot]
         wfs.eigensolver.error = r['EigenstateError']
+        if version < 1:
+            wfs.eigensolver.error *= wfs.gd.dv
     else:
         paw.scf.converged = r['Converged']
 
