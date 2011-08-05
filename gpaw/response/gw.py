@@ -265,11 +265,10 @@ class GW(BASECHI):
                                 if n==m:
                                     C_wGG[:,0,:] = Cminus_0G0.conj()
                                     C_wGG[:,:,0] = Cplus_0G0
-                                    d_0GG = dplus_0GG.copy()
                                 else:
                                     C_wGG[:,0,0:] = 0.
                                     C_wGG[:,0:,0] = 0.
-                            elif w0_id == 0:
+                            if w0_id == 0:
                                 d_0GG = dplus_0GG.copy()
                         if sign == -1:
                             C_wGG = Cminus_wGG.copy()
@@ -277,11 +276,10 @@ class GW(BASECHI):
                                 if n==m:
                                     C_wGG[:,0,:] = Cplus_0G0.conj()
                                     C_wGG[:,:,0] = Cminus_0G0
-                                    d_0GG = dminus_0GG.copy()
                                 else:
                                     C_wGG[:,0,0:] = 0.
                                     C_wGG[:,0:,0] = 0.
-                            elif w0_id == 0:
+                            if w0_id == 0:
                                 d_0GG = dminus_0GG.copy()
 
                         # perform C_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
