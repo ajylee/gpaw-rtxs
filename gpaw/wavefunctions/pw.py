@@ -11,6 +11,7 @@ from gpaw.lcao.overlap import fbt
 from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y
 from gpaw.utilities import _fact as fac
+from gpaw.utilities.blas import gemm
 
 
 class PWDescriptor:
@@ -90,12 +91,13 @@ class Preconditioner:
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
-    def __init__(self, ecut, fftwflags,
+    def __init__(self, ecut, fftwflags, real_space_projections,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
                  world, kd, timer):
         self.ecut =  ecut / units.Hartree
         self.fftwflags = fftwflags
+        self.real_space_projections = real_space_projections
 
         # Set dtype=complex and gamma=False:
         kd.gamma = False
@@ -112,7 +114,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.pd = PWDescriptor(self.ecut, self.gd, self.kd.ibzk_qc,
                                self.fftwflags)
         self.timer.stop('PWDescriptor')
-        if 0:
+        if self.real_space_projections:
             pt = LFC(self.gd, [setup.pt_j for setup in setups],
                      self.kpt_comm, dtype=self.dtype, forces=True)
             self.pt = RealSpacePWLFC(pt, self.pd)
@@ -123,6 +125,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def summary(self, fd):
         fd.write('Mode: Plane waves (%d, ecut=%.3f eV)\n' %
                  (len(self.pd), self.pd.ecut * units.Hartree))
+        fd.write('      Doing projections in %s space.\n' %
+                 ['reciprocal', 'real'][self.real_space_projections])
         
     def make_preconditioner(self, block=1):
         return Preconditioner(self.pd)
@@ -152,8 +156,145 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.psit_nG = psit_nG
 
 
+def ft(spline):
+    l = spline.get_angular_momentum_number()
+    rc = 50.0
+    N = 2**10
+    assert spline.get_cutoff() <= rc
+
+    dr = rc / N
+    r_r = np.arange(N) * dr
+    dk = pi / 2 / rc
+    k_q = np.arange(2 * N) * dk
+    f_r = spline.map(r_r)
+
+    f_q = fbt(l, f_r, r_r, k_q) * (4 * pi)
+    f_q[1:] /= k_q[1:]**(2 * l + 1)
+    f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
+              dr * 2**l * fac[l] / fac[2 * l + 1])
+
+    return Spline(l, k_q[-1], f_q)
+
+
+class PWLFC(BaseLFC):
+    def __init__(self, spline_aj, pd):
+        """Reciprocal-space plane-wave localized function collection."""
+
+        self.pd = pd
+
+        self.lf_aj = []
+        cache = {}
+        self.lmax = 0
+
+        # Fourier transform functions:
+        for a, spline_j in enumerate(spline_aj):
+            self.lf_aj.append([])
+            for spline in spline_j:
+                l = spline.get_angular_momentum_number()
+                if spline not in cache:
+                    f = ft(spline)
+                    G_qG = pd.G2_qG**0.5
+                    f_qG = f.map(G_qG) * G_qG**l
+                    cache[spline] = f_qG
+                else:
+                    f_qG = cache[spline]
+                self.lf_aj[a].append((l, f_qG))
+                self.lmax = max(self.lmax, l)
+        
+        self.dtype = complex
+
+    def get_function_count(self, a):
+        return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
+
+    def __iter__(self):
+        I = 0
+        for a in self.my_atom_indices:
+            j = 0
+            i1 = 0
+            for l, f_qG in self.lf_aj[a]:
+                i2 = i1 + 2 * l + 1
+                yield a, j, i1, i2, I + i1, I + i2
+                i1 = i2
+                j += 1
+            I += i2
+
+    def set_k_points(self, k_qc):
+        self.k_qc = k_qc
+        B_cv = 2.0 * pi * self.pd.gd.icell_cv
+        K_qv = np.dot(k_qc, B_cv)
+
+        self.Y_qLG = np.empty((len(K_qv), (self.lmax + 1)**2, len(self.pd)))
+        for q, K_v in enumerate(K_qv):
+            G_Gv = self.pd.G_Gv + K_v
+            G_Gv[1:] /= self.pd.G2_qG[q, 1:, None]**0.5
+            if self.pd.G2_qG[q, 0] > 0:
+                G_Gv[0] /= self.pd.G2_qG[q, 0]**0.5
+            for L in range((self.lmax + 1)**2):
+                self.Y_qLG[q, L] = Y(L, *G_Gv.T)
+
+    def set_positions(self, spos_ac):
+        self.eikR_qa = np.exp(-2j * pi * np.dot(self.k_qc, spos_ac.T))
+        pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
+        self.eiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
+        self.my_atom_indices = np.arange(len(spos_ac))
+
+    def add(self, a_xG, c_axi, q):
+        for a, c_xi in c_axi.items():
+            i = 0
+            for l, f_qG in self.lf_aj[a]:
+                for m in range(2 * l + 1):
+                    a_xG += (c_xi[..., i:i + 1] * (-1.0j)**l / self.pd.gd.dv *
+                             self.eikR_qa[q][a] * self.eiGR_Ga[:, a] *
+                             f_qG[q] * self.Y_qLG[q, l**2 + m])
+                    i += 1
+
+    def expand(self, q):
+        nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
+        f_IG = self.pd.empty(nI, complex)
+        for a, j, i1, i2, I1, I2 in self:
+            l, f_qG = self.lf_aj[a][j]
+            f_IG[I1:I2] = (self.eiGR_Ga[:, a] * f_qG[q] *
+                           self.Y_qLG[q, l**2:(l + 1)**2])
+        return f_IG
+
+    def add2(self, a_xG, c_axi, q):
+        assert a_xG.ndim == 2
+        nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
+        c_xI = np.empty((len(a_xG), nI), complex)
+        f_IG = self.expand(q)
+        for a, j, i1, i2, I1, I2 in self:
+            l, f_qG = self.lf_aj[a][j]
+            c_xI[:, I1:I2] = (c_axi[a][:, i1:i2] * (-1.0j)**l *
+                              self.eikR_qa[q][a])
+
+        gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG)
+
+    def integrate(self, a_xG, c_axi, q):
+        for a, c_xi in c_axi.items():
+            i = 0
+            for l, f_qG in self.lf_aj[a]:
+                for m in range(2 * l + 1):
+                    c_xi[..., i] = (
+                        1.0j**l / self.pd.gd.N_c.prod() *
+                        self.eikR_qa[q][a].conj() *
+                        np.dot(a_xG,
+                               self.eiGR_Ga[:, a].conj() *
+                               f_qG[q] * self.Y_qLG[q, l**2 + m]))
+                    i += 1
+
+    def integrate2(self, a_xG, c_axi, q):
+        assert a_xG.ndim == 2
+        nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
+        c_xI = np.empty((len(a_xG), nI), complex)
+        f_IG = self.expand(q)
+        gemm(1.0 / self.pd.gd.N_c.prod(), f_IG, a_xG, 0.0, c_xI, 'c')
+        for a, j, i1, i2, I1, I2 in self:
+            c_axi[a][:, i1:i2] = c_xI[:, I1:I2]
+
+
 class RealSpacePWLFC:
     def __init__(self, lfc, pd):
+        """Real-space plane-wave localized function collection."""
         self.lfc = lfc
         self.pd = pd
 
@@ -199,105 +340,16 @@ class RealSpacePWLFC:
             for a, c_iv in c_aiv.items():
                 c_axiv[a][x] = c_iv
 
-def ft(spline):
-    l = spline.get_angular_momentum_number()
-    rc = 50.0
-    N = 2**10
-    assert spline.get_cutoff() <= rc
-
-    dr = rc / N
-    r_r = np.arange(N) * dr
-    dk = pi / 2 / rc
-    k_q = np.arange(2 * N) * dk
-    f_r = spline.map(r_r)
-
-    f_q = fbt(l, f_r, r_r, k_q)
-    f_q[1:] /= k_q[1:]**(2 * l + 1)
-    f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
-              dr * 2**l * fac[l] / fac[2 * l + 1])
-
-    return Spline(l, k_q[-1], f_q)
-
-
-class PWLFC(BaseLFC):
-    def __init__(self, spline_aj, pd):
-        self.pd = pd
-
-        self.lf_aj = []
-        cache = {}
-        self.lmax = 0
-
-        # Fourier transform functions:
-        for a, spline_j in enumerate(spline_aj):
-            self.lf_aj.append([])
-            for spline in spline_j:
-                l = spline.get_angular_momentum_number()
-                if spline not in cache:
-                    f = ft(spline)
-                    G_qG = pd.G2_qG**0.5
-                    print G_qG.shape
-                    f_qG = f.map(G_qG) * G_qG**l * (4 * pi)
-                    cache[spline] = f_qG
-                else:
-                    f_qG = cache[spline]
-                self.lf_aj[a].append((l, f_qG))
-                self.lmax = max(self.lmax, l)
-        
-        self.dtype = complex
-
-    def get_function_count(self, a):
-        return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
-
-    def set_k_points(self, k_qc):
-        self.k_qc = k_qc
-        B_cv = 2.0 * pi * self.pd.gd.icell_cv
-        K_qv = np.dot(k_qc, B_cv)
-
-        self.Y_qLG = np.empty((len(K_qv), (self.lmax + 1)**2, len(self.pd)))
-        for q, K_v in enumerate(K_qv):
-            G_Gv = self.pd.G_Gv + K_v
-            G_Gv[1:] /= self.pd.G2_qG[q, 1:, None]**0.5
-            if self.pd.G2_qG[q, 0] > 0:
-                G_Gv[0] /= self.pd.G2_qG[q, 0]**0.5
-            for L in range((self.lmax + 1)**2):
-                self.Y_qLG[q, L] = Y(L, *G_Gv.T)
-
-    def set_positions(self, spos_ac):
-        self.eikR_qa = np.exp(-2j * pi * np.dot(self.k_qc, spos_ac.T))
-        pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
-        self.eiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
-        self.my_atom_indices = np.arange(len(spos_ac))
-
-    def add(self, a_xG, c_axi, q):
-        for a, c_xi in c_axi.items():
-            i = 0
-            for l, f_qG in self.lf_aj[a]:
-                for m in range(2 * l + 1):
-                    a_xG += (c_xi[..., i:i + 1] * (-1.0j)**l / self.pd.gd.dv *
-                             self.eikR_qa[q][a] * self.eiGR_Ga[:, a] *
-                             f_qG[q] * self.Y_qLG[q, l**2 + m])
-                    i += 1
-
-    def integrate(self, a_xG, c_axi, q):
-        for a, c_xi in c_axi.items():
-            i = 0
-            for l, f_qG in self.lf_aj[a]:
-                for m in range(2 * l + 1):
-                    c_xi[..., i] = (
-                        1.0j**l / self.pd.gd.N_c.prod() *
-                        self.eikR_qa[q][a].conj() *
-                        np.dot(a_xG,
-                               self.eiGR_Ga[:, a].conj() *
-                               f_qG[q] * self.Y_qLG[q, l**2 + m]))
-                    i += 1
-
 
 class PW:
-    def __init__(self, ecut=340, fftwflags=fftw.FFTW_MEASURE):
+    def __init__(self, ecut=340, fftwflags=fftw.FFTW_MEASURE,
+                 real_space_projections=False):
         self.ecut = ecut
         self.fftwflags = fftwflags
+        self.real_space_projections = real_space_projections
 
     def __call__(self, diagksl, orthoksl, initksl, *args):
         wfs = PWWaveFunctions(self.ecut, self.fftwflags,
+                              self.real_space_projections,
                               diagksl, orthoksl, initksl, *args)
         return wfs
