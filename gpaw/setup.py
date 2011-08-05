@@ -25,10 +25,14 @@ from gpaw.utilities import unpack, pack
 from gpaw.rotation import rotation
 from gpaw import extra_parameters
 from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.xc import XC
 
 
-def create_setup(symbol, xc, lmax=0,
+def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None, world=None):
+    if isinstance(xc, str):
+        xc = XC(xc)
+
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
             lmax = 0
