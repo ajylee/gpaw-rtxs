@@ -20,7 +20,10 @@ homo, lumo = calc.get_homo_lumo()
 equal(lumo - homo, 1.11445025, 0.001)
 
 calc.write('si_primitive.gpw', 'all')
-calc = GPAW('si_primitive.gpw', parallel={'domain': 1}, txt=None)
+calc = GPAW('si_primitive.gpw',
+            parallel={'domain': 1},
+            idiotproof=False,
+            txt=None)
 from gpaw.xc.hybridk import HybridXC
 pbe0 = HybridXC('PBE0', alpha=5.0)
 calc.get_xc_difference(pbe0)
