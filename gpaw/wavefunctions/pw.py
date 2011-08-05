@@ -166,9 +166,9 @@ def ft(spline):
     r_r = np.arange(N) * dr
     dk = pi / 2 / rc
     k_q = np.arange(2 * N) * dk
-    f_r = spline.map(r_r)
+    f_r = spline.map(r_r) * (4 * pi)
 
-    f_q = fbt(l, f_r, r_r, k_q) * (4 * pi)
+    f_q = fbt(l, f_r, r_r, k_q)
     f_q[1:] /= k_q[1:]**(2 * l + 1)
     f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
               dr * 2**l * fac[l] / fac[2 * l + 1])
