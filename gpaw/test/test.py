@@ -73,9 +73,9 @@ if opt.range:
     except ValueError:
         start_index = 0
     try:
-        stop_index = tests.index(indices[1])
+        stop_index = tests.index(indices[1]) + 1
     except ValueError:
-        stop_index = -1
+        stop_index = len(tests)
     tests = tests[start_index:stop_index]
 
 for test in exclude:
