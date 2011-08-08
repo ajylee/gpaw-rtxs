@@ -309,10 +309,10 @@ class FDPWWaveFunctions(WaveFunctions):
                             writer.fill(psit_G, s, k, n)
 
     def estimate_memory(self, mem):
-        gridbytes = self.gd.bytecount(self.dtype)
+        gridbytes = self.wd.bytecount(self.dtype)
         mem.subnode('Arrays psit_nG', 
                     len(self.kpt_u) * self.mynbands * gridbytes)
-        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self.gd,
+        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self.wd,
                                          self.dtype, self.mynbands,
                                          self.nbands)
         self.pt.estimate_memory(mem.subnode('Projectors'))

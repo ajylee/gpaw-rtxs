@@ -49,6 +49,13 @@ class PWDescriptor:
         self.fftplan = fftw.FFTPlan(self.tmp_R, -1, fftwflags)
         self.ifftplan = fftw.FFTPlan(self.tmp_R, 1, fftwflags)
 
+    def estimate_memory(self, mem):
+        mem.subnode('Arrays',
+                    self.Q_G.size * np.dtype(int).itemsize +
+                    self.G_Gv.size * 8 +
+                    self.G2_qG.size * 8 +
+                    self.tmp_R.size * 16)
+
     def __len__(self):
         return len(self.Q_G)
 
@@ -155,6 +162,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 psit_nG[n] = self.pd.fft(psit_R)
             kpt.psit_nG = psit_nG
 
+    def estimate_memory(self, mem):
+        FDPWWaveFunctions.estimate_memory(self, mem)
+        self.pd.estimate_memory(mem.subnode('PW-descriptor'))
+
 
 def ft(spline):
     l = spline.get_angular_momentum_number()
@@ -186,6 +197,8 @@ class PWLFC(BaseLFC):
         cache = {}
         self.lmax = 0
 
+        self.nbytes = 0
+
         # Fourier transform functions:
         for a, spline_j in enumerate(spline_aj):
             self.lf_aj.append([])
@@ -196,12 +209,25 @@ class PWLFC(BaseLFC):
                     G_qG = pd.G2_qG**0.5
                     f_qG = f.map(G_qG) * G_qG**l
                     cache[spline] = f_qG
+                    self.nbytes += f_qG.size * 8
                 else:
                     f_qG = cache[spline]
                 self.lf_aj[a].append((l, f_qG))
                 self.lmax = max(self.lmax, l)
+            self.nbytes += len(pd) * 8  # self.emiGR_Ga
         
         self.dtype = complex
+
+        self.k_q = None
+        self.Y_qLG = None
+        self.eikR_qa = None
+        self.emiGR_Ga = None
+        self.my_atom_indices = None
+
+        self.nbytes += pd.G2_qG.size * (self.lmax + 1)**2 * 8  # self.Y_qLG
+
+    def estimate_memory(self, mem):
+        mem.subnode('Arrays', self.nbytes)
 
     def get_function_count(self, a):
         return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
@@ -340,6 +366,15 @@ class RealSpacePWLFC:
 class PW:
     def __init__(self, ecut=340, fftwflags=fftw.FFTW_MEASURE,
                  real_space_projections=False):
+        """Plane-wave basis mode.
+
+        ecut: float
+            Plane-wave cutoff in eV.
+        fftwflags: int
+            Flags for making FFTW plan (default is FFTW_MEASURE).
+        real_space_projections: bool
+            Do projections in real space."""
+
         self.ecut = ecut
         self.fftwflags = fftwflags
         self.real_space_projections = real_space_projections
