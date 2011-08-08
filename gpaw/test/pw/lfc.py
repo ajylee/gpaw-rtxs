@@ -25,6 +25,7 @@ eikr = np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
                                   (kpts / gd.N_c).T).T)[0]
 
 for l in range(3):
+    print l
     s = Spline(l, rc, 2 * x**1.5 / np.pi * np.exp(-x * r**2))
 
     lfc1 = LFC(gd, [[s]], dtype=complex)
@@ -48,7 +49,7 @@ for l in range(3):
     equal(abs(b2-b1[0]).max(), 0, 0.001)
     
     b1 = eikr[None]
-    b2 = pd.fft(b1[0] * 0 + 1)[None]
+    b2 = pd.fft(b1[0] * 0 + 1).reshape((1, -1))
 
     results = []
     for lfc, b in [(lfc1, b1), (lfc2, b2), (lfc3, b2)]:

@@ -233,63 +233,41 @@ class PWLFC(BaseLFC):
                 self.Y_qLG[q, L] = Y(L, *G_Gv.T)
 
     def set_positions(self, spos_ac):
-        self.eikR_qa = np.exp(-2j * pi * np.dot(self.k_qc, spos_ac.T))
+        self.eikR_qa = np.exp(2j * pi * np.dot(self.k_qc, spos_ac.T))
         pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
-        self.eiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
+        self.emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
         self.my_atom_indices = np.arange(len(spos_ac))
-
-    def add(self, a_xG, c_axi, q):
-        for a, c_xi in c_axi.items():
-            i = 0
-            for l, f_qG in self.lf_aj[a]:
-                for m in range(2 * l + 1):
-                    a_xG += (c_xi[..., i:i + 1] * (-1.0j)**l / self.pd.gd.dv *
-                             self.eikR_qa[q][a] * self.eiGR_Ga[:, a] *
-                             f_qG[q] * self.Y_qLG[q, l**2 + m])
-                    i += 1
 
     def expand(self, q):
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
         f_IG = self.pd.empty(nI, complex)
         for a, j, i1, i2, I1, I2 in self:
             l, f_qG = self.lf_aj[a][j]
-            f_IG[I1:I2] = (self.eiGR_Ga[:, a] * f_qG[q] *
+            f_IG[I1:I2] = (self.emiGR_Ga[:, a] * f_qG[q] *
                            self.Y_qLG[q, l**2:(l + 1)**2])
         return f_IG
 
-    def add2(self, a_xG, c_axi, q):
+    def add(self, a_xG, c_axi, q):
         assert a_xG.ndim == 2
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
         c_xI = np.empty((len(a_xG), nI), complex)
         f_IG = self.expand(q)
         for a, j, i1, i2, I1, I2 in self:
-            l, f_qG = self.lf_aj[a][j]
+            l = self.lf_aj[a][j][0]
             c_xI[:, I1:I2] = (c_axi[a][:, i1:i2] * (-1.0j)**l *
-                              self.eikR_qa[q][a])
+                              self.eikR_qa[q][a].conj())
 
         gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG)
 
     def integrate(self, a_xG, c_axi, q):
-        for a, c_xi in c_axi.items():
-            i = 0
-            for l, f_qG in self.lf_aj[a]:
-                for m in range(2 * l + 1):
-                    c_xi[..., i] = (
-                        1.0j**l / self.pd.gd.N_c.prod() *
-                        self.eikR_qa[q][a].conj() *
-                        np.dot(a_xG,
-                               self.eiGR_Ga[:, a].conj() *
-                               f_qG[q] * self.Y_qLG[q, l**2 + m]))
-                    i += 1
-
-    def integrate2(self, a_xG, c_axi, q):
         assert a_xG.ndim == 2
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
-        c_xI = np.empty((len(a_xG), nI), complex)
+        c_xI = np.zeros((len(a_xG), nI), complex)
         f_IG = self.expand(q)
         gemm(1.0 / self.pd.gd.N_c.prod(), f_IG, a_xG, 0.0, c_xI, 'c')
         for a, j, i1, i2, I1, I2 in self:
-            c_axi[a][:, i1:i2] = c_xI[:, I1:I2]
+            l = self.lf_aj[a][j][0]
+            c_axi[a][:, i1:i2] = (1.0j**l * self.eikR_qa[q][a] * c_xI[:, I1:I2])
 
 
 class RealSpacePWLFC:
