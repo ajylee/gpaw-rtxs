@@ -447,8 +447,11 @@ class FFTVDWFunctional(VDWFunctional):
         Nr: int
             Number of real-space points for kernel function.
         size: 3-tuple
-            Size of FFT-grid.
-        """
+           Size of FFT-grid.  Use only  for zero boundary conditions in
+           order to get a grid-size that works well with the FFT
+           algorithm (powers of two are more efficient).  The density
+           array will be zero padded to the correct size."""
+
         VDWFunctional.__init__(self, name, **kwargs)
         self.Nalpha = Nalpha
         self.lambd = lambd
@@ -563,6 +566,11 @@ class FFTVDWFunctional(VDWFunctional):
                     self.shape[c] = int(2**ceil(log(n) / log(2)))
         else:
             self.shape = np.array(self.size)
+            for c, n in enumerate(self.shape):
+                if gd.pbc_c[c]:
+                    assert n == gd.N_c[c]
+                else:
+                    assert n >= gd.N_c[c]
             
         scale_c1 = (self.shape / (1.0 * gd.N_c))[:, np.newaxis]
         gdfft = GridDescriptor(self.shape, gd.cell_cv * scale_c1, True)
