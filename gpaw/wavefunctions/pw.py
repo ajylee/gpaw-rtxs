@@ -267,7 +267,25 @@ class PWLFC(BaseLFC):
         gemm(1.0 / self.pd.gd.N_c.prod(), f_IG, a_xG, 0.0, c_xI, 'c')
         for a, j, i1, i2, I1, I2 in self:
             l = self.lf_aj[a][j][0]
-            c_axi[a][:, i1:i2] = (1.0j**l * self.eikR_qa[q][a] * c_xI[:, I1:I2])
+            c_axi[a][:, i1:i2] = 1.0j**l * self.eikR_qa[q][a] * c_xI[:, I1:I2]
+
+    def derivative(self, a_xG, c_axiv, q):
+        assert a_xG.ndim == 2
+        nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
+        c_xI = np.zeros((len(a_xG), nI), complex)
+        f_IG = self.expand(q)
+
+        B_cv = 2.0 * pi * self.pd.gd.icell_cv
+        K_v = np.dot(self.k_qc[q], B_cv)
+
+        for v in range(3):
+            gemm(-1.0 / self.pd.gd.N_c.prod(),
+                 f_IG * (self.pd.G_Gv[:, v] + K_v[v]), a_xG,
+                 0.0, c_xI, 'c')
+            for a, j, i1, i2, I1, I2 in self:
+                l = self.lf_aj[a][j][0]
+                c_axiv[a][:, i1:i2, v] = (1.0j**(l + 1) * self.eikR_qa[q][a] *
+                                          c_xI[:, I1:I2])
 
 
 class RealSpacePWLFC:

@@ -34,6 +34,7 @@ for l in range(3):
     
     c_axi = {0: np.zeros((1, 2 * l + 1), complex)}
     c_axi[0][0, 0] = 1.9 - 4.5j
+    c_axiv = {0: np.zeros((1, 2 * l + 1, 3), complex)}
 
     b1 = gd.zeros(1, dtype=complex)
     b2 = pd.zeros(1, dtype=complex)
@@ -52,8 +53,11 @@ for l in range(3):
     b2 = pd.fft(b1[0] * 0 + 1).reshape((1, -1))
 
     results = []
+    results2 = []
     for lfc, b in [(lfc1, b1), (lfc2, b2), (lfc3, b2)]:
         lfc.integrate(b, c_axi, 0)
         results.append(c_axi[0][0].copy())
+        lfc.derivative(b, c_axiv, 0)
+        results2.append(c_axiv[0][0].copy())
+    equal(abs(np.ptp(results2, 0)).max(), 0, 1e-7)
     equal(abs(np.ptp(results, 0)).max(), 0, 3e-8)
-
