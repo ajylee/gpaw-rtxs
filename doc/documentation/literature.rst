@@ -759,7 +759,7 @@ Publications using the gpaw code
    `Self-consistent GW calculations of electronic transport in thiol-
    and amine-linked molecular junctions`__
 
-   \Phys. Rev. B 83, 115108 (2011)
+   Phys. Rev. B 83, 115108 (2011)
 
    __ http://link.aps.org/doi/10.1103/PhysRevB.83.115108
 
@@ -770,7 +770,7 @@ Publications using the gpaw code
    `Nonlocal Screening of Plasmons in Graphene by Semiconducting and
    Metallic Substrates: First-Principles Calculations`__
 
-   \Phys. Rev. Lett. 106, 146803 (2011) 
+   Phys. Rev. Lett. 106, 146803 (2011) 
 
    __ http://link.aps.org/doi/10.1103/PhysRevLett.106.146803  
 
@@ -787,13 +787,45 @@ Publications using the gpaw code
 
    .. 6 April 2011
 
+#) \V. Mäkinen, K. Honkala and H. Häkkinen
+
+   `Atomic layer deposition of aluminum oxide on TiO2 and its impact
+   on N3 dye adsorption from first principles`__
+
+   \J. Phys. Chem. C 115, 9250 (2011)
+
+   __ http://pubs.acs.org/doi/abs/10.1021/jp2011827
+
+   .. 13 April 2011
+
+#) \O. Lopez-Acevedo and H. Häkkinen
+
+   `Derivatives of the thiolate-protected gold cluster Au25(SR)18(-1)`__
+
+   Eur. Phys. J D 63, 311-314 (2011)
+
+   __ http://dx.doi.org/10.1140/epjd/e2011-10603-9
+
+   .. 27 April 2011
+
+#) \P. A. Clayborne, O. Lopez-Acevedo, R.L. Whetten, H. Grönbeck and
+   H. Häkkinen
+
+   `Al50Cp*12 Cluster: A 138-electron (L=6) Superatom`__
+
+   Eur. J. Inorg. Chem. 17, 2649 (2011)
+
+   __ http://dx.doi.org/10.1002/ejic.201100374
+
+   .. 13 May 2011
+
 #) Toma Susi, Giorgio Lanzani, Albert G. Nasibulin, Paola Ayala,
    Tao Jiang, Thomas Bligaard, Kari Laasonen, and Esko I. Kauppinen
 
    `Mechanism of the initial stages of nitrogen-doped single-walled
    carbon nanotube growth`__
 
-   \Phys. Chem. Chem. Phys. Advance Article (2011)
+   Phys. Chem. Chem. Phys. Advance Article (2011)
 
    __ http://dx.doi.org/10.1039/C1CP20454H
 
@@ -804,7 +836,7 @@ Publications using the gpaw code
    `GPAW - massively parallel electronic structure calculations with 
    Python-based software`__
 
-   \Procedia Comput. Sci. 4, 17 (2011)
+   Procedia Comput. Sci. 4, 17 (2011)
 
    __ http://dx.doi.org/10.1016/j.procs.2011.04.003
 
@@ -815,7 +847,7 @@ Publications using the gpaw code
    `A 58-electron superatom-complex model for the magic phosphine-protected 
    gold clusters (Schmid-gold, Nanogold®) of 1.4-nm dimension`__
 
-   \Chem. Sci. Advance Article (2011)
+   Chem. Sci. Advance Article (2011)
 
    __ http://dx.doi.org/10.1039/C1SC00060H
 
@@ -826,11 +858,22 @@ Publications using the gpaw code
    `Linear density response function in the projector augmented wave method: 
    Applications to solids, surfaces, and interfaces`__
 
-   \Phys. Rev. B 83, 245122 (2011)
+   Phys. Rev. B 83, 245122 (2011)
 
    __ http://link.aps.org/doi/10.1103/PhysRevB.83.245122   
 
    .. 27 June 2011
+
+#) \O. Lopez-Acevedo, P.A. Clayborne and H. Häkkinen
+
+   `Electronic structure of Gold, Aluminum and Gallium superatom complexes`__
+
+   Phys. Rev. B 84, 035434 (2011)
+
+   __ http://prb.aps.org/abstract/PRB/v84/i3/e035434
+
+   .. 25 July 2011
+
 
 :ref:`adding_publications`
 
