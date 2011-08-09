@@ -99,7 +99,8 @@ class Domain:
     def get_ranks_from_positions(self, spos_ac):
         """Calculate rank of domain containing scaled position."""
         rnk_ac = np.floor(spos_ac * self.parsize_c).astype(int)
-        assert (rnk_ac >= 0).all() and (rnk_ac < self.parsize_c).all()
+        if (rnk_ac < 0).any() or (rnk_ac >= self.parsize_c).any():
+            raise ValueError('Some atom is too close to the zero-boundary!')
         return np.dot(rnk_ac, self.stride_c)
 
     def get_rank_from_position(self, spos_c):
