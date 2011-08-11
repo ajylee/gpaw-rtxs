@@ -236,7 +236,6 @@ class GW(BASECHI):
                         # calculate self energy
                         w1_w = 1./(w1 - w2_w) + 1./(w1 + w2_w)
                         Sigma_kn[i,j] += np.real(gemmdot(C_w, w1_w, beta=0.0))
-                        S = np.real(gemmdot(C_w, w1_w, beta=0.0))
 
                         # calculate derivate of self energy with respect to w
                         w1_w = 1./(w1 - w2_w)**2 + 1./(w1 + w2_w)**2
