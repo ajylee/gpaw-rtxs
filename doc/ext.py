@@ -137,7 +137,8 @@ def create_png_files():
                                 break
                     if run:
                         print 'running:', path
-                        e = os.system('cd %s; %s %s' % (dirpath, executable, filename))
+                        e = os.system('cd %s; %s %s' % (dirpath, executable,
+                                                        filename))
                         if e != 0:
                             raise RuntimeError('FAILED!')
                         for file in line.split()[2:]:
