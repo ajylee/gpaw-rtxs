@@ -173,6 +173,8 @@ class GW(BASECHI):
             Cplus_wGG = np.zeros_like(W_wGG)
             Cminus_wGG = np.zeros_like(W_wGG)
             nG = np.shape(W_wGG)[1]
+            Cplus_wG0 = np.zeros((2, nG), dtype=complex)
+            Cminus_wG0 = np.zeros((2, nG), dtype=complex)
 
             w2_w = np.arange(self.Nw) * self.dw
             for iw in range(self.Nw):
@@ -180,22 +182,13 @@ class GW(BASECHI):
                 w1_w = 1. / (w1 + w2_w + 1j*self.eta) + 1. / (w1 - w2_w + 1j*self.eta)
                 Cplus_wGG[iw] = gemmdot(w1_w, W_wGG, beta=0.0)
                 Cminus_wGG[iw] = gemmdot(w1_w.conj(), W_wGG, beta=0.0)
-                w1_w = 1. / (w2_w + 1j*self.eta) + 1. / (-w2_w + 1j*self.eta)
-            # use exact derivative for E_nk = E_mk-q:
-            dw1_w = -1. / (w2_w + 1j*self.eta)**2 - 1. / (-w2_w + 1j*self.eta)**2
-            dplus_0GG = gemmdot(dw1_w, W_wGG, beta=0.0)
-            dminus_0GG = gemmdot(dw1_w.conj(), W_wGG, beta=0.0)
-            if df.optical_limit:
-                Cplus_0G0 = gemmdot(w1_w, tmp_wG, beta=0.0)
-                Cminus_0G0 = gemmdot(w1_w.conj(), tmp_wG, beta=0.0)
-                Cplus_0G0[0] = gemmdot(w1_w, tmp_w, beta=0.0)
-                Cminus_0G0[0] = gemmdot(w1_w.conj(), tmp_w, beta=0.0)
-                dplus_0GG[:,0] = gemmdot(dw1_w, tmp_wG, beta=0.0)
-                dminus_0GG[:,0] = gemmdot(dw1_w.conj(), tmp_wG, beta=0.0)
-                dplus_0GG[0,:] = dminus_0GG[:,0].conj()
-                dminus_0GG[0,:] = dplus_0GG[:,0].conj()
-                dplus_0GG[0,0] = gemmdot(dw1_w, tmp_w, beta=0.0)
-                dminus_0GG[0,0] = gemmdot(dw1_w.conj(), tmp_w, beta=0.0)
+                # special Hilbert transform optical limit:
+                if df.optical_limit:
+                    if iw < 2:
+                        Cplus_wG0[iw] = gemmdot(w1_w, tmp_wG, beta=0.0)
+                        Cminus_wG0[iw] = gemmdot(w1_w.conj(), tmp_wG, beta=0.0)
+                        Cplus_wG0[iw,0] = gemmdot(w1_w, tmp_w, beta=0.0)
+                        Cminus_wG0[iw,0] = gemmdot(w1_w.conj(), tmp_w, beta=0.0)
 
         for i, k in enumerate(self.gwkpt_k): # k is bzk index
             if df.optical_limit:
@@ -243,6 +236,7 @@ class GW(BASECHI):
                         # calculate self energy
                         w1_w = 1./(w1 - w2_w) + 1./(w1 + w2_w)
                         Sigma_kn[i,j] += np.real(gemmdot(C_w, w1_w, beta=0.0))
+                        S = np.real(gemmdot(C_w, w1_w, beta=0.0))
 
                         # calculate derivate of self energy with respect to w
                         w1_w = 1./(w1 - w2_w)**2 + 1./(w1 + w2_w)**2
@@ -258,48 +252,63 @@ class GW(BASECHI):
                         w1 = w0_id * self.dw
                         w2 = (w0_id + 1) * self.dw
 
-                        # treat optical limit
+                        # choose plus or minus, treat optical limit:
                         if sign == 1:
-                            C_wGG = Cplus_wGG.copy()
+                            C_wGG = Cplus_wGG[w0_id:w0_id+2] # only two grid points needed for each w0
                             if df.optical_limit:
                                 if n==m:
-                                    C_wGG[:,0,:] = Cminus_0G0.conj()
-                                    C_wGG[:,:,0] = Cplus_0G0
+                                    C_wGG[:,0,:] = Cminus_wG0.conj()
+                                    C_wGG[:,:,0] = Cplus_wG0
                                 else:
                                     C_wGG[:,0,0:] = 0.
                                     C_wGG[:,0:,0] = 0.
-                            if w0_id == 0:
-                                d_0GG = dplus_0GG.copy()
                         if sign == -1:
-                            C_wGG = Cminus_wGG.copy()
+                            C_wGG = Cminus_wGG[w0_id:w0_id+2] # only two grid points needed for each w0
                             if df.optical_limit:
                                 if n==m:
-                                    C_wGG[:,0,:] = Cplus_0G0.conj()
-                                    C_wGG[:,:,0] = Cminus_0G0
+                                    C_wGG[:,0,:] = Cplus_wG0.conj()
+                                    C_wGG[:,:,0] = Cminus_wG0
                                 else:
                                     C_wGG[:,0,0:] = 0.
                                     C_wGG[:,0:,0] = 0.
-                            if w0_id == 0:
-                                d_0GG = dminus_0GG.copy()
+
+                        # special treat of w0 = 0 (degenerate states):
+                        if w0_id == 0:
+                            Cplustmp_GG = Cplus_wGG[1]
+                            Cminustmp_GG = Cminus_wGG[1]
+                            if df.optical_limit:
+                                if n==m:
+                                    Cplustmp_GG[0,:] = Cminus_wG0.conj()[1]
+                                    Cplustmp_GG[:,0] = Cplus_wG0[1]
+                                    Cminustmp_GG[0,:] = Cplus_wG0.conj()[1]
+                                    Cminustmp_GG[:,0] = Cminus_wG0[1]
+                                else:
+                                    Cplustmp_GG[0,:] = 0.
+                                    Cplustmp_GG[:,0] = 0.
+                                    Cminustmp_GG[0,:] = 0.
+                                    Cminustmp_GG[:,0] = 0.
 
                         # perform C_wGG * np.outer(rho_G.conj(), rho_G).sum(GG)
-                        Sw1_G = gemmdot(C_wGG[w0_id], rho_G, beta=0.0)
-                        Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
-                        Sw2_G = gemmdot(C_wGG[w0_id + 1], rho_G, beta=0.0)
-                        Sw2 = np.real(gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
-                        Sw0 = (w2-np.abs(w0))/self.dw * Sw1 + (np.abs(w0)-w1)/self.dw * Sw2
-
-                        # calculate self energy and derivative via linearization
-                        if not np.abs(w0) == 0:
-                            Sigma_kn[i,j] += np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])*Sw0
-                        else:
-                            Sigma_kn[i,j] += Sw1
 
                         if w0_id == 0:
-                            dSw1_G = gemmdot(d_0GG, rho_G, beta=0.0)
-                            dSw1 = np.real(gemmdot(dSw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
-                            dSigma_kn[i,j] += dSw1
+                            Sw0_G = gemmdot(C_wGG[0], rho_G, beta=0.0)
+                            Sw0 = np.real(gemmdot(Sw0_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+                            Sw1_G = gemmdot(Cplustmp_GG, rho_G, beta=0.0)
+                            Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+                            Sw2_G = gemmdot(Cminustmp_GG, rho_G, beta=0.0)
+                            Sw2 = np.real(gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+
+                            Sigma_kn[i,j] += Sw0
+                            dSigma_kn[i,j] += (Sw1 + Sw2)/(2*self.dw)
+
                         else:
+                            Sw1_G = gemmdot(C_wGG[0], rho_G, beta=0.0)
+                            Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+                            Sw2_G = gemmdot(C_wGG[1], rho_G, beta=0.0)
+                            Sw2 = np.real(gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
+
+                            Sw0 = (w2-np.abs(w0))/self.dw * Sw1 + (np.abs(w0)-w1)/self.dw * Sw2
+                            Sigma_kn[i,j] += np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m]) * Sw0
                             dSigma_kn[i,j] += (Sw2 - Sw1)/self.dw
 
         return Sigma_kn, dSigma_kn 
