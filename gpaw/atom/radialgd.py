@@ -129,6 +129,9 @@ class RadialGridDescriptor:
     def plot(self, a_g, n=0, rc=4.0, show=False):
         import matplotlib.pyplot as plt
         r_g = self.r_g[:len(a_g)]
+        if n < 0:
+            r_g = r_g[1:]
+            a_g = a_g[1:]
         plt.plot(r_g, a_g * r_g**n)
         plt.axis(xmax=rc)
         if show:
