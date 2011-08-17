@@ -418,7 +418,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
 
                 for q2 in reversed(range(B-q1, B-Q+1)): # symmetrize comm.
                     srank = q1 + q2 - B
-                    sbuf_nn = np.conjugate(A_qnn[q2].T) # always a copy!
+                    sbuf_nn = np.ascontiguousarray(np.conjugate(A_qnn[q2].T)) # always a copy!
                     reqs.append(self.bd.comm.send(sbuf_nn, srank, block=False))
             else:
                 if debug:
