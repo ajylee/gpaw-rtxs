@@ -238,8 +238,6 @@ class CHI(BASECHI):
                 psit1_g = psit1new_g.conj() * self.expqr_g
 
                 for m in range(self.nbands):
-                    if k == 0 and n == 0:
-                        print >> self.txt, k, n, m, time() - t0
 
 		    if self.hilbert_trans:
 			check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
