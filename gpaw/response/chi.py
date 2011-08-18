@@ -73,7 +73,7 @@ class CHI(BASECHI):
         self.chi0_wGG = None
 
 
-    def initialize(self, do_Kxc=False):
+    def initialize(self, do_Kxc=False, simple_version=False):
 
         self.printtxt('')
         self.printtxt('-----------------------------------------')
@@ -132,6 +132,9 @@ class CHI(BASECHI):
         if calc.input_parameters['mode'] == 'lcao':
             calc.initialize_positions()        
         self.printtxt('     GS calculator   : %f M / cpu' %(maxrss() / 1024**2))
+
+        if simple_version is True:
+            return
         # PAW part init
         # calculate <phi_i | e**(-i(q+G).r) | phi_j>
         # G != 0 part
@@ -235,6 +238,8 @@ class CHI(BASECHI):
                 psit1_g = psit1new_g.conj() * self.expqr_g
 
                 for m in range(self.nbands):
+                    if k == 0 and n == 0:
+                        print >> self.txt, k, n, m, time() - t0
 
 		    if self.hilbert_trans:
 			check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol

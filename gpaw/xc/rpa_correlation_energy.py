@@ -96,33 +96,6 @@ class RPACorrelation:
         print >> self.txt
         return E
 
-
-    def get_E_q(self,
-                kcommsize=1,
-                index=None,
-                q=[0., 0., 0.],
-                direction=0,
-                integrated=True,
-                ecut=10,
-                nbands=None,
-                gauss_legendre=None,
-                frequency_cut=None,
-                frequency_scale=None,
-                w=None,
-                extrapolate=False):
-
-        self.initialize_calculation(w, ecut, nbands, kcommsize, extrapolate,
-                                    gauss_legendre, frequency_cut,
-                                    frequency_scale)
-
-        E_q = self.E_q(q, direction=direction, integrated=integrated)
-        
-        print >> self.txt, 'Calculation completed at:  ', ctime()
-        print >> self.txt
-        print >> self.txt, '------------------------------------------------------'
-
-        return E_q
-
     def E_q(self,
             q,
             index=None,
@@ -148,27 +121,27 @@ class RPACorrelation:
                    hilbert_trans=False)
 
         dummy.txt = devnull
-        dummy.initialize()
+        dummy.initialize(simple_version=True)
         npw = dummy.npw
         del dummy
         if self.nbands is None:
             nbands = npw
         else:
             nbands = self.nbands
- 
 
         df = DF(calc=self.calc,
                 xc='RPA',
                 nbands=nbands,
                 eta=0.0,
                 q=q,
+                txt='no_output',
                 w=self.w * 1j,
                 ecut=self.ecut,
                 G_plus_q=True,
                 kcommsize=self.kcommsize,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
-        df.txt = devnull
+        #df.txt = devnull
         
         if index is None:
             print >> self.txt, 'Calculating RPA dielectric matrix at:'
@@ -242,7 +215,8 @@ class RPACorrelation:
             for k2 in bz_k_points:
                 all_qs.append(k1-k2)
         all_qs = np.array(all_qs)
-        if not qsym and not bzk_gamma:
+
+        if qsym and not bzk_gamma:
             print >> self.txt, 'WARNING----------WARNING----------WARNING----------WARNING----------WARNING----------'
             print >> self.txt, 'k-point sampling does not include gamma point. q-point reduction may not be right'
             print >> self.txt, 'Please use gamma centered k-point grid or qsym=False'
@@ -341,7 +315,7 @@ class RPACorrelation:
                    kcommsize=kcommsize)
         dummy.txt = devnull
         dummy.spin = 0
-        dummy.initialize()
+        dummy.initialize(simple_version=True)
 
         self.ecut = ecut
         self.w = w
