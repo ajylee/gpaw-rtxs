@@ -427,14 +427,15 @@ class BASECHI:
                         else:
                             iq = kd.where_is_q(q_c, self.bzq_qc)
                             assert np.abs(self.bzq_qc[iq] - q_c).sum() < 1e-8
-    
+
                     phi_aGp = self.load_phi_aGp(self.reader, iq) #phi_qaGp[iq]
                 except AttributeError:
                     phi_aGp = self.phi_aGp
 
             for a, id in enumerate(self.calc.wfs.setups.id_a):
                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
-                gemv(1.0, phi_aGp[a], P_p, 1.0, rho_G)
+                phi_Gp = np.ascontiguousarray(phi_aGp[a], complex)
+                gemv(1.0, phi_Gp, P_p, 1.0, rho_G)
 
             if optical_limit:
                 if n==m:

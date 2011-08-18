@@ -217,16 +217,6 @@ class BSE(BASECHI):
                     rho3_G = self.density_matrix(n1,n2,k1,k2)
                     rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],self.kq_k[k2])
 
-#                    if k1 == k2:
-#                        if n1 == n2:
-#                            rho3_G[0] = 1.
-#                        else:
-#                            rho3_G[0] = 0.
-#                        if m1 == m2:
-#                            rho4_G[0] = 1.
-#                        else:
-#                            rho4_G[0] = 0.
-
                     q_c = bzk_kc[k2] - bzk_kc[k1]
                     q_c[np.where(q_c > 0.501)] -= 1.
                     q_c[np.where(q_c < -0.499)] += 1.
