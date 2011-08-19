@@ -54,7 +54,7 @@ def f(filename):
 
 plt.figure(figsize=(10, 5))
 total = {}
-for bib in ['gpaw1', 'gpaw2', 'tddft']:
+for bib in ['gpaw1', 'tddft', 'gpaw2', 'response']:
     papers = f(bib + '.bib')
     plt.plot([paper[0] for paper in papers], range(1, len(papers) + 1),
              '-o', label=bib)

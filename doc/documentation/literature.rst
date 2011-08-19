@@ -107,45 +107,56 @@ Citations of the GPAW method papers
 
 (updated on August 10, 2011)
 
-The three method papers are:
+The four method papers are:
 
 gpaw1:
-       \J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen
+    \J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen
 
-       `Real-space grid implementation of the projector augmented
-       wave method`__
-   
-       Physical Review B, Vol. **71**, 035109 (2005)
+    `Real-space grid implementation of the projector augmented
+    wave method`__
 
-       __ http://dx.doi.org/10.1103/PhysRevB.71.035109
+    Physical Review B, Vol. **71**, 035109 (2005)
 
-gpaw2:
-       \J. Enkovaara, C. Rostgaard, J. J. Mortensen, J. Chen, M. Dulak,
-       L. Ferrighi, J. Gavnholt, C. Glinsvad, V. Haikola, H. A. Hansen,
-       H. H. Kristoffersen, M. Kuisma, A. H. Larsen, L. Lehtovaara,
-       M. Ljungberg, O. Lopez-Acevedo, P. G. Moses, J. Ojanen, T. Olsen,
-       V. Petzold, N. A. Romero, J. Stausholm, M. Strange, G. A. Tritsaris,
-       M. Vanin, M. Walter, B. Hammer, H. Häkkinen, G. K. H. Madsen,
-       R. M. Nieminen, J. K. Nørskov, M. Puska, T. T. Rantala,
-       J. Schiøtz, K. S. Thygesen, and K. W. Jacobsen   
-
-       `Electronic structure calculations with GPAW: a real-space
-       implementation of the projector augmented-wave method`__ 
-
-       \J. Phys.: Condens. Matter **22**, 253202 (2010)
-
-       __ http://stacks.iop.org/0953-8984/22/253202
+    __ http://dx.doi.org/10.1103/PhysRevB.71.035109
 
 tddft:
-       \M. Walter, H. Häkkinen, L. Lehtovaara, M. Puska, J. Enkovaara,
-       C. Rostgaard, and J. J. Mortensen
+    \M. Walter, H. Häkkinen, L. Lehtovaara, M. Puska, J. Enkovaara,
+    C. Rostgaard, and J. J. Mortensen
 
-       `Time-dependent density-functional theory in the projector
-       augmented-wave method`__
+    `Time-dependent density-functional theory in the projector
+    augmented-wave method`__
 
-       Journal of Chemical Physics, Vol. **128**, 244101 (2008)
+    Journal of Chemical Physics, Vol. **128**, 244101 (2008)
 
-       __ http://dx.doi.org/10.1063/1.2943138
+    __ http://dx.doi.org/10.1063/1.2943138
+
+gpaw2:
+    \J. Enkovaara, C. Rostgaard, J. J. Mortensen, J. Chen, M. Dulak,
+    L. Ferrighi, J. Gavnholt, C. Glinsvad, V. Haikola, H. A. Hansen,
+    H. H. Kristoffersen, M. Kuisma, A. H. Larsen, L. Lehtovaara,
+    M. Ljungberg, O. Lopez-Acevedo, P. G. Moses, J. Ojanen, T. Olsen,
+    V. Petzold, N. A. Romero, J. Stausholm, M. Strange, G. A. Tritsaris,
+    M. Vanin, M. Walter, B. Hammer, H. Häkkinen, G. K. H. Madsen,
+    R. M. Nieminen, J. K. Nørskov, M. Puska, T. T. Rantala,
+    J. Schiøtz, K. S. Thygesen, and K. W. Jacobsen   
+
+    `Electronic structure calculations with GPAW: a real-space
+    implementation of the projector augmented-wave method`__ 
+
+    \J. Phys.: Condens. Matter **22**, 253202 (2010)
+
+    __ http://stacks.iop.org/0953-8984/22/253202
+
+response:
+    Jun Yan, Jens. J. Mortensen, Karsten W. Jacobsen, and Kristian S. Thygesen
+
+    `Linear density response function in the projector augmented wave method:
+    Applications to solids, surfaces, and interfaces`__
+
+    Phys. Rev. B **83**, 245122 (2011)
+
+    __ http://prb.aps.org/abstract/PRB/v83/i24/e245122
+
 
 All citing articles:
 
