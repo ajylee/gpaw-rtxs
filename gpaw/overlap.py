@@ -73,10 +73,9 @@ class Overlap:
         def dS(a, P_ni):
             return np.dot(P_ni, wfs.setups[a].dO_ii)
 
-        self.timer.start('calc_matrix')
-
+        self.timer.start('calc_s_matrix')
         S_nn = operator.calculate_matrix_elements(psit_nG, P_ani, S, dS)
-        self.timer.stop('calc_matrix')
+        self.timer.stop('calc_s_matrix')
 
         orthonormalization_string = repr(self.ksl)
         self.timer.start(orthonormalization_string)

@@ -137,11 +137,11 @@ class Eigensolver:
         def dH(a, P_ni):
             return np.dot(P_ni, unpack(hamiltonian.dH_asp[a][kpt.s]))
 
-        self.timer.start('calc_matrix')
+        self.timer.start('calc_h_matrix')
         H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
                                                        H, dH)
         hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn)
-        self.timer.stop('calc_matrix')
+        self.timer.stop('calc_h_matrix')
 
         diagonalization_string = repr(self.ksl)
         wfs.timer.start(diagonalization_string)
