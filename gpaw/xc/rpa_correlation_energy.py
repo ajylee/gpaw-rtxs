@@ -96,6 +96,33 @@ class RPACorrelation:
         print >> self.txt
         return E
 
+    def get_E_q(self,
+                kcommsize=1,
+                index=None,
+                q=[0., 0., 0.],
+                direction=0,
+                integrated=True,
+                ecut=10,
+                nbands=None,
+                gauss_legendre=None,
+                frequency_cut=None,
+                frequency_scale=None,
+                w=None,
+                extrapolate=False):
+
+        self.initialize_calculation(w, ecut, nbands, kcommsize, extrapolate,
+                                    gauss_legendre, frequency_cut,
+                                    frequency_scale)
+
+        E_q = self.E_q(q, direction=direction, integrated=integrated)
+        
+        print >> self.txt, 'Calculation completed at:  ', ctime()
+        print >> self.txt
+        print >> self.txt, '------------------------------------------------------'
+
+        return E_q
+
+
     def E_q(self,
             q,
             index=None,
