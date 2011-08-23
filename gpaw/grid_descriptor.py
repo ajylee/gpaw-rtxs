@@ -18,6 +18,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import divrl, mlsqr
+from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.spline import Spline
 
 
@@ -197,26 +198,60 @@ class GridDescriptor(Domain):
         else:
             return np.empty(shape, dtype)
         
-    def integrate(self, a_xg, b_xg=None, global_integral=True):
-        """Integrate function(s) in array over domain.
+    def integrate(self, a_xg, b_yg=None,
+                  global_integral=True, hermitian=False,
+                  _transposed_result=None):
+        """Integrate function(s) over domain.
 
-        If the array(s) are distributed over several domains, then the
-        total sum will be returned.  To get the local contribution
-        only, use global_integral=False."""
+        a_xg: ndarray
+            Function(s) to be integrated.
+        b_yg: ndarray
+            If present, integrate a_xg.conj() * b_yg.
+        global_integral: bool
+            If the array(s) are distributed over several domains, then the
+            total sum will be returned.  To get the local contribution
+            only, use global_integral=False.
+        hermitian: bool
+            Result is hermitian.
+        _transposed_result: ndarray
+            Long story.  Don't use this unless you are a method of the
+            MatrixOperator class ..."""
         
-        shape = a_xg.shape
-        if len(shape) == 3:
-            if b_xg is None:
-                assert global_integral
-                return self.comm.sum(a_xg.sum()) * self.dv
-            else:
-                assert not global_integral
-                return np.vdot(a_xg, b_xg) * self.dv
-        assert b_xg is None and global_integral
-        A_x = np.sum(np.reshape(a_xg, shape[:-3] + (-1,)), axis=-1)
-        self.comm.sum(A_x)
-        return A_x * self.dv
-    
+        xshape = a_xg.shape[:-3]
+        
+        if b_yg is None:
+            # Only one array:
+            result = a_xg.reshape(xshape + (-1,)).sum(axis=-1) * self.dv
+            if global_integral:
+                self.comm.sum(result)
+            return result
+
+        A_xg = a_xg.reshape((-1,) + a_xg.shape[-3:])
+        B_yg = b_yg.reshape((-1,) + b_yg.shape[-3:])
+
+        if _transposed_result is None:
+            result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
+        else:
+            result_yx = _transposed_result
+
+        if a_xg is b_yg:
+            rk(self.dv, A_xg, 0.0, result_yx)
+        elif hermitian:
+            r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
+        else:
+            gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+        
+        if global_integral:
+            self.comm.sum(result_yx)
+
+        yshape = b_yg.shape[:-3]
+        result = result_yx.T.reshape(xshape + yshape)
+        
+        if result.ndim == 0:
+            return result.item()
+        else:
+            return result
+
     def coarsen(self):
         """Return coarsened `GridDescriptor` object.
 

@@ -8,6 +8,10 @@ from gpaw.utilities import unpack
 from gpaw.mpi import run
 
 
+def integrate(gd, a_G, b_G):
+    return gd.integrate(a_G, b_G, global_integral=False).real
+
+
 class RMM_DIIS(Eigensolver):
     """RMM-DIIS eigensolver
 
@@ -70,9 +74,8 @@ class RMM_DIIS(Eigensolver):
                         weight = kpt.weight
                     else:
                         weight = 0.0
-                error += weight * np.vdot(R_xG[n - n1], R_xG[n - n1]).real
-                #error += weight * self.gd.integrate(
-                #    R_xG[n - n1], R_xG[n - n1], global_integral=False).real
+                error += weight * integrate(self.gd,
+                                            R_xG[n - n1], R_xG[n - n1])
 
             # Precondition the residual:
             self.timer.start('precondition')
@@ -89,9 +92,10 @@ class RMM_DIIS(Eigensolver):
                                      calculate_change=True)
             
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-            RdR_x = np.array([np.vdot(dR_G, R_G).real
+            RdR_x = np.array([integrate(self.gd, dR_G, R_G)
                               for R_G, dR_G in zip(R_xG, dR_xG)])
-            dRdR_x = np.array([np.vdot(dR_G, dR_G).real for dR_G in dR_xG])
+            dRdR_x = np.array([integrate(self.gd, dR_G, dR_G)
+                               for dR_G in dR_xG])
             self.gd.comm.sum(RdR_x)
             self.gd.comm.sum(dRdR_x)
 
