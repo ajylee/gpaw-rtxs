@@ -473,7 +473,7 @@ class MatrixOperator:
         if B == 1 and J == 1:
             # Simple case:
             newpsit_nG = self.work1_xG
-            gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
+            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
             self.work1_xG = psit_nG
             if P_ani:
                 for P_ni in P_ani.values():
@@ -527,7 +527,7 @@ class MatrixOperator:
                 # Calculate wave-function contributions from the current slice
                 # of grid data by the current mynbands x mynbands matrix block.
                 C_nn = self.bmd.extract_block(C_NN, (rank + q) % B, rank)
-                gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2])
+                self.gd.gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2])
 
                 # If we're at the last slice, add contributions to P_ani's.
                 if cycle_P_ani:

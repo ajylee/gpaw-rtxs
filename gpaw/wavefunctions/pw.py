@@ -168,6 +168,14 @@ class PWDescriptor:
         else:
             return result
 
+    def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
+        """Helper function for MatrixOperator class."""
+        if self.dtype == float:
+            psit_nG = psit_nG.view(float)
+            newpsit_nG = newpsit_nG.view(float)
+        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
+
+
 class Preconditioner:
     def __init__(self, pd):
         self.pd = pd
