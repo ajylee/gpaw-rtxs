@@ -3,7 +3,7 @@
 from math import pi, sqrt, sin, cos, atan2
 
 import numpy as np
-from numpy import dot # avoid the dotblas bug!
+from numpy import dot
 from ase.units import Hartree
 
 from gpaw.utilities.blas import axpy, rk, r2k, gemm
@@ -44,7 +44,7 @@ class CG(Eigensolver):
         mem.subnode('phi_G', gridmem)
         mem.subnode('phi_old_G', gridmem)
 
-    def iterate_one_k_point(self, hamiltonian, wfs, kpt):      
+    def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a conjugate gradient iterations for the kpoint"""
         
         niter = self.niter
@@ -57,10 +57,10 @@ class CG(Eigensolver):
         Htphi_G = R_nG[0]
         
         R_nG[:] = self.Htpsit_nG
-        self.timer.start('Residuals')        
+        self.timer.start('Residuals')
         self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
                                  kpt.P_ani, kpt.eps_n, R_nG)
-        self.timer.stop('Residuals')        
+        self.timer.stop('Residuals')
 
         self.timer.start('CG')
         vt_G = hamiltonian.vt_sG[kpt.s]
@@ -73,7 +73,8 @@ class CG(Eigensolver):
             phi_old_G[:] = 0.0
             error = self.gd.comm.sum(np.vdot(R_G, R_G).real)
             for nit in range(niter):
-                if error * self.gd.dv * Hartree**2 < self.tolerance / self.nbands:
+                if (error * self.gd.dv * Hartree**2 <
+                    self.tolerance / self.nbands):
                     # print >> self.f, "cg:iters", n, nit
                     break
 
@@ -81,7 +82,7 @@ class CG(Eigensolver):
 
                 # New search direction
                 gamma = self.gd.comm.sum(np.vdot(pR_G, R_G).real)
-                phi_G[:] = -pR_G - gamma/gamma_old * phi_old_G
+                phi_G[:] = -pR_G - gamma / gamma_old * phi_old_G
                 gamma_old = gamma
                 phi_old_G[:] = phi_G[:]
                 
@@ -113,8 +114,8 @@ class CG(Eigensolver):
                 for P2_i in P2_ai.values():
                     P2_i /= sqrt(norm)
                 self.timer.stop('CG: orthonormalize')
-                    
-                #find optimum linear combination of psit_G and phi_G
+
+                # find optimum linear combination of psit_G and phi_G
                 an = kpt.eps_n[n]
                 wfs.kin.apply(phi_G, Htphi_G, kpt.phase_cd)
                 Htphi_G += phi_G * vt_G
@@ -133,7 +134,7 @@ class CG(Eigensolver):
                         c * sin(theta)**2 +
                         b * sin(2.0 * theta))
                 # theta can correspond either minimum or maximum
-                if ( enew - kpt.eps_n[n] ) > 0.0: #we were at maximum
+                if (enew - kpt.eps_n[n]) > 0.0:  # we were at maximum
                     theta += pi / 2.0
                     enew = (an * cos(theta)**2 +
                             c * sin(theta)**2 +
@@ -182,7 +183,6 @@ class CG(Eigensolver):
             total_error += weight * error
             # if nit == 3:
             #   print >> self.f, "cg:iters", n, nit+1
-                
+
         self.timer.stop('CG')
-        return total_error
-        
+        return total_error * self.gd.dv

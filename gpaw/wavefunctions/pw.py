@@ -172,7 +172,7 @@ class PWDescriptor:
         """Helper function for MatrixOperator class."""
         if self.dtype == float:
             psit_nG = psit_nG.view(float)
-            newpsit_nG = newpsit_nG.view(float)
+            newpsit_mG = newpsit_mG.view(float)
         gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
 
 
