@@ -51,8 +51,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
         return Preconditioner(self.gd, self.kin, self.dtype, block)
     
     def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
+        self.timer.start('Apply hamiltonian')
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
         hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
+        self.timer.stop('Apply hamiltonian')
 
     def add_orbital_density(self, nt_G, kpt, n):
         if self.dtype == float:

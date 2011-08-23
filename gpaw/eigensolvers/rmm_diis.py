@@ -71,6 +71,8 @@ class RMM_DIIS(Eigensolver):
                     else:
                         weight = 0.0
                 error += weight * np.vdot(R_xG[n - n1], R_xG[n - n1]).real
+                #error += weight * self.gd.integrate(
+                #    R_xG[n - n1], R_xG[n - n1], global_integral=False).real
 
             # Precondition the residual:
             self.timer.start('precondition')
@@ -79,7 +81,9 @@ class RMM_DIIS(Eigensolver):
 
             # Calculate the residual of dpsit_G, dR_G = (H - e S) dpsit_G:
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, dpsit_xG, dR_xG)
+            self.timer.start('projections')
             wfs.pt.integrate(dpsit_xG, P_axi, kpt.q)
+            self.timer.stop('projections')
             self.calculate_residuals(kpt, wfs, hamiltonian, dpsit_xG,
                                      P_axi, kpt.eps_n[n_x], dR_xG, n_x,
                                      calculate_change=True)

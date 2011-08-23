@@ -62,7 +62,9 @@ class Overlap:
         self.timer.start('Orthonormalize')
         psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
+        self.timer.start('projections')
         wfs.pt.integrate(psit_nG, P_ani, kpt.q)
+        self.timer.stop('projections')
 
         # Construct the overlap matrix:
         operator = wfs.matrixoperator
