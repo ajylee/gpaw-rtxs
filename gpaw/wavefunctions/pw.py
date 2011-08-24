@@ -15,8 +15,7 @@ from gpaw.utilities.blas import rk, r2k, gemm
 
 
 class PWDescriptor:
-    def __init__(self, ecut, gd, ibzk_qc=np.zeros((1, 3)),
-                 fftwflags=fftw.FFTW_MEASURE):
+    def __init__(self, ecut, gd, dtype=float, fftwflags=fftw.FFTW_MEASURE):
 
         assert gd.pbc_c.all() and gd.comm.size == 1
 
@@ -27,9 +26,10 @@ class PWDescriptor:
         self.comm = gd.comm
 
         assert 0.5 * pi**2 / (gd.h_cv**2).sum(1).max() > ecut
-        
-        if ibzk_qc.shape == (1, 3) and not ibzk_qc.any():
-            self.dtype = float
+
+        self.dtype = dtype
+
+        if dtype == float:
             Nr_c = N_c.copy()
             Nr_c[2] = N_c[2] // 2 + 1
             i_Qc = np.indices(Nr_c).transpose((1, 2, 3, 0))
@@ -39,7 +39,6 @@ class PWDescriptor:
             self.tmp_Q = fftw.empty(Nr_c, complex)
             self.tmp_R = self.tmp_Q.view(float)[:, :, :-2]
         else:
-            self.dtype = complex
             i_Qc = np.indices(N_c).transpose((1, 2, 3, 0))
             i_Qc += N_c // 2
             i_Qc %= N_c
@@ -63,21 +62,30 @@ class PWDescriptor:
                        (i_Qc[:, 1] > 0) |
                        ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
         self.Q_G = np.arange(len(G2_Q))[mask_Q]
-
-        K_qv = np.dot(ibzk_qc, B_cv)
-
         self.G_Gv = G_Qv[self.Q_G]
+
+        self.n_c = self.Q_G #??????? # used by hs_operators.py XXX
+        self.ibzk_qc = []
+
+    def g2(self, ibzk_qc):
+        # Did we already do this one?
+        if (len(self.ibzk_qc) == len(ibzk_qc) and
+            (self.ibzk_qc == ibzk_qc).all()):
+            return self.G2_qG
+
+        # No.
+        self.ibzk_qc = ibzk_qc
+        B_cv = 2.0 * pi * self.gd.icell_cv
+        K_qv = np.dot(ibzk_qc, B_cv)
         self.G2_qG = np.zeros((len(K_qv), len(self.Q_G)))
         for q, K_v in enumerate(K_qv):
             self.G2_qG[q] = ((self.G_Gv + K_v)**2).sum(1)
-
-        self.n_c = self.Q_G #??????? # used by hs_operators.py XXX
+        return self.G2_qG
 
     def estimate_memory(self, mem):
         mem.subnode('Arrays',
                     self.Q_G.nbytes +
                     self.G_Gv.nbytes +
-                    self.G2_qG.nbytes +
                     self.tmp_R.nbytes)
 
     def __len__(self):
@@ -177,22 +185,21 @@ class PWDescriptor:
 
 
 class Preconditioner:
-    def __init__(self, pd):
-        self.pd = pd
+    def __init__(self, G2_qG):
+        self.G2_qG = G2_qG
         self.allocated = True
 
     def __call__(self, R_G, kpt):
-        return R_G / (1.0 + self.pd.G2_qG[kpt.q])
+        return R_G / (1.0 + self.G2_qG[kpt.q])
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
-    def __init__(self, ecut, fftwflags, real_space_projections,
+    def __init__(self, ecut, fftwflags,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, timer):
         self.ecut =  ecut / units.Hartree
         self.fftwflags = fftwflags
-        self.real_space_projections = real_space_projections
 
         #kd.gamma = False
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
@@ -205,29 +212,25 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
-        self.pd = PWDescriptor(self.ecut, self.gd, self.kd.ibzk_qc,
-                               self.fftwflags)
+        self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.fftwflags)
         self.timer.stop('PWDescriptor')
-        if self.real_space_projections:
-            pt = LFC(self.gd, [setup.pt_j for setup in setups],
-                     self.kpt_comm, dtype=self.dtype, forces=True)
-            self.pt = RealSpacePWLFC(pt, self.pd)
-        else:
-            self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
+
+        self.G2_qG = self.pd.g2(self.kd.ibzk_qc)
+
+        self.pt = PWLFC([setup.pt_j for setup in setups], self.pd, self.kd)
+
         FDPWWaveFunctions.set_setups(self, setups)
 
     def summary(self, fd):
         fd.write('Mode: Plane waves (%d, ecut=%.3f eV)\n' %
                  (len(self.pd), self.pd.ecut * units.Hartree))
-        fd.write('      Doing projections in %s space.\n' %
-                 ['reciprocal', 'real'][self.real_space_projections])
         
     def make_preconditioner(self, block=1):
-        return Preconditioner(self.pd)
+        return Preconditioner(self.G2_qG)
 
     def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
         """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
-        Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
+        Htpsit_xG[:] = 0.5 * self.G2_qG[kpt.q] * psit_xG
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             psit_R = self.pd.ifft(psit_G)
             Htpsit_G += self.pd.fft(psit_R * hamiltonian.vt_sG[kpt.s])
@@ -252,6 +255,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
         self.pd.estimate_memory(mem.subnode('PW-descriptor'))
+        mem.subnode('G2', self.G2_qG.nbytes)
 
 
 def ft(spline):
@@ -275,14 +279,22 @@ def ft(spline):
 
 
 class PWLFC(BaseLFC):
-    def __init__(self, spline_aj, pd):
+    def __init__(self, spline_aj, pd, kd=None):
         """Reciprocal-space plane-wave localized function collection."""
 
         self.pd = pd
+        self.kd = kd
+
+        if kd is None:
+            k_qc = np.zeros((1, 3))
+        else:
+            k_qc = kd.ibzk_qc
+
+        self.G2_qG = pd.g2(k_qc)
 
         self.lf_aj = []
         cache = {}
-        self.lmax = 0
+        lmax = 0
 
         self.nbytes = 0
 
@@ -293,25 +305,37 @@ class PWLFC(BaseLFC):
                 l = spline.get_angular_momentum_number()
                 if spline not in cache:
                     f = ft(spline)
-                    G_qG = pd.G2_qG**0.5
+                    G_qG = self.G2_qG**0.5
                     f_qG = f.map(G_qG) * G_qG**l
                     cache[spline] = f_qG
                     self.nbytes += f_qG.size * 8
                 else:
                     f_qG = cache[spline]
                 self.lf_aj[a].append((l, f_qG))
-                self.lmax = max(self.lmax, l)
+                lmax = max(lmax, l)
             self.nbytes += len(pd) * 8  # self.emiGR_Ga
         
         self.dtype = pd.dtype
 
-        self.k_qc = None
-        self.Y_qLG = None
+        B_cv = 2.0 * pi * self.pd.gd.icell_cv
+        self.K_qv = np.dot(k_qc, B_cv)
+
+        # Spherical harmonics:
+        self.Y_qLG = np.empty((len(self.K_qv), (lmax + 1)**2, len(pd)))
+        for q, K_v in enumerate(self.K_qv):
+            G_Gv = pd.G_Gv + K_v
+            G_Gv[1:] /= self.G2_qG[q, 1:, None]**0.5
+            if self.G2_qG[q, 0] > 0:
+                G_Gv[0] /= self.G2_qG[q, 0]**0.5
+            for L in range((lmax + 1)**2):
+                self.Y_qLG[q, L] = Y(L, *G_Gv.T)
+
+        # These are set later in set_potitions():
         self.eikR_qa = None
         self.emiGR_Ga = None
         self.my_atom_indices = None
 
-        self.nbytes += pd.G2_qG.size * (self.lmax + 1)**2 * 8  # self.Y_qLG
+        self.nbytes += self.G2_qG.size * (lmax + 1)**2 * 8  # self.Y_qLG
 
     def estimate_memory(self, mem):
         mem.subnode('Arrays', self.nbytes)
@@ -331,28 +355,11 @@ class PWLFC(BaseLFC):
                 j += 1
             I += i2
 
-    def set_k_points(self, k_qc):
-        self.k_qc = k_qc
-        B_cv = 2.0 * pi * self.pd.gd.icell_cv
-        K_qv = np.dot(k_qc, B_cv)
-
-        self.Y_qLG = np.empty((len(K_qv), (self.lmax + 1)**2, len(self.pd)))
-        for q, K_v in enumerate(K_qv):
-            G_Gv = self.pd.G_Gv + K_v
-            G_Gv[1:] /= self.pd.G2_qG[q, 1:, None]**0.5
-            if self.pd.G2_qG[q, 0] > 0:
-                G_Gv[0] /= self.pd.G2_qG[q, 0]**0.5
-            for L in range((self.lmax + 1)**2):
-                self.Y_qLG[q, L] = Y(L, *G_Gv.T)
-
     def set_positions(self, spos_ac):
-        if self.k_qc is None:
-            self.set_k_points(np.zeros((1, 3)))
-
-        if self.k_qc.shape == (1, 3) and not self.k_qc.any():
+        if self.kd is None or self.kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
         else:
-            self.eikR_qa = np.exp(2j * pi * np.dot(self.k_qc, spos_ac.T))
+            self.eikR_qa = np.exp(2j * pi * np.dot(self.kd.ibzk_qc, spos_ac.T))
 
         pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
         self.emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
@@ -406,8 +413,7 @@ class PWLFC(BaseLFC):
         c_xI = np.zeros((len(a_xG), nI), complex)
         f_IG = self.expand(q)
 
-        B_cv = 2.0 * pi * self.pd.gd.icell_cv
-        K_v = np.dot(self.k_qc[q], B_cv)
+        K_v = self.K_qv[q]
 
         for v in range(3):
             gemm(-1.0 / self.pd.gd.N_c.prod(),
@@ -419,73 +425,19 @@ class PWLFC(BaseLFC):
                                           c_xI[:, I1:I2])
 
 
-class RealSpacePWLFC:
-    def __init__(self, lfc, pd):
-        """Real-space plane-wave localized function collection."""
-        self.lfc = lfc
-        self.pd = pd
-
-    def dict(self, shape=(), derivative=False, zero=False):
-        return self.lfc.dict(shape, derivative, zero)
-
-    def set_positions(self, spos_ac):
-        self.lfc.set_positions(spos_ac)
-        self.my_atom_indices = self.lfc.my_atom_indices
-        
-    def set_k_points(self, ibzk_qc):
-        self.lfc.set_k_points(ibzk_qc)
-        N_c = self.pd.gd.N_c
-        self.expikr_qR = np.exp(2j * pi * np.dot(np.indices(N_c).T,
-                                                    (ibzk_qc / N_c).T).T)
-
-    def add(self, a_xG, c_axi, q):
-        a_R = self.pd.tmp_R
-        xshape = a_xG.shape[:-1]
-        for x in np.indices(xshape).reshape((len(xshape), -1)).T:
-            c_ai = {}
-            for a, c_xi in c_axi.items():
-                c_ai[a] = c_xi[x]
-            a_R[:] = 0.0
-            self.lfc.add(a_R, c_ai, q)
-            a_xG[x] += self.pd.fft(a_R / self.expikr_qR[q])
-
-    def integrate(self, a_xG, c_axi, q):
-        c_ai = self.dict()
-        xshape = a_xG.shape[:-1]
-        for x in np.indices(xshape).reshape((len(xshape), -1)).T:
-            a_R = self.pd.ifft(a_xG[x]) * self.expikr_qR[q]
-            self.lfc.integrate(a_R, c_ai, q)
-            for a, c_i in c_ai.items():
-                c_axi[a][x] = c_i
-
-    def derivative(self, a_xG, c_axiv, q):
-        c_aiv = self.dict(derivative=True)
-        xshape = a_xG.shape[:-1]
-        for x in np.indices(xshape).reshape((len(xshape), -1)).T:
-            a_R = self.pd.ifft(a_xG[x]) * self.expikr_qR[q]
-            self.lfc.derivative(a_R, c_aiv, q)
-            for a, c_iv in c_aiv.items():
-                c_axiv[a][x] = c_iv
-
-
 class PW:
-    def __init__(self, ecut=340, fftwflags=fftw.FFTW_MEASURE,
-                 real_space_projections=False):
+    def __init__(self, ecut=340, fftwflags=fftw.FFTW_MEASURE):
         """Plane-wave basis mode.
 
         ecut: float
             Plane-wave cutoff in eV.
         fftwflags: int
-            Flags for making FFTW plan (default is FFTW_MEASURE).
-        real_space_projections: bool
-            Do projections in real space."""
+            Flags for making FFTW plan (default is FFTW_MEASURE)."""
 
         self.ecut = ecut
         self.fftwflags = fftwflags
-        self.real_space_projections = real_space_projections
 
     def __call__(self, diagksl, orthoksl, initksl, *args):
         wfs = PWWaveFunctions(self.ecut, self.fftwflags,
-                              self.real_space_projections,
                               diagksl, orthoksl, initksl, *args)
         return wfs

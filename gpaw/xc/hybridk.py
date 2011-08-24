@@ -176,8 +176,9 @@ class HybridXC(XCFunctional):
                       self.kd.nbzkpts)
 
         if self.ecut is None:
-            self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-        
+            ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+            self.ecut = 0.5 * ecutmax
+            
         assert self.kd.N_c is not None
         n = self.kd.N_c * 2 - 1
         bzk_kc = np.indices(n).transpose((1, 2, 3, 0))
@@ -185,10 +186,11 @@ class HybridXC(XCFunctional):
         bzk_kc -= self.kd.N_c - 1
         self.bzk_kc = bzk_kc.astype(float) / self.kd.N_c
         
-        self.pwd = PWDescriptor(self.ecut, self.gd, self.bzk_kc)
+        self.pwd = PWDescriptor(self.ecut, self.gd, complex)
+        self.G2_qG = self.pwd.g2(self.bzk_kc)
 
         n = 0
-        for k_c, Gpk2_G in zip(self.bzk_kc[:], self.pwd.G2_qG):
+        for k_c, Gpk2_G in zip(self.bzk_kc[:], self.G2_qG):
             if (k_c > -0.5).all() and (k_c <= 0.5).all(): #XXX???
                 if k_c.any():
                     self.gamma -= np.dot(np.exp(-self.alpha * Gpk2_G),
@@ -197,14 +199,11 @@ class HybridXC(XCFunctional):
                     self.gamma -= np.dot(np.exp(-self.alpha * Gpk2_G[1:]),
                                          Gpk2_G[1:]**-1)
                 n += 1
-
         assert n == self.kd.N_c.prod()
         
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
-                        dtype=complex)
-
-        self.ghat.set_k_points(self.bzk_kc)
+                        KPointDescriptor(self.bzk_kc), dtype=complex)
         
         self.interpolator = density.interpolator
 
@@ -302,7 +301,7 @@ class HybridXC(XCFunctional):
                 q0 = q
                 break
 
-        Gpk2_G = self.pwd.G2_qG[q0]
+        Gpk2_G = self.G2_qG[q0]
         if Gpk2_G[0] == 0:
             Gpk2_G = Gpk2_G.copy()
             Gpk2_G[0] = 1.0 / self.gamma

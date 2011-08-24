@@ -42,10 +42,8 @@ class LCAOWaveFunctions(WaveFunctions):
         self.basis_functions = BasisFunctions(gd,
                                               [setup.phit_j
                                                for setup in setups],
-                                              kd.comm,
+                                              kd,
                                               cut=True)
-        if not kd.gamma:
-            self.basis_functions.set_k_points(kd.ibzk_qc)
 
     def summary(self, fd):
         fd.write('Mode: LCAO\n')

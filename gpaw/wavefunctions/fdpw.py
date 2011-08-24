@@ -31,8 +31,6 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
-        if not self.gamma:
-            self.pt.set_k_points(self.kd.ibzk_qc)
 
     def set_orthonormalized(self, flag):
         self.orthonormalized = flag
@@ -49,9 +47,7 @@ class FDPWWaveFunctions(WaveFunctions):
             basis_functions = BasisFunctions(self.gd,
                                              [setup.phit_j
                                               for setup in self.setups],
-                                             cut=True)
-            if not self.gamma:
-                basis_functions.set_k_points(self.kd.ibzk_qc)
+                                             self.kd, cut=True)
             basis_functions.set_positions(spos_ac)
         elif isinstance(self.kpt_u[0].psit_nG, TarFileReference):
             self.initialize_wave_functions_from_restart_file()
