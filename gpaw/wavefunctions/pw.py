@@ -114,6 +114,13 @@ class PWDescriptor:
     def ifft(self, a_G):
         self.tmp_Q[:] = 0.0
         self.tmp_Q.ravel()[self.Q_G] = a_G
+        if self.dtype == float:
+            t = self.tmp_Q[:, :, 0]
+            n, m = self.gd.N_c[:2] // 2 - 1
+            t[0,      -m:] = t[0,      m:0:-1].conj()
+            t[n:0:-1, -m:] = t[-n:,    m:0:-1].conj()
+            t[-n:,    -m:] = t[n:0:-1, m:0:-1].conj()
+            t[-n:,    0  ] = t[n:0:-1, 0     ].conj()
         self.ifftplan.execute()
         return self.tmp_R * (1.0 / self.tmp_R.size)
 
