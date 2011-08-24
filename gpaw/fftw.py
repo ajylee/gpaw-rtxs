@@ -20,16 +20,18 @@ FFTW_EXHAUSTIVE = 8
 class FFTPlan:
     """FFTW3 3d transform."""
     def __init__(self, in_R, out_R, sign, flags=FFTW_MEASURE):
-        n0, n1, n2 = in_R.shape
         if in_R.dtype == float:
             assert sign == -1
+            n0, n1, n2 = in_R.shape
             self.plan = lib.fftw_plan_dft_r2c_3d(n0, n1, n2,
                                                  in_R, out_R, flags)
         elif out_R.dtype == float:
             assert sign == 1
+            n0, n1, n2 = out_R.shape
             self.plan = lib.fftw_plan_dft_c2r_3d(n0, n1, n2,
                                                  in_R, out_R, flags)
         else:
+            n0, n1, n2 = in_R.shape
             self.plan = lib.fftw_plan_dft_3d(n0, n1, n2,
                                              in_R, out_R, sign, flags)
         
