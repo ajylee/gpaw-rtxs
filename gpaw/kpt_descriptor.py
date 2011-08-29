@@ -399,6 +399,8 @@ class KPointDescriptor:
                         ibzkpt = i
                         iop = ioptmp
                         find = True
+                        if sign == -1:
+                            timerev = True
                         break
                 if find == True:
                     break
