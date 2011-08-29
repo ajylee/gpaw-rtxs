@@ -391,11 +391,13 @@ class BSE(BASECHI):
             w.add('phi_qaGp', ('nbzq', 'natoms', 'nG', 'nii',), dtype=complex)
 
         for q in range(nbzq):
-            if nbzq % size != 0:
-                qrank = q // (nbzq // size + 1)
+            residual = nbzq % size
+            N_local = nbzq // size
+            if q < residual * (N_local + 1):
+                qrank = q // (N_local + 1)
             else:
-                qrank = q // (nbzq // size)
-
+                qrank = (q - residual * (N_local + 1)) // N_local + residual
+                
             if qrank == 0:
                 if world.rank == 0:
                     phi_aGp = phimax_qaGp[q - q_start]

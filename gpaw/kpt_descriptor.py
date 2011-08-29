@@ -390,24 +390,18 @@ class KPointDescriptor:
         ibzkpt = 0
         iop = 0
         timerev = False
-    
-        for ioptmp, op in enumerate(symrel):
-            for i, ibzk in enumerate(ibzk_kc):
-                diff_c = bzk_c - np.dot(op, ibzk)
-                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
-                    ibzkpt = i
-                    iop = ioptmp
-                    find = True
+
+        for sign in (1, -1):
+            for ioptmp, op in enumerate(symrel):
+                for i, ibzk in enumerate(ibzk_kc):
+                    diff_c = bzk_c - sign * np.dot(op, ibzk)
+                    if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
+                        ibzkpt = i
+                        iop = ioptmp
+                        find = True
+                        break
+                if find == True:
                     break
-    
-                diff_c = np.dot(op, ibzk) + bzk_c
-                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():            
-                    ibzkpt = i
-                    iop = ioptmp
-                    find = True
-                    timerev = True
-                    break
-        
             if find == True:
                 break
 
