@@ -393,7 +393,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
                 # Domain master send this to the global master
                 if self.gd.comm.rank == 0:
-                    self.world.send(psit_G, 0, 1398)
+                    self.world.ssend(psit_G, 0, 1398)
 
         if rank == 0:
             # allocate full wavefunction and receive
