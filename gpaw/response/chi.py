@@ -169,6 +169,9 @@ class CHI(BASECHI):
                                         calc.density.D_asp)
 
             self.printtxt('Finished ALDA kernel ! ')
+        elif self.xc == 'Bootstrap':
+            #implmented in the get_absorption_spectrum()#
+            pass        
         else:
             raise ValueError('%s Not implemented !' %(self.xc))
         
@@ -221,7 +224,7 @@ class CHI(BASECHI):
                 ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
             
             for n in range(self.nstart, self.nend):
-#                print >> self.txt, k, n, t_get_wfs, time() - t0
+#                print >> self.txt, k, n, time() - t0
                 t1 = time()
                 psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
                 t_get_wfs += time() - t1
@@ -238,7 +241,8 @@ class CHI(BASECHI):
                 psit1_g = psit1new_g.conj() * self.expqr_g
 
                 for m in range(self.nbands):
-
+#                    if m % 100 == 0:
+#                        print >> self.txt, '    ', k, n, m, time() - t0
 		    if self.hilbert_trans:
 			check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
                     else:

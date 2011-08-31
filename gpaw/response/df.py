@@ -2,6 +2,7 @@ import numpy as np
 from math import sqrt, pi
 import pickle
 from ase.units import Hartree, Bohr
+from ase.parallel import paropen
 from gpaw.mpi import rank
 from gpaw.response.chi import CHI
 
@@ -22,6 +23,7 @@ class DF(CHI):
                  ftol=1e-7,
                  txt=None,
                  xc='ALDA',
+                 print_xc_scf=False,
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
@@ -35,6 +37,7 @@ class DF(CHI):
                      comm=comm, kcommsize=kcommsize)
 
         self.df_flag = False
+        self.print_bootstrap = print_xc_scf
         self.df1_w = None # NLF RPA
         self.df2_w = None # LF RPA
         self.df3_w = None # NLF ALDA
@@ -299,6 +302,54 @@ class DF(CHI):
             df3, df4 = self.get_dielectric_function(xc='ALDA')
         Nw = df1.shape[0]
 
+        if self.xc == 'Bootstrap':
+            # arxiv 1107.0199
+            Kc_GG = np.zeros((self.npw, self.npw))
+            for iG in range(self.npw):
+                qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
+                Kc_GG[iG,iG] = 4 * pi / np.dot(qG, qG)
+
+            fxc_GG = np.zeros((self.npw, self.npw), dtype=complex)
+            tmp_GG = np.eye(self.npw, self.npw)
+            dminv_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype=complex)
+            dflocal_w = np.zeros(self.Nw_local, dtype=complex)
+            df_w = np.zeros(self.Nw, dtype=complex)
+                        
+            for iscf in range(120):
+                dminvold_wGG = dminv_wGG.copy()
+                Kxc_GG = Kc_GG + fxc_GG
+                for iw in range(self.Nw_local):
+                    chi_GG = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(Kxc_GG, self.chi0_wGG[iw])))
+                    dminv_wGG[iw] = tmp_GG + np.dot(Kc_GG, chi_GG)
+                if self.wcomm.rank == 0:
+                    alpha = dminv_wGG[0,0,0] / (Kc_GG[0,0] * self.chi0_wGG[0,0,0])
+                    fxc_GG = alpha * Kc_GG
+                self.wcomm.broadcast(fxc_GG, 0)
+
+                error = np.abs(dminvold_wGG - dminv_wGG).sum()
+                if self.wcomm.sum(error) < 0.1:
+                    self.printtxt('Self consistent fxc finished in %d iterations ! ' %(iscf))
+                    break
+                if iscf > 100:
+                    self.printtxt('Too many fxc scf steps !')
+
+                if self.print_bootstrap:
+                    f = paropen('df_scf%d' %(iscf), 'w')
+                    for iw in range(self.Nw_local):
+                        dflocal_w[iw] = np.linalg.inv(dminv_wGG[iw])[0,0]
+                    self.wcomm.all_gather(dflocal_w, df_w)
+                    if self.wcomm.rank == 0:
+                        for iw in range(self.Nw):
+                            print >> f, iw*self.dw*Hartree, np.real(df_w[iw]), np.imag(df_w[iw])
+                        f.close()
+                    self.wcomm.barrier()
+                
+            for iw in range(self.Nw_local):
+                dflocal_w[iw] = np.linalg.inv(dminv_wGG[iw])[0,0]
+                self.wcomm.all_gather(dflocal_w, df_w)
+            df3 = df_w
+
+
         if rank == 0:
             f = open(filename,'w')
             for iw in range(Nw):
@@ -311,6 +362,10 @@ class DF(CHI):
                       np.real(df2[iw]), np.imag(df2[iw]), \
                       np.real(df3[iw]), np.imag(df3[iw]), \
                       np.real(df4[iw]), np.imag(df4[iw])
+                elif self.xc is 'Bootstrap':
+                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                      np.real(df2[iw]), np.imag(df2[iw]), \
+                      np.real(df3[iw]), np.imag(df3[iw])
             f.close()
 
         # Wait for I/O to finish
