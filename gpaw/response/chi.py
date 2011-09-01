@@ -169,11 +169,8 @@ class CHI(BASECHI):
                                         calc.density.D_asp)
 
             self.printtxt('Finished ALDA kernel ! ')
-        elif self.xc == 'Bootstrap':
-            #implmented in the get_absorption_spectrum()#
-            pass        
-        else:
-            raise ValueError('%s Not implemented !' %(self.xc))
+#        else:
+#            raise ValueError('%s Not implemented !' %(self.xc))
         
         return
 
