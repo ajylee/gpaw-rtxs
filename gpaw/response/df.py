@@ -301,8 +301,8 @@ class DF(CHI):
             df3, df4 = self.get_dielectric_function(xc='ALDA')
         Nw = df1.shape[0]
 
-        if self.xc == 'Bootstrap1':
-            from gpaw.response.fxc import Bootstrap1
+        if self.xc == 'Bootstrap':
+            from gpaw.response.fxc import Bootstrap
             Kc_GG = np.zeros((self.npw, self.npw))
             for iG in range(self.npw):
                 qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
@@ -310,7 +310,7 @@ class DF(CHI):
 
             from gpaw.mpi import world
             assert self.wcomm.size == world.size
-            df3 = Bootstrap1(self.chi0_wGG, Nw, Kc_GG, self.printtxt, self.print_bootstrap)
+            df3 = Bootstrap(self.chi0_wGG, Nw, Kc_GG, self.printtxt, self.print_bootstrap)
 
         if rank == 0:
             f = open(filename,'w')
@@ -324,7 +324,7 @@ class DF(CHI):
                       np.real(df2[iw]), np.imag(df2[iw]), \
                       np.real(df3[iw]), np.imag(df3[iw]), \
                       np.real(df4[iw]), np.imag(df4[iw])
-                elif self.xc is 'Bootstrap1':
+                elif self.xc is 'Bootstrap':
                     print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
                       np.real(df2[iw]), np.imag(df2[iw]), \
                       np.real(df3[iw]), np.imag(df3[iw])
