@@ -257,6 +257,12 @@ tests = [
     'aluminum_testcell.py',
     ]
 
+try:
+    import cmr
+    tests.append('cmr_test.py')    
+except:
+    pass
+
 exclude = []
 
 
