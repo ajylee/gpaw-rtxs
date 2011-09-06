@@ -3,6 +3,7 @@ import numpy as np
 from ase.units import Hartree, Bohr
 from ase.dft.kpoints import monkhorst_pack
 
+import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
@@ -49,8 +50,8 @@ class InputParameters(dict):
             ('verbose',         0),
             ('eigensolver',     None),
             ('poissonsolver',   None),
-            ('communicator',    None),
-            ('idiotproof',      True),
+            ('communicator',    mpi.world),
+            ('idiotproof',     True),
             ('mode',            'fd'),
             ('convergence',     {'energy':      0.0005,  # eV / electron
                                  'density':     1.0e-4,
@@ -95,6 +96,8 @@ class InputParameters(dict):
 
         r = reader
 
+        master = (reader.comm.rank == 0) # read only on root of reader.comm
+
         version = r['version']
         
         assert version >= 0.3
@@ -103,14 +106,15 @@ class InputParameters(dict):
         self.nbands = r.dimension('nbands')
         self.spinpol = (r.dimension('nspins') == 2)
 
+ 
         if r.has_array('NBZKPoints'):
-            self.kpts = r.get('NBZKPoints')
+            self.kpts = r.get('NBZKPoints', broadcast=True)
             if r.has_array('MonkhorstPackOffset'):
-                offset_c = r.get('MonkhorstPackOffset')
+                offset_c = r.get('MonkhorstPackOffset', broadcast=True)
                 if offset_c.any():
                     self.kpts = monkhorst_pack(self.kpts) + offset_c
         else:
-            self.kpts = r.get('BZKPoints')
+            self.kpts = r.get('BZKPoints', broadcast=True)
         self.usesymm = r['UseSymmetry']
         try:
             self.basis = r['BasisSet']

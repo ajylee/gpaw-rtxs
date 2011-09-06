@@ -436,7 +436,7 @@ def dscf_reconstruct_orbitals_k_point(paw, norbitals, mol, kpt):
 
     return (f_o, eps_o, wf_oG, P_aoi,)
 
-from gpaw.io.tar import Writer, Reader, TarFileReference
+from gpaw.io import Writer, Reader, FileReference
 from gpaw.occupations import FermiDirac
 from gpaw.kpt_descriptor import KPointDescriptor
 
@@ -613,7 +613,7 @@ def dscf_collapse_orbitals(paw, nbands_max='occupied', f_tol=1e-4,
         old_psit_nG = kpt.psit_nG
         kpt.psit_nG = gd.empty(nbands_max, dtype=kd.dtype)
 
-        if isinstance(old_psit_nG, TarFileReference):
+        if isinstance(old_psit_nG, FileReference):
             assert old_psit_nG.shape[-3:] == wf_oG.shape[-3:], 'Shape mismatch!'
 
             # Read band-by-band to save memory as full psit_nG may be large

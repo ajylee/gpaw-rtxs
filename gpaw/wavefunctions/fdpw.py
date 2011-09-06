@@ -5,7 +5,7 @@ from gpaw.overlap import Overlap
 from gpaw.fd_operators import Laplace
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import unpack
-from gpaw.io.tar import TarFileReference
+from gpaw.io import FileReference
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities.blas import axpy
 from gpaw.transformers import Transformer
@@ -53,7 +53,7 @@ class FDPWWaveFunctions(WaveFunctions):
             if not self.gamma:
                 basis_functions.set_k_points(self.kd.ibzk_qc)
             basis_functions.set_positions(spos_ac)
-        elif isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+        elif isinstance(self.kpt_u[0].psit_nG, FileReference):
             self.initialize_wave_functions_from_restart_file()
 
         if self.kpt_u[0].psit_nG is not None:
@@ -133,7 +133,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO initialization')
 
     def initialize_wave_functions_from_restart_file(self):
-        if not isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+        if not isinstance(self.kpt_u[0].psit_nG, FileReference):
             return
 
         # Calculation started from a restart file.  Copy data
@@ -281,14 +281,15 @@ class FDPWWaveFunctions(WaveFunctions):
         return psit_nG[n][:] # dereference possible tar-file content
 
     def write_wave_functions(self, writer):
-        try:
-            from gpaw.io.hdf5 import Writer as HDF5Writer
-        except ImportError:
-            hdf5 = False
+        master = (self.world.rank == 0) 
+        parallel = (self.world.size > 1)
+
+        if hasattr(writer, 'hdf5'):
+            hdf5 = True
         else:
-            hdf5 = isinstance(writer, HDF5Writer)
-            
-        if self.world.rank == 0 or hdf5:
+            hdf5 = False
+
+        if master or hdf5:
             writer.add('PseudoWaveFunctions',
                        ('nspins', 'nibzkpts', 'nbands',
                         'ngptsx', 'ngptsy', 'ngptsz'),
@@ -299,13 +300,13 @@ class FDPWWaveFunctions(WaveFunctions):
                 indices = [kpt.s, kpt.k]
                 indices.append(self.bd.get_slice())
                 indices += self.gd.get_slice()
-                writer.fill(kpt.psit_nG, parallel=True, *indices)
+                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
         else:
             for s in range(self.nspins):
                 for k in range(self.nibzkpts):
                     for n in range(self.nbands):
                         psit_G = self.get_wave_function_array(n, k, s)
-                        if self.world.rank == 0:
+                        if master:
                             writer.fill(psit_G, s, k, n)
 
     def estimate_memory(self, mem):

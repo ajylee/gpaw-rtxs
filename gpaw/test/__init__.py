@@ -122,7 +122,12 @@ tests = [
     'fixdensity.py',
     'mixer.py',
     'broydenmixer.py',
+    'fileio/hdf5_simple.py',
+    'fileio/hdf5_noncontiguous.py',
     'restart.py',
+    'fileio/restart_density.py',
+    'fileio/parallel.py',
+    'fileio/file_reference.py',
     'mgga_restart.py',
     'gga_atom.py',
     'bee1.py',
@@ -287,7 +292,8 @@ if mpi.size < 4:
                 'bse_aluminum.py',
                 'bse_diamond.py',
                 'bse_silicon.py',
-                'bse_vs_lrtddft.py'
+                'bse_vs_lrtddft.py',
+                'fileio/parallel.py', 
                 ]
 
 if mpi.size != 4:
@@ -320,6 +326,12 @@ except ImportError:
                 'bse_silicon.py',
                 'aeatom.py',
                 'rpa_energy_Kr.py']
+
+try:
+    import _hdf5
+except ImportError:
+    exclude += ['fileio/hdf5_simple.py',
+                'fileio/hdf5_noncontiguous.py']
 
 for test in exclude:
     if test in tests:

@@ -248,6 +248,30 @@ double distance(double *a, double *b)
   return sqrt(sum);
 } 
 
+/* get heap memory using mallinfo. 
+   There is a UNIX version and a Mac OS X version is not well tested 
+   but seems to give credible values in simple tests.*/
+PyObject* heap_mallinfo(PyObject *self)
+{
+  double heap;
+#if !defined(__DARWIN_UNIX03)
+  unsigned int mmap, arena, small;
+  struct mallinfo mi; /* structure in bytes */
+
+  mi = mallinfo();
+  mmap = mi.hblkhd;
+  arena = mi.uordblks;
+  small = mi.usmblks;
+  heap = ((double)(mmap + arena + small))/1024.0; /* convert to KB */
+#else 
+  struct malloc_statistics_t mi; /* structure in bytes */
+
+  malloc_zone_statistics(NULL, &mi);
+  heap = ((double)(mi.size_in_use))/1024.0; /* convert to KB */
+#endif
+  return Py_BuildValue("d",heap);
+}
+
 /* elementwise multiply and add result to another vector
  *
  * c[i] += a[i] * b[i] ,  for i = every element in the vectors

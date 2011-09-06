@@ -1,9 +1,9 @@
 import os
 import sys
 import time
-import h5py
-import h5py.selections as sel
-import _gpaw
+from hdf5_highlevel import File, HyperslabSelection
+
+from gpaw.io import FileReference
 
 import numpy as np
 
@@ -12,53 +12,29 @@ floatsize = np.array([1], float).itemsize
 complexsize = np.array([1], complex).itemsize
 itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
-class File(h5py.File):
-    """Represents an parallel IO -enabled HDF5 file on disk"""
-
-    def __init__(self, name, mode, comm=None, driver=None, **driver_kwds):
-        """Stripped down copy-paste of h5py File __init__ with additional communicator argument.""" 
-
-        plist = h5py.h5p.create(h5py.h5p.FILE_ACCESS)
-        plist.set_fclose_degree(h5py.h5f.CLOSE_STRONG)
-        if comm:
-            _gpaw.h5_set_fapl_mpio(plist.id, comm)
-
-        try:
-            # If the byte string doesn't match the default encoding, just
-            # pass it on as-is.  Note Unicode objects can always be encoded.
-            name = name.encode(sys.getfilesystemencoding())
-        except (UnicodeError, LookupError):
-            pass
-
-        if mode == 'r':
-            self.fid = h5py.h5f.open(name, h5py.h5f.ACC_RDONLY, fapl=plist)
-        elif mode == 'w':
-            self.fid = h5py.h5f.create(name, h5py.h5f.ACC_TRUNC, fapl=plist)
-        else:
-            raise ValueError("Invalid mode; must be one of r, w")
-
-        self.id = self.fid  # So the Group constructor can find it.
-        h5py.Group.__init__(self, self, '/')
-
-        self._mode = mode
-
 class Writer:
     def __init__(self, name, comm=None):
+        self.comm = comm # for possible future use
         self.dims = {}        
         try:
-           if comm.rank == 0:
+           if self.comm.rank == 0:
                if os.path.isfile(name):
                    os.rename(name, name[:-5] + '.old'+name[-5:])
-           comm.barrier()
+           self.comm.barrier()
         except AttributeError:
            if os.path.isfile(name):
                os.rename(name, name[:-5] + '.old'+name[-5:])
 
+        if self.comm.size > 1:
+            comm = self.comm.get_c_object()
+        else:
+            comm = None
         self.file = File(name, 'w', comm)
         self.dims_grp = self.file.create_group("Dimensions")
         self.params_grp = self.file.create_group("Parameters")
         self.file.attrs['title'] = 'gpaw_io version="0.1"'
-        
+        self.hdf5 = True
+
     def dimension(self, name, value):
         if name in self.dims.keys() and self.dims[name] != value:
             raise Warning('Dimension %s changed from %s to %s' % \
@@ -67,64 +43,44 @@ class Writer:
         self.dims_grp.attrs[name] = value
 
     def __setitem__(self, name, value):
+        # attributes must be written collectively
         self.params_grp.attrs[name] = value
 
-    def add(self, name, shape, array=None, dtype=None, units=None, 
-            parallel=False):
+    def add(self, name, shape, array=None, dtype=None, 
+            parallel=False, write=True):
         if array is not None:
             array = np.asarray(array)
 
-        self.dtype, type, itemsize = self.get_data_type(array, dtype)
+        # self.dtype, type, itemsize = self.get_data_type(array, dtype)
+        if dtype is None:
+            self.dtype = array.dtype
+        else:
+            self.dtype = dtype
+
         shape = [self.dims[dim] for dim in shape]
         if not shape:
             shape = [1,]
-        self.dset = self.file.create_dataset(name, shape, type)
+        self.dset = self.file.create_dataset(name, shape, self.dtype)
         if array is not None:
-            self.fill(array, parallel=parallel)
+            self.fill(array, parallel=parallel, write=write)
 
     def fill(self, array, *indices, **kwargs):
 
-        try:
-            parallel = kwargs['parallel']
-        except KeyError:
-            parallel = False
-
-        try:
-            write = kwargs['write']
-        except KeyError:
-            write = True
+        parallel = kwargs.pop('parallel', False)
+        write = kwargs.pop('write', True)
 
         if parallel:
-            # Create H5P_DATASET_XFER property list
-            plist = h5py.h5p.create(h5py.h5p.DATASET_XFER)
-            _gpaw.h5_set_dxpl_mpio(plist.id)
+            collective = True
         else:
-            plist = None
+            collective = False
 
-        mshape = array.shape
-        mtype = None
-        fshape = self.dset.shape        
-
-        # Be careful to pad memory shape with ones to avoid HDF5 chunking
-        # glitch, which kicks in for mismatched memory/file selections
-        if(len(mshape) < len(fshape)):
-            mshape_pad = (1,)*(len(fshape)-len(mshape)) + mshape
+        if not write:
+            selection = None
+        elif indices: 
+            selection = HyperslabSelection(indices, self.dset.shape)
         else:
-            mshape_pad = mshape
-        mspace = h5py.h5s.create_simple(mshape_pad,
-                                   (h5py.h5s.UNLIMITED,)*len(mshape_pad))
-        if write == False:
-            h5py.h5s.select_none(mspace)
-        
-        if indices is None:
-            fspace = h5py.h5s.create_simple(fshape, (h5py.h5s.UNLIMITED,)*len(fshape))
-            self.dset.id.write(mspace, fspace, array, mtype, plist)
-        else:
-            selection = sel.select(fshape, indices)
-            for fspace in selection.broadcast(mshape):
-                if write == False:
-                    h5py.h5s.select_none(fspace)
-                self.dset.id.write(mspace, fspace, array, mtype, plist)
+            selection = 'all'
+        self.dset.write(array, selection, collective)            
 
     def get_data_type(self, array=None, dtype=None):
         if dtype is None:
@@ -141,24 +97,32 @@ class Writer:
         return dtype, type, dtype.itemsize
 
     def append(self, name):
-        self.file = h5py.File(name, 'a')
-
+        raise NotImplementedError('Append with HDF5 not available.')
 
     def close(self):
         mtime = int(time.time())
         self.file.attrs['mtime'] = mtime
+        self.dims_grp.close()
+        self.params_grp.close()
+        self.dset.close()
         self.file.close()
         
 class Reader:
-    def __init__(self, name, comm=False):
-        self.file = File(name, 'r')
+    def __init__(self, name, comm):
+        self.comm = comm # used for broadcasting replicated data 
+        if self.comm.size > 1:
+            comm = self.comm.get_c_object()
+        else:
+            comm = None
+        self.file = File(name, 'r', comm)
+        self.dims_grp = self.file['Dimensions']
         self.params_grp = self.file['Parameters']
-        self.hdf5_reader = True
+        self.hdf5 = True
 
     def dimension(self, name):
-        dims_grp = self.file['Dimensions']
-        return dims_grp.attrs[name]
-    
+        value = self.dims_grp.attrs[name]
+        return value
+
     def __getitem__(self, name):
         value = self.params_grp.attrs[name]
         try:
@@ -172,32 +136,71 @@ class Reader:
     
     def get(self, name, *indices, **kwargs):
 
-        try:
-            parallel = kwargs['parallel']
-        except KeyError:
-            parallel = False
+        parallel = kwargs.pop('parallel', False)
+        read = kwargs.pop('read', True)
+        out = kwargs.pop('out', None)
+        broadcast = kwargs.pop('broadcast', False)
+        assert not kwargs
 
         if parallel:
-            # Create H5P_DATASET_XFER property list
-            plist = h5py.h5p.create(h5py.h5p.DATASET_XFER)
-            _gpaw.set_dxpl_mpio(plist.id)
-        else:
-            plist = None
+            collective = True
+        else: 
+            collective = False
 
         dset = self.file[name]
-        array = dset[indices]
+        if indices:
+            selection = HyperslabSelection(indices, dset.shape)
+            mshape = selection.mshape
+        else:
+            selection = 'all'
+            mshape = dset.shape
+
+        if not read:
+            selection = None
+
+        if out is None:
+            array = np.ndarray(mshape, dset.dtype, order='C')
+        else:
+            assert type(out) is np.ndarray
+            # XXX Check the shapes are compatible
+            assert out.shape == mshape
+            assert out.dtype == dset.dtype
+            array = out
+
+        dset.read(array, selection, collective)
+
+        if broadcast:
+            self.comm.broadcast(array, 0)
+
         if array.shape == ():
             return array.item()
         else:
             return array
 
     def get_reference(self, name, *indices):
-        dset = self.file[name]
-        array = dset[indices]
-        return array
+        return HDF5FileReference(self.file, name, indices)
 
     def get_parameters(self):
         return self.params_grp.attrs
-    
+   
     def close(self):
         self.file.close()
+
+class HDF5FileReference(FileReference):
+    def __init__(self, file, name, indices):
+        self.file = file
+        self.name = name
+        self.dset = self.file[name]
+        self.dtype = self.dset.dtype
+        self.shape = self.dset.shape
+        self.indices = indices
+
+    def __len__(self):
+        """Length of the first dimension"""
+        return self.shape[0]
+
+    def __getitem__(self, indices):
+        if not isinstance(indices, tuple):
+            indices = (indices,)
+        ind = self.indices + indices
+        return self.dset[ind]

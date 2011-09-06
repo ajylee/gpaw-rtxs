@@ -4,7 +4,7 @@ from gpaw.overlap import Overlap
 from gpaw.fd_operators import Laplace
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import unpack
-from gpaw.io.tar import TarFileReference
+from gpaw.io import FileReference
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities.blas import axpy
 from gpaw.transformers import Transformer
@@ -88,7 +88,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def calculate_kinetic_energy_density(self, grad_v):
         assert not hasattr(self.kpt_u[0], 'c_on')
-        if isinstance(self.kpt_u[0].psit_nG, TarFileReference):
+        if isinstance(self.kpt_u[0].psit_nG, FileReference):
             raise RuntimeError('Wavefunctions have not been initialized.')
 
         taut_sG = self.gd.zeros(self.nspins)

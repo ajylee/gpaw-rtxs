@@ -8,6 +8,7 @@ extra_compile_args = ['-fastsse']
 libraries = []
 
 scalapack = True
+hdf5 = True
 
 define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
 define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]

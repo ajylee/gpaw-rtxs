@@ -222,7 +222,7 @@ class BlacsBandLayouts(BlacsLayouts):  #XXX should derive from BandLayouts too!
         # Only redistribute filled out half for Hermitian matrices
         self.Nn2nn = Redistributor(self.block_comm, self.Nndescriptor,
                                    self.nndescriptor)
-        #self.Nn2nn = Redistributor(self.blockcomm, self.Nndescriptor,
+        #self.Nn2nn = Redistributor(self.block_comm, self.Nndescriptor,
         #                           self.nndescriptor, 'L') #XXX faster but...
 
         # Resulting matrix will be used in dgemm which is symmetry obvlious

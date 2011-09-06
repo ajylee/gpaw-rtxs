@@ -19,6 +19,8 @@ Requirements
 
 6) An MPI library required for parallel calculations.
 
+7) (Optional) HDF5 library for parallel I/O and for saving files in HDF5 format
+
 .. note::
 
    In order to use the code, you need also the setups for all your atoms (:ref:`setups`).
@@ -158,6 +160,18 @@ After editing :svn:`customize.py`, follow the instructions for the
 :ref:`installationguide_developer`.
 
 .. _parallel_installation:
+
+
+Installation with HDF5 support
+++++++++++++++++++++++++++++++
+
+HDF5 support can be enabled by setting in :file:`customize.py`::
+
+ hdf5 = True
+
+and, in this case, provide HDF5 `include_dirs`, `libraries`, and `library_dirs`
+as described in :ref:`install_custom_installation`.
+
 
 Parallel installation
 +++++++++++++++++++++

@@ -359,11 +359,11 @@ class ProjectedWannierFunctions:
         
 
     def calculate_functions(self, calc, basis, k=0):
-        from gpaw.io.tar import TarFileReference
+        from gpaw.io import FileReference
         psit_nG = calc.wfs.kpt_u[k].psit_nG
         atoms = calc.get_atoms()
         Uo_ni = self.Uo_kni[k]
-        tarinstance = isinstance(psit_nG, TarFileReference)
+        tarinstance = isinstance(psit_nG, FileReference)
         if tarinstance:
             psit_nG = np.asarray([psit_nG[i] for i in range(self.M_k[k])])
 
