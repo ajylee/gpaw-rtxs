@@ -15,6 +15,8 @@ Development version in trunk
   new default value is 4.0e-8 eV**2 which is equivalent to the old
   default for a grid spacing of 0.2 Å.
 
+* GPAW should now work also with NumPy 1.6.
+
 
 Version 0.8
 ===========

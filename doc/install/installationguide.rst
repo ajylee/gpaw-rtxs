@@ -4,28 +4,33 @@
 Installation guide
 ==================
 
+
 Requirements
 ============
 
-1) Python 2.3 or later.  Python is available from http://www.python.org.
+1) Python 2.4 - 2.7.  Python is available from http://www.python.org.
 
-2) NumPy_.
+2) NumPy_ 1.1 - 1.5.
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
 4) C compiler - preferably gcc.
 
-5) BLAS and LAPACK libraries. Start with your system provided defaults or e.g. http://www.amd.com/acml.
+5) BLAS and LAPACK libraries. Start with your system provided defaults or
+   e.g. http://www.amd.com/acml.
 
-6) An MPI library required for parallel calculations.
+6) An MPI library (required for parallel calculations).
 
 7) (Optional) HDF5 library for parallel I/O and for saving files in HDF5 format
 
+
 .. note::
 
-   In order to use the code, you need also the setups for all your atoms (:ref:`setups`).
+   In order to use the code, you need also the setups for all your
+   atoms (:ref:`setups`).
 
 .. _NumPy: http://numpy.scipy.org/
+
 
 Installation
 ============
@@ -35,7 +40,9 @@ are described, in order of preference.
 
 .. note::
 
-   **CAMd users** installing on ``Niflheim``: please follow instructions for :ref:`Niflheim`.
+   **CAMd users** installing on ``Niflheim``: please follow instructions
+   for :ref:`Niflheim`.
+
 
 .. _installationguide_package:
 
@@ -47,19 +54,19 @@ This procedure requires root access.
 
 .. note::
 
-   Most of the fys packages are relocatable, therefore also suitable for installing on a cluster.
+   Most of the fys packages are relocatable, therefore also suitable for
+   installing on a cluster.
 
 The packages are provided for the following RPMS-based systems:
 
-- Fedora: :ref:`Fedora`,
+* Fedora: :ref:`Fedora`
+* openSUSE: :ref:`openSUSE`
+* RedHat Enterprise Linux (or CentOS): :ref:`CentOS`
 
-- openSUSE: :ref:`openSUSE`,
-
-- RedHat Enterprise Linux (or CentOS): :ref:`CentOS`,
-
-- Ubuntu 9.10 or newer: :ref:`Ubuntupackage`.
+Ubuntu 9.10 or newer: :ref:`Ubuntupackage`.
 
 If you prefer to install manually proceed to the next section.
+
 
 .. _installationguide_developer:
 
@@ -85,6 +92,7 @@ It offers the following advantages:
 2) Perform :ref:`installationguide_setup_files`.
 
 3) :ref:`running_tests`.
+
 
 .. _installationguide_standard:
 
@@ -133,6 +141,7 @@ the :ref:`installationguide_developer`.
      [gpaw]# python setup.py install 2>&1 | tee install.log
 
 4) :ref:`running_tests`.
+
 
 Installation tricks
 -------------------
@@ -279,4 +288,3 @@ If you enabled ScaLAPACK, do::
 
 This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
 with the block size of 2.
-
