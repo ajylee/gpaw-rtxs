@@ -530,6 +530,19 @@ PyObject* h5p_set_fapl_mpio(PyObject *self, PyObject *args)
       MPI_Info_create(&info);
       sprintf(tmp,"%d", nprocs);
       MPI_Info_set(info,"cb_nodes",tmp); */
+#ifdef GPAW_BGP
+      // Wavefunction write requires large amounts of memory.                   
+      // Appears to be a deficiency in the ROMIO driver.
+      // bgl_nodes_pset controls the number of aggregator
+      // tasks per pset. The default value is 8.
+      // In many cases, it will also be necessary to set
+      // DCMF_ALLTOALL_PREMALLOC = N
+      char tmp[20];
+      int info_param = 32;
+      MPI_Info_create(&info);
+      sprintf(tmp,"%d", info_param);
+      MPI_Info_set(info,"bgl_nodes_pset",tmp);
+#endif
     }
   H5Pset_fapl_mpio(plist_id, comm, info);
   Py_RETURN_NONE;
