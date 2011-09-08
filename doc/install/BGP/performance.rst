@@ -292,3 +292,13 @@ environment variables::
   --env=DCMF_REDUCE_REUSE_STORAGE=N:DCMF_ALLREDUCE_REUSE_STORAGE=N:DCMF_REDUCE=RECT
 
 It is very likely that your calculation is low on memory. Simply try using more nodes.
+
+DCMF_ALLTOALL_PREMALLOC
+-------------------------------
+HDF5 uses MPI_Alltoall which can consume a significant amount of
+memory.  The default behavior for MPI collectives on Blue Gene/P is to
+not release memory between calls due to peformance reasons. We recommend
+setting this environment variable to overide the default behavior::
+
+  --env DCMF_ALLTOALL_PREMALLOC=N:
+
