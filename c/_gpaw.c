@@ -135,7 +135,7 @@ static PyMethodDef functions[] = {
   {"Operator", NewOperatorObject, METH_VARARGS, 0},
   {"Spline", NewSplineObject, METH_VARARGS, 0},
   {"Transformer", NewTransformerObject, METH_VARARGS, 0},
-  {"heap_mallinfo", heap_mallinfo, METH_NOARGS, 0},
+  {"heap_mallinfo", (PyCFunction) heap_mallinfo, METH_NOARGS, 0},
   {"elementwise_multiply_add", elementwise_multiply_add, METH_VARARGS, 0},
   {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
   {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
