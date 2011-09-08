@@ -10,13 +10,13 @@ class DOSPES(BasePES):
     """PES derived from density of states with shifted KS-energies.
 
     """
-    def __init__(self, mother, daughter, shift=False, vde=None, f_min=0.1):
+    def __init__(self, mother, daughter=None, shift=False, vde=None, f_min=0.1):
         self.c_m = mother
         self.c_d = daughter
         self.f = None
         self.be = None
         self.shift = shift
-        self.vde = None
+        self.vde = vde
         self.f_min = f_min
 
     def _calculate(self):
@@ -41,17 +41,17 @@ class DOSPES(BasePES):
         e_HOMO = ex_m[0]
 
         if self.vde is not None:
-            assert(shift is False)
-            energy_shift = - e_HOMO + self.vde
- 
-        if self.shift is True:
-            e_m = self.c_m.get_potential_energy()
-            try:
-                energy_shift = float(self.c_d) - e_HOMO
-            except AttributeError:
-                e_d = self.c_d.get_potential_energy()
-                energy_shift = e_d - e_m - e_HOMO
+            assert(self.shift is False)
+            energy_shift = -e_HOMO + self.vde
         else:
-            energy_shift = float(self.shift)
+            if self.shift is True:
+                e_m = self.c_m.get_potential_energy()
+                try:
+                    energy_shift = float(self.c_d) - e_HOMO
+                except AttributeError:
+                    e_d = self.c_d.get_potential_energy()
+                    energy_shift = e_d - e_m - e_HOMO
+            else:
+                energy_shift = float(self.shift)
 
         self.be += energy_shift
