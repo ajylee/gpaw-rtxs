@@ -36,7 +36,7 @@ for mode in modes:
 
 del calc
 # Now read with single process
-comm = world.new_communicator((0,))
+comm = world.new_communicator(np.array((0,)))
 if rank == 0:
     for mode in modes:
         calc = GPAW('tmp.%s' % mode, communicator=comm)
