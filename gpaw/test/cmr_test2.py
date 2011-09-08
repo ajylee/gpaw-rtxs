@@ -8,9 +8,10 @@
 
 import os
 from ase import Atom, Atoms
+import gpaw.io
 from gpaw import GPAW
 from gpaw.test import equal
-import gpaw.io
+from gpaw.mpi import world, rank
 
 a = 4.05
 d = a / 2 ** 0.5
@@ -28,12 +29,13 @@ e0 = bulk.get_potential_energy()
 calc.write("cmr_test2.gpw")
 assert os.path.exists("cmr_test2.gpw")
 
-reader = gpaw.io.open("cmr_test2.gpw", 'r')
-w = {}
-for key in reader.parameters:
-    w[key] = reader.parameters[key]
-for key in reader.shapes:
-    w[key] = reader.get(key)
-for key in reader.dims:
-    w[key] = reader.dims[key]        
-os.unlink("cmr_test2.gpw")
+if rank == 0:
+    reader = gpaw.io.open("cmr_test2.gpw", 'r')
+    w = {}
+    for key in reader.parameters:
+        w[key] = reader.parameters[key]
+    for key in reader.shapes:
+        w[key] = reader.get(key)
+    for key in reader.dims:
+        w[key] = reader.dims[key]        
+    os.unlink("cmr_test2.gpw")
