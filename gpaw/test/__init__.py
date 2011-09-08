@@ -273,7 +273,8 @@ exclude = []
 
 
 if mpi.size > 1:
-    exclude += ['pes.py',
+    exclude += ['maxrss.py',
+                'pes.py',
                 'nscfsic.py',
                 'coreeig.py',
                 'asewannier.py',

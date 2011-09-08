@@ -51,7 +51,7 @@ for n, maxmem in enumerate(maxmems):
 
             print 'Total: ' + str(int(newmem - mem0)) + ' bytes'
  
-        equal(float(memused)/(float(mmemory)*float(mno)), 1.0, 0.15, msg=mset)
+        equal(float(memused)/(float(mmemory)*float(mno)), 1.0, 0.25, msg=mset)
 
     except MemoryError:
         if verbose:
