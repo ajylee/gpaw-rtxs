@@ -268,7 +268,7 @@ class PAWSetupGenerator:
             asdgfkljh
 
     def find_local_potential(self, l0, r0, P, e0):
-        self.log('Local potential matching %s-state at %.3f eV' %
+        self.log('Local potential matching %s-scattering at %.3f eV' %
                  ('spdfg'[l0], e0 * Hartree))
         
         g0 = self.rgd.ceil(r0)
@@ -309,7 +309,7 @@ class PAWSetupGenerator:
             H_bb += basis.T_bb
             S_bb = np.eye(len(basis))
             
-            ncore = l + 1
+            n0 = 0
             if l < len(self.waves_l):
                 waves = self.waves_l[l]
                 if len(waves) > 0:
@@ -317,13 +317,13 @@ class PAWSetupGenerator:
                                               waves.pt_ng) / (4 * pi)
                     H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
                     S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
-                    ncore = waves.n_n[0]
+                    n0 = waves.n_n[0] - l - 1
                 
             e_b = np.empty(len(basis))
             general_diagonalize(H_bb, e_b, S_bb)
             print l
             print e_b[:5]
-            print self.aea.channels[l].e_n[ncore - 1 - l:5]
+            print self.aea.channels[l].e_n[n0:n0 + 5]
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -350,7 +350,7 @@ class PAWSetupGenerator:
                     name = '*%s (%.2f Ha)' % ('spdf'[l], e)
                 else:
                     gc = len(self.rgd)
-                    name = '%d%s (%.2f Ha)' % (n + l + 1, 'spdf'[l], e)
+                    name = '%d%s (%.2f Ha)' % (n, 'spdf'[l], e)
                 plt.plot(r_g[:gc], (phi_g * r_g)[:gc], color=colors[i],
                          label=name)
                 plt.plot(r_g[:gc], (phit_g * r_g)[:gc], '--', color=colors[i])
@@ -365,7 +365,7 @@ class PAWSetupGenerator:
                 if n == -1:
                     name = '*%s (%.2f Ha)' % ('spdf'[l], e)
                 else:
-                    name = '%d%s (%.2f Ha)' % (n + l + 1, 'spdf'[l], e)
+                    name = '%d%s (%.2f Ha)' % (n, 'spdf'[l], e)
                 plt.plot(r_g, pt_g * r_g, color=colors[i], label=name)
                 i += 1
         plt.axis(xmax=self.rcmax)

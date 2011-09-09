@@ -130,13 +130,14 @@ class Channel:
 
             # Find classical turning point:
             g0 = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-            print(n,l,e,g0,r_g[g0])
+            #print(n,l,e,g0,r_g[g0])
             iter = 0
             while True:
                 du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e)
                 u1 = u_g[g0]
                 du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e)
                 u2 = u_g[g0]
+                #print u1,u2,du1dr,du2dr
                 A = du1dr / u1 - du2dr / u2
                 #print n, l, e, A
                 u_g[g0:] *= u1 / u2
@@ -224,9 +225,9 @@ class Channel:
         y_g = (x0_g - 2 * x2_g) / ym1_g
 
         g = len(u_g) - 2
-        agp1 = np.exp(-(-2 * e)**0.5 * rgd.r_g[-1])
+        agp1 = 1.0#np.exp(-(-2 * e)**0.5 * rgd.r_g[-1])
         u_g[-1] = agp1
-        ag = np.exp(-(-2 * e)**0.5 * rgd.r_g[-2])
+        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[-2] - rgd.r_g[-1]))
 
         while True:
             u_g[g] = ag
@@ -236,6 +237,7 @@ class Channel:
             g -= 1
             agp1 = ag
             ag = agm1
+            #print g,rgd.r_g[g],ag
 
         da = 0.5 * (agp1 - agm1)
         dudr = da / rgd.dr_g[g]
