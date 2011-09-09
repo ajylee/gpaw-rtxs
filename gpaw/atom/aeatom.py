@@ -6,16 +6,15 @@ from math import pi, log
 
 import numpy as np
 from numpy.linalg import eigh
-
 from scipy.special import gamma
-
-from ase.data import atomic_numbers, atomic_names, chemical_symbols
-from ase.utils import devnull, prnt
 import ase.units as units
+from ase.utils import devnull, prnt
+from ase.data import atomic_numbers, atomic_names, chemical_symbols
 
+from gpaw.xc import XC
+from gpaw.utilities import _fact as fac
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.xc import XC
 
 
 # Velocity of light in atomic units:
@@ -130,10 +129,8 @@ class Channel:
             e = self.e_n[n]
 
             # Find classical turning point:
-            g0 = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()
-            r1_g = r_g[:g0 + 1]
-            r2_g = -r_g[:g0 - 1:-1]
-
+            g0 = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+            print(n,l,e,g0,r_g[g0])
             iter = 0
             while True:
                 du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e)
@@ -185,7 +182,8 @@ class Channel:
         ym1_g = (x1_g / 2 - x2_g) / yp1_g
         y_g = (2 * x2_g - x0_g) / yp1_g
         if pt_g is not None:
-            y0_g = 2 * pt_g * r_g**(1 - l) / yp1_g
+            y0_g = 2 * pt_g * r_g / yp1_g
+            y0_g[1:] /= r_g[1:]**l
             agm1 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
         else:
             y0_g = rgd.zeros()
@@ -240,6 +238,108 @@ class Channel:
             ag = agm1
 
         da = 0.5 * (agp1 - agm1)
+        dudr = da / rgd.dr_g[g]
+
+        return dudr
+
+    def integrate_inwards0(self, u_g, rgd, vr_g, g0, e):
+        """
+        ::
+
+                 2
+              1 d u         l(l + 1)
+            - - --- + v u + -------- u = e u
+              2   2              2
+                dr             2r
+
+        Using u(r) = a(g), we get::
+
+                      2       2    2                          2 
+            a" (dg/dr)  + a' d g/dr  + a (2e - 2v - l(l + 1)/r ) = 0
+        """
+
+        l = self.l
+
+        r_g = rgd.r_g.copy()
+        r_g[0] = 1.0
+
+        x0_g = 2 * e - l * (l + 1) / r_g**2 - 2 * vr_g / r_g
+        x1_g = rgd.d2gdr2()
+        x2_g = 1 / rgd.dr_g**2
+
+        ym2_g = x1_g / 12 - x2_g / 12
+        ym1_g = -(-2 / 3.0 * x1_g + 4 / 3.0 * x2_g) / ym2_g
+        y_g = -(x0_g - 2.5 * x2_g) / ym2_g
+        yp1_g = -(2 / 3.0 * x1_g + 4 / 3.0 * x2_g) / ym2_g
+        yp2_g = -(-x1_g / 12 - x2_g / 12) / ym2_g
+
+        #ym1_g = -1 / 2.0 * x1_g + x2_g
+        #y_g = -(x0_g - 2 * x2_g) / ym1_g
+        #yp1_g = -(1 / 2.0 * x1_g + x2_g) / ym1_g
+
+        g = len(u_g) - 3
+        u_g[-4:] = np.exp(-(-2 * e)**0.5 * rgd.r_g[-4:])
+        agm1, ag, agp1, agp2 = u_g[-4:]
+        print rgd.r_g[-4:]
+        print u_g[-4:]
+
+        while True:
+            print g,ag
+            u_g[g] = ag
+            agm2 = (agp2 * yp2_g[g] +
+                    agp1 * yp1_g[g] +
+                    ag * y_g[g] +
+                    agm1 * ym1_g[g])
+            if g == g0:
+                break
+            g -= 1
+            agp2 = agp1
+            agp1 = ag
+            ag = agm1
+            agm1 = agm2
+
+        da = (-agp2 + 8 * agp1 - 8 * agm1 + agm2) / 12
+        #da = (agp1 - agm1) / 2
+        dudr = da / rgd.dr_g[g]
+
+        return dudr
+
+    def integrate_outwards0(self, u_g, rgd, vr_g, g0, e):
+        l = self.l
+
+        r_g = rgd.r_g.copy()
+        r_g[0] = 1.0
+
+        x0_g = 2 * e - l * (l + 1) / r_g**2 - 2 * vr_g / r_g
+        x1_g = rgd.d2gdr2()
+        x2_g = 1 / rgd.dr_g**2
+
+        yp2_g = -x1_g / 12 - x2_g / 12
+        yp1_g = -(2 / 3.0 * x1_g + 4 / 3.0 * x2_g) / yp2_g
+        y_g = -(x0_g - 2.5 * x2_g) / yp2_g
+        ym1_g = -(-2 / 3.0 * x1_g + 4 / 3.0 * x2_g) / yp2_g
+        ym2_g = -(x1_g / 12 - x2_g / 12) / yp2_g
+
+        g = 2
+        u_g[:4] = rgd.r_g[:4]**(l + 1)
+        agm2, agm1, ag, agp1 = u_g[:4]
+
+        while True:
+            print g, ag/rgd.r_g[g]
+            u_g[g] = ag
+            agp2 = (agp1 * yp1_g[g] +
+                    ag * y_g[g] +
+                    agm1 * ym1_g[g] +
+                    agm2 * ym2_g[g])
+            if g == g0:
+                break
+            g += 1
+            agm2 = agm1
+            agm1 = ag
+            ag = agp1
+            agp1 = agp2
+
+        da = (-agp2 + 8 * agp1 - 8 * agm1 + agm2) / 12
         dudr = da / rgd.dr_g[g]
 
         return dudr

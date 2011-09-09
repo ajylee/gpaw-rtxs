@@ -86,14 +86,27 @@ class PAWWaves:
         q_ng = rgd.zeros(N)
         for n in range(N):
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
-            a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
-            a_g[0] = self.c_np[n][-1]
-            dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
-            d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
-            q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
-            q_g -= 0.5 * r_g**l * (
-                (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
-                r_g * d2adg2_g * dgdr_g**2)
+            if 1:
+                a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
+                a_g[0] = self.c_np[n][-1]
+                dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+                d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+                q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
+                q_g -= 0.5 * r_g**l * (
+                    (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
+                    r_g * d2adg2_g * dgdr_g**2)
+            elif 0:
+                a_g = self.phit_ng[n] * r_g
+                dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+                d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+                R=r_g*1
+                R[0]=1
+                q_g = (vtr_g + l*(l+1)/2./R - self.e_n[n] * r_g) * self.phit_ng[n]
+                q_g -= 0.5 * (
+                    (d2gdr2_g * dadg_g + d2adg2_g * dgdr_g**2))
+            else:
+                jkhadgsfg
+            
             q_g[gcut:] = 0
             q_ng[n] = q_g
 
@@ -118,6 +131,7 @@ class PAWWaves:
             self.dS_nn = np.dot(np.dot(iL_nn, self.dS_nn), iL_nn.T)
             self.dH_nn = np.dot(np.dot(iL_nn, self.dH_nn), iL_nn.T)
 
+        print np.linalg.inv(U_nn.T)
         self.pt_ng = np.dot(np.linalg.inv(U_nn.T), q_ng)
         self.pt_ng[:, 1:] /= r_g[1:]
         if l == 0:
@@ -167,7 +181,7 @@ class PAWSetupGenerator:
                     n = -1
                     f = 0.0
                     phi_g = self.rgd.zeros()
-                    gc = self.gcmax + 10
+                    gc = self.gcmax + 20
                     ch = Channel(l)
                     ch.integrate_outwards(phi_g, self.rgd, aea.vr_sg[0], gc, e)
                     phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
@@ -247,10 +261,9 @@ class PAWSetupGenerator:
                     
     def find_polynomial_potential(self, r0, P, e0=None):
         g0 = self.rgd.ceil(r0)
-        vtr_g = self.vHtr_g + self.vxct_g * self.rgd.r_g
         if e0 is None:
-            self.vtr_g = self.rgd.pseudize(vtr_g, g0, 1, P)[0]
-            self.v0r_g = self.vtr_g - vtr_g
+            self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+            self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
         else:
             asdgfkljh
 
@@ -273,6 +286,7 @@ class PAWSetupGenerator:
         p = np.arange(2 * P, 0, -2) + l0
         t_g = np.polyval(-0.5 * c_p[:P] * (p * (p + 1) - l0 * (l0 + 1)),
                           r_g**2) 
+
         self.vtr_g = self.aea.vr_sg[0].copy()
         self.vtr_g[0] = 0.0
         self.vtr_g[1:g0] = e0 * r_g - t_g * r_g**(l0 + 1) / phit_g[1:g0]
@@ -289,24 +303,28 @@ class PAWSetupGenerator:
         basis = self.aea.channels[0].basis
         eps = basis.eps
         alpha_B = basis.alpha_B
-        for l in range(2):
+        for l in range(len(self.aea.channels)):
             basis = GaussianBasis(l, alpha_B, self.rgd, eps)
             H_bb = basis.calculate_potential_matrix(self.vtr_g)
             H_bb += basis.T_bb
             S_bb = np.eye(len(basis))
             
+            ncore = l + 1
             if l < len(self.waves_l):
                 waves = self.waves_l[l]
-                P_bn = self.rgd.integrate(basis.basis_bg[:, None] *
-                                          waves.pt_ng) / (4 * pi)
-                H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
-                S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
+                if len(waves) > 0:
+                    P_bn = self.rgd.integrate(basis.basis_bg[:, None] *
+                                              waves.pt_ng) / (4 * pi)
+                    H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
+                    S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
+                    ncore = waves.n_n[0]
                 
             e_b = np.empty(len(basis))
             general_diagonalize(H_bb, e_b, S_bb)
             print l
             print e_b[:5]
-            print self.aea.channels[l].e_n[:5]
+            print self.aea.channels[l].e_n[ncore - 1 - l:5]
+
     def plot(self):
         import matplotlib.pyplot as plt
         r_g = self.rgd.r_g
@@ -358,15 +376,15 @@ class PAWSetupGenerator:
         ch = Channel(l)
         gcut = rgd.round(rcut)
 
+        N = 0
         if l < len(self.waves_l):
             # Nonlocal PAW stuff:
             waves = self.waves_l[l]
-            pt_ng = waves.pt_ng
-            dH_nn = waves.dH_nn
-            dS_nn = waves.dS_nn
-            N = len(pt_ng)
-        else:
-            N = 0
+            if len(waves) > 0:
+                pt_ng = waves.pt_ng
+                dH_nn = waves.dH_nn
+                dS_nn = waves.dS_nn
+                N = len(pt_ng)
 
         u_g = rgd.zeros()
         u_ng = rgd.zeros(N)
@@ -569,6 +587,13 @@ def main(AEA=AllElectronAtom):
                 plt.plot(energies, ld, colors[l], label='spdfg'[l])
                 ld = gen.logarithmic_derivative(l, energies, r)
                 plt.plot(energies, ld, '--' + colors[l])
+
+                # Fixed points:
+                if l < len(gen.waves_l):
+                    efix = gen.waves_l[l].e_n
+                    ldfix = gen.logarithmic_derivative(l, efix, r)
+                    plt.plot(efix, ldfix, 'x' + colors[l])
+                
             plt.legend(loc='best')
 
         if opt.plot:
