@@ -46,5 +46,5 @@ for xc in ['LDA']:#, 'PBE']:
     Dnc_sp -= 2 * dD_sp
     Em = xc.calculate_paw_correction(s, Dnc_sp)
     print dE, dE - 0.5 * (Ep - Em) / x
-    assert abs(dE - 0.5 * (Ep - Em) / x) < 1e-8
+    assert abs(dE - 0.5 * (Ep - Em) / x) < 2e-8
         
