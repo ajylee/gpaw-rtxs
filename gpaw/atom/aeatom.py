@@ -129,17 +129,17 @@ class Channel:
             e = self.e_n[n]
 
             # Find classical turning point:
-            g0 = (vr_g * r_g + 0.5 * l * (l + 1) < e * r_g**2).sum()#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-            #print(n,l,e,g0,r_g[g0])
+            x = vr_g * r_g + 0.5 * l * (l + 1) - e * r_g**2
+            g0 = len(x) -1
+            while x[g0] > 0:
+                g0 -= 1
             iter = 0
             while True:
                 du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e)
                 u1 = u_g[g0]
                 du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e)
                 u2 = u_g[g0]
-                #print u1,u2,du1dr,du2dr
                 A = du1dr / u1 - du2dr / u2
-                #print n, l, e, A
                 u_g[g0:] *= u1 / u2
                 u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
 
@@ -148,7 +148,7 @@ class Channel:
 
                 e += 0.5 * A * u_g[g0]**2
                 iter += 1
-                assert iter < 20, (n, l, e)
+                assert iter < 400, (n, l, e)
 
             self.e_n[n] = e
             self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
@@ -231,6 +231,10 @@ class Channel:
 
         while True:
             u_g[g] = ag
+            if ag > 1e50:
+                u_g[g:] /= 1e50
+                ag = ag / 1e50
+                agp1 = agp1 / 1e50
             agm1 = agp1 * yp1_g[g] + ag * y_g[g]
             if g == g0:
                 break
@@ -477,7 +481,7 @@ class AllElectronAtom:
             f_n.extend([0] * (n - l - len(f_n)))
         f_n[n - l - 1] += df
 
-    def initialize(self, ngpts=1000, rcut=50.0,
+    def initialize(self, ngpts=2000, rcut=50.0,
                    alpha1=0.01, alpha2=None, ngauss=50,
                    eps=1.0e-7):
         """Initialize basis sets and radial grid.
@@ -499,7 +503,7 @@ class AllElectronAtom:
             alpha2 = 50.0 * self.Z**2
 
         # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
-        a = 1 / alpha2**0.5 / 50        
+        a = 1 / alpha2**0.5 / 20        
         b = (rcut - a * ngpts) / (rcut * ngpts)
         b = 1 / round(1 / b)
         self.rgd = AERadialGridDescriptor(a, b, ngpts)
@@ -727,17 +731,19 @@ def build_parser():
     parser.add_option('-r', '--refine', action='store_true')
     return parser
 
-def parse_ld_str(s, r=2.0):
+
+def parse_ld_str(s, energies=None, r=2.0):
     parts = s.split(',')
     lvalues = ['spdfg'.find(x) for x in parts.pop(0)]
     if parts:
         e1, e2, de = (float(x) for x in parts.pop(0).split(':'))
     else:
-        e1, e2, de = -1, 1, 0.05
+        e1, e2, de = energies
     if parts:
         r = float(parts.pop())
     energies = np.linspace(e1, e2, int((e2 - e1) / de) + 1)
     return lvalues, energies, r
+
 
 def main():
     parser = build_parser()
@@ -789,7 +795,8 @@ def main():
         aea.refine()
 
     if opt.logarithmic_derivatives:
-        lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives)
+        lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives,
+                                            (-1, 1, 0.05))
         import matplotlib.pyplot as plt
         for l in lvalues:
             ld = aea.logarithmic_derivative(l, energies, r)

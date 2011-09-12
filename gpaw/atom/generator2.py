@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import sys
-from math import pi, log, sqrt
+from math import pi, exp, sqrt, log
 
 import numpy as np
 from scipy.special import gamma
 from scipy.interpolate import interp1d
+from scipy.optimize import fsolve
 
 from ase.utils import prnt
 from ase.units import Hartree
 
+from gpaw.utilities import erf
 from gpaw.spline import Spline
 from gpaw.setup import BaseSetup
 from gpaw.version import version
@@ -101,7 +103,8 @@ class PAWWaves:
                 d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
                 R=r_g*1
                 R[0]=1
-                q_g = (vtr_g + l*(l+1)/2./R - self.e_n[n] * r_g) * self.phit_ng[n]
+                q_g = (vtr_g + l*(l+1)/2./R -
+                       self.e_n[n] * r_g) * self.phit_ng[n]
                 q_g -= 0.5 * (
                     (d2gdr2_g * dadg_g + d2adg2_g * dgdr_g**2))
             else:
@@ -192,13 +195,31 @@ class PAWSetupGenerator:
                 waves.add(phi_g, n, e, f)
             self.waves_l.append(waves)
 
-        self.alpha = log(1.0e4) / self.rcmax**2  # exp(-alpha*rcmax^2)=1.0e-4
+        self.construct_shape_function(eps=1e-9)
+
+        self.vtr_g = None
+
+    def construct_shape_function(self, eps):
+        """Build shape-function for compensation charge."""
+
+        def spillage(alpha):
+            """Fraction of gaussian charge outside rcmax."""
+            x = alpha * self.rcmax**2
+            return 1 - erf(sqrt(x)) + 2 * sqrt(x / pi) * exp(-x)
+        
+        def f(alpha):
+            return log(spillage(alpha)) - log(eps)
+
+        self.alpha = fsolve(f, 7.0)[0]
         self.alpha = round(self.alpha, 2)
+        self.log('Shape function: exp(-alpha*r^2), alpha=%.2f Bohr^-2' %
+                 self.alpha)
+        self.log('Fraction of shape-function outside rcmax=%.2f Bohr: %e' %
+                 (self.rcmax, spillage(self.alpha)))
+
         self.ghat_g = (np.exp(-self.alpha * self.rgd.r_g**2) *
                        (self.alpha / pi)**1.5)
         
-        self.vtr_g = None
-
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
 
@@ -268,8 +289,9 @@ class PAWSetupGenerator:
             asdgfkljh
 
     def find_local_potential(self, l0, r0, P, e0):
-        self.log('Local potential matching %s-scattering at %.3f eV' %
-                 ('spdfg'[l0], e0 * Hartree))
+        self.log('Local potential matching %s-scattering at e=%.3f eV' %
+                 ('spdfg'[l0], e0 * Hartree) +
+                 ' and r=%.2f Bohr' % r0)
         
         g0 = self.rgd.ceil(r0)
         gc = g0 + 20
@@ -287,6 +309,16 @@ class PAWSetupGenerator:
         t_g = np.polyval(-0.5 * c_p[:P] * (p * (p + 1) - l0 * (l0 + 1)),
                           r_g**2) 
 
+        """
+                a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
+                a_g[0] = self.c_np[n][-1]
+                dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+                d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+                q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
+                q_g -= 0.5 * r_g**l * (
+                    (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
+                    r_g * d2adg2_g * dgdr_g**2)
+                    """
         self.vtr_g = self.aea.vr_sg[0].copy()
         self.vtr_g[0] = 0.0
         self.vtr_g[1:g0] = e0 * r_g - t_g * r_g**(l0 + 1) / phit_g[1:g0]
@@ -581,7 +613,11 @@ def main(AEA=AllElectronAtom):
         import matplotlib.pyplot as plt
         if opt.logarithmic_derivatives:
             r = 1.1 * max(radii)
-            lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives, r)
+            emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.2
+            emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.2
+            lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives,
+                                                (emin, emax, 0.05), r)
+            ldmax = 0.0
             for l in lvalues:
                 ld = aea.logarithmic_derivative(l, energies, r)
                 plt.plot(energies, ld, colors[l], label='spdfg'[l])
@@ -593,8 +629,11 @@ def main(AEA=AllElectronAtom):
                     efix = gen.waves_l[l].e_n
                     ldfix = gen.logarithmic_derivative(l, efix, r)
                     plt.plot(efix, ldfix, 'x' + colors[l])
-                
+                    ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
+            if ldmax != 0.0:
+                plt.axis(ymin=-3 * ldmax, ymax=3 * ldmax)
             plt.legend(loc='best')
+            
 
         if opt.plot:
             gen.plot()

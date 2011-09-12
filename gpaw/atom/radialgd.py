@@ -94,11 +94,9 @@ class RadialGridDescriptor:
         assert isinstance(gc, int) and gc > 10
         
         r_g = self.r_g
-        i = [0] + range(gc, gc + points)
+        i = range(gc, gc + points)
         r_i = r_g[i]
-        a_i = a_g[i] * r_i**2
-        a_i[1:] /= r_i[1:]**l
-        c_p = np.polyfit(r_i**2, a_i, points)[:-1]
+        c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, points - 1)
         b_g = a_g.copy()
         b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
         return b_g, c_p
@@ -116,14 +114,12 @@ class RadialGridDescriptor:
         gc0 = gc // 2
         x0 = b_g[gc0]
         r_g = self.r_g
-        i = [0, gc0] + range(gc, gc + points)
+        i = [gc0] + range(gc, gc + points)
         r_i = r_g[i]
         norm = self.integrate(a_g**2)
         def f(x):
             b_g[gc0] = x
-            b_i = b_g[i] * r_i**2
-            b_i[1:] /= r_i[1:]**l
-            c_x[:] = np.polyfit(r_i**2, b_i, points + 1)[:-1]
+            c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
             b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
             return self.integrate(b_g**2) - norm
         from scipy.optimize import fsolve
