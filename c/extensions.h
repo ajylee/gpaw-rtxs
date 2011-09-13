@@ -34,7 +34,7 @@
 
 #define INLINE inline
 
-static INLINE void* gpaw_malloc(int n)
+static INLINE void* gpaw_malloc(size_t n)
 {
   void* p = malloc(n);
   assert(p != NULL);
