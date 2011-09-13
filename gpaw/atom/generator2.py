@@ -88,28 +88,14 @@ class PAWWaves:
         q_ng = rgd.zeros(N)
         for n in range(N):
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
-            if 1:
-                a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
-                a_g[0] = self.c_np[n][-1]
-                dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
-                d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
-                q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
-                q_g -= 0.5 * r_g**l * (
-                    (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
-                    r_g * d2adg2_g * dgdr_g**2)
-            elif 0:
-                a_g = self.phit_ng[n] * r_g
-                dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
-                d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
-                R=r_g*1
-                R[0]=1
-                q_g = (vtr_g + l*(l+1)/2./R -
-                       self.e_n[n] * r_g) * self.phit_ng[n]
-                q_g -= 0.5 * (
-                    (d2gdr2_g * dadg_g + d2adg2_g * dgdr_g**2))
-            else:
-                jkhadgsfg
-            
+            a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
+            a_g[0] = self.c_np[n][-1]
+            dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+            d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+            q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
+            q_g -= 0.5 * r_g**l * (
+                (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
+                r_g * d2adg2_g * dgdr_g**2)
             q_g[gcut:] = 0
             q_ng[n] = q_g
 
@@ -119,7 +105,7 @@ class PAWWaves:
         L_nn = np.eye(N)
         U_nn = A_nn.copy()
 
-        if N - self.n_n.count(-1) == 1:
+        if 0:#N - self.n_n.count(-1) == 1:
             assert self.n_n[0] != -1
             # We have a single bound-state projector.
             for n1 in range(N):
@@ -288,6 +274,9 @@ class PAWSetupGenerator:
         else:
             asdgfkljh
 
+        self.l0 = None
+        self.e0 = None
+
     def find_local_potential(self, l0, r0, P, e0):
         self.log('Local potential matching %s-scattering at e=%.3f eV' %
                  ('spdfg'[l0], e0 * Hartree) +
@@ -309,20 +298,31 @@ class PAWSetupGenerator:
         t_g = np.polyval(-0.5 * c_p[:P] * (p * (p + 1) - l0 * (l0 + 1)),
                           r_g**2) 
 
-        """
-                a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
-                a_g[0] = self.c_np[n][-1]
-                dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
-                d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
-                q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
-                q_g -= 0.5 * r_g**l * (
-                    (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
-                    r_g * d2adg2_g * dgdr_g**2)
-                    """
+        dgdr_g = 1 / self.rgd.dr_g
+        d2gdr2_g = self.rgd.d2gdr2()
+        a_g = phit_g.copy()
+        a_g[1:] /= self.rgd.r_g[1:]**l0
+        a_g[0] = c_p[-1]
+        dadg_g = self.rgd.zeros()
+        d2adg2_g = self.rgd.zeros()
+        dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+        d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+        q_g = (((l0 + 1) * dgdr_g + 0.5 * self.rgd.r_g * d2gdr2_g) * dadg_g +
+               0.5 * self.rgd.r_g * d2adg2_g * dgdr_g**2)
+        q_g[:g0] /= a_g[:g0]
+        q_g += e0 * self.rgd.r_g
+        q_g[0] = 0.0
+
         self.vtr_g = self.aea.vr_sg[0].copy()
         self.vtr_g[0] = 0.0
-        self.vtr_g[1:g0] = e0 * r_g - t_g * r_g**(l0 + 1) / phit_g[1:g0]
+        self.vtr_g[1:g0] = q_g[1:g0]#e0 * r_g - t_g * r_g**(l0 + 1) / phit_g[1:g0]
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+        #self.rgd.plot(q_g)
+        #self.rgd.plot(self.vtr_g,show=1)
+        #sdfg
+
+        self.l0 = l0
+        self.e0 = e0
 
     def construct_projectors(self):
         for waves in self.waves_l:
@@ -331,11 +331,13 @@ class PAWSetupGenerator:
                                                       self.vtr_g)
 
     def check(self):
-        self.log('Check eigenvalues of pseudo atom using Gaussian basis:')
+        self.log('Checking eigenvalues of pseudo atom using ' +
+                 'a Gaussian basis set:')
+        self.log('Bound AE and PS states: [Hartree]')
         basis = self.aea.channels[0].basis
         eps = basis.eps
         alpha_B = basis.alpha_B
-        for l in range(len(self.aea.channels)):
+        for l in range(4):#len(self.aea.channels)):
             basis = GaussianBasis(l, alpha_B, self.rgd, eps)
             H_bb = basis.calculate_potential_matrix(self.vtr_g)
             H_bb += basis.T_bb
@@ -353,9 +355,29 @@ class PAWSetupGenerator:
                 
             e_b = np.empty(len(basis))
             general_diagonalize(H_bb, e_b, S_bb)
-            print l
-            print e_b[:5]
-            print self.aea.channels[l].e_n[n0:n0 + 5]
+            nbound = (e_b < 0).sum()
+
+            if l < len(self.aea.channels):
+                e0_b = self.aea.channels[l].e_n
+                nbound0 = (e0_b < 0).sum()
+
+                for n in range(1 + l, nbound0 + 1 + l):
+                    self.log('          %d%s' % (n, 'spdf'[l]), end='')
+                self.log()
+                for e in e0_b[:nbound0]:
+                    self.log('%12.4f' % e, end='')
+                self.log('\n', end=' ' * 12 * n0)
+                for e in e_b[:nbound0 - n0]:
+                    self.log('%12.4f' % e, end='')
+                self.log()
+                
+                if nbound != nbound0 - n0:
+                    self.log('Wrong number of %s-states!' % 'spdf'[l])
+                elif (nbound > 0 and
+                      abs(e_b[:nbound] - e0_b[n0:nbound0]).max() > 1e-3):
+                    self.log('Error in %s-states!' % 'spdf'[l])
+            else:
+                assert nbound == 0
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -630,6 +652,14 @@ def main(AEA=AllElectronAtom):
                     ldfix = gen.logarithmic_derivative(l, efix, r)
                     plt.plot(efix, ldfix, 'x' + colors[l])
                     ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
+
+                if l == gen.l0:
+                    efix = [gen.e0]
+                    ldfix = gen.logarithmic_derivative(l, efix, r)
+                    plt.plot(efix, ldfix, 'x' + colors[l])
+                    ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
+
+
             if ldmax != 0.0:
                 plt.axis(ymin=-3 * ldmax, ymax=3 * ldmax)
             plt.legend(loc='best')

@@ -110,7 +110,9 @@ class RadialGridDescriptor:
             | dr b(r) = | dr a(r)
             /           /
         """
-        b_g, c_x = self.pseudize(a_g, gc, l, points + 1)
+
+        b_g = self.pseudize(a_g, gc, l, points)[0]
+        c_x = np.empty(points + 1)
         gc0 = gc // 2
         x0 = b_g[gc0]
         r_g = self.r_g

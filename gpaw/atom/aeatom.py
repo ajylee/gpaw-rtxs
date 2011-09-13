@@ -133,6 +133,7 @@ class Channel:
             g0 = len(x) -1
             while x[g0] > 0:
                 g0 -= 1
+
             iter = 0
             while True:
                 du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e)
@@ -209,8 +210,48 @@ class Channel:
         dudr = (l + 1) * r**l * ag + r**(l + 1) * da / dr
 
         return dudr
-    
+
     def integrate_inwards(self, u_g, rgd, vr_g, g0, e):
+        l = self.l
+        d2gdr2_g = rgd.d2gdr2()
+
+        r_g = rgd.r_g.copy()
+
+        x0_g = 2 * (e * r_g - vr_g)
+        x1_g = 2 * (l + 1) / rgd.dr_g + r_g * rgd.d2gdr2()
+        x2_g = r_g / rgd.dr_g**2
+
+        ym1_g = x1_g / 2 - x2_g
+        ym1_g[:g0] = 1.0  # prevent division by zero
+        yp1_g = (x1_g / 2 + x2_g) / ym1_g
+        y_g = (2 * x2_g - x0_g) / ym1_g
+
+        g = len(u_g) - 2
+        agp1 = 1.0
+        u_g[-1] = agp1 * r_g[-1]**(l + 1)
+        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[-2] - rgd.r_g[-1]))
+
+        while True:
+            u_g[g] = ag * r_g[g]**(l + 1)
+            if ag > 1e50:
+                u_g[g:] /= 1e50
+                ag = ag / 1e50
+                agp1 = agp1 / 1e50
+            agm1 = agp1 * yp1_g[g] - ag * y_g[g]
+            if g == g0:
+                break
+            g -= 1
+            agp1 = ag
+            ag = agm1
+
+        r = r_g[g]
+        dr = rgd.dr_g[g]
+        da = 0.5 * (agp1 - agm1)
+        dudr = (l + 1) * r**l * ag + r**(l + 1) * da / dr
+
+        return dudr
+    
+    def integrate_inwardsOLD(self, u_g, rgd, vr_g, g0, e):
         l = self.l
 
         r_g = rgd.r_g.copy()
@@ -503,7 +544,7 @@ class AllElectronAtom:
             alpha2 = 50.0 * self.Z**2
 
         # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
-        a = 1 / alpha2**0.5 / 20        
+        a = 1 / alpha2**0.5 / 20
         b = (rcut - a * ngpts) / (rcut * ngpts)
         b = 1 / round(1 / b)
         self.rgd = AERadialGridDescriptor(a, b, ngpts)
