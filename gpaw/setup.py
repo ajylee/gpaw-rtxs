@@ -91,7 +91,7 @@ class BaseSetup:
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
 
-        def correct_for_charge(f_j, charge, degeneracy_j):
+        def correct_for_charge(f_j, charge, degeneracy_j, use_empty=True):
             nj = len(f_j)
             # correct for the charge
             if charge >= 0:
@@ -106,9 +106,10 @@ class BaseSetup:
                 for j in range(nj):
                     f = f_j[j]
                     l = self.l_j[j]
-                    c = min(degeneracy_j[j] - f, -charge)
-                    f_j[j] += c
-                    charge += c
+                    if use_empty or f > 0:
+                        c = min(degeneracy_j[j] - f, -charge)
+                        f_j[j] += c
+                        charge += c
             assert charge == 0.0, charge
 
         # distribute the charge to the radial orbitals
@@ -123,9 +124,9 @@ class BaseSetup:
             nup = 0.5 * (nval + magmom)
             ndown = 0.5 * (nval - magmom)
             correct_for_charge(f_sj[0], f_sj[0].sum() - nup,
-                               2 * l_j + 1)
+                               2 * l_j + 1, False)
             correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
-                               2 * l_j + 1)
+                               2 * l_j + 1, False)
         
         # Projector function indices:
         nj = len(self.n_j)
@@ -170,6 +171,7 @@ class BaseSetup:
                              % (magmom, self.symbol))
         assert i == niao
 
+#        print "fsi=", f_si
         return f_si
 
     def get_hunds_rule_moment(self, charge=0):
