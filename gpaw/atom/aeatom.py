@@ -655,7 +655,7 @@ class AllElectronAtom:
 
     def refine(self):
         self.mode = 'ode'
-        self.run(dnmax=1e-6, mix=0.4, maxiter=200)
+        self.run(dnmax=1e-6, mix=0.14, maxiter=200)
         
     def summary(self):
         self.write_states()
