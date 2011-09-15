@@ -91,22 +91,23 @@ class BaseSetup:
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
 
-        def correct_for_charge(f_j, charge, degeneracy_j, use_empty=True):
+        def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
             nj = len(f_j)
             # correct for the charge
             if charge >= 0:
                 # reduce the higher levels first
                 for j in range(nj - 1, -1, -1):
                     f = f_j[j]
-                    c = min(f, charge)
-                    f_j[j] -= c
-                    charge -= c
+                    if use_complete or f < degeneracy_j[j]:
+                        c = min(f, charge)
+                        f_j[j] -= c
+                        charge -= c
             else:
                 # add to the lower levels first
                 for j in range(nj):
                     f = f_j[j]
                     l = self.l_j[j]
-                    if use_empty or f > 0:
+                    if use_complete or f > 0:
                         c = min(degeneracy_j[j] - f, -charge)
                         f_j[j] += c
                         charge += c
