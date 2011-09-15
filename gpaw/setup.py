@@ -82,34 +82,55 @@ class BaseSetup:
 
         Hund rules disabled if so."""
 
-        assert magmom >= 0  # XXX simplify code below
-        
         niao = self.niAO
         f_si = np.zeros((nspins, niao))
 
         assert (not hund) or f_j is None
         if f_j is None:
             f_j = self.f_j
+        f_j = np.array(f_j, float)
+        l_j = np.array(self.l_j)
 
+        def correct_for_charge(f_j, charge, degeneracy_j):
+            nj = len(f_j)
+            # correct for the charge
+            if charge >= 0:
+                # reduce the higher levels first
+                for j in range(nj - 1, -1, -1):
+                    f = f_j[j]
+                    c = min(f, charge)
+                    f_j[j] -= c
+                    charge -= c
+            else:
+                # add to the lower levels first
+                for j in range(nj):
+                    f = f_j[j]
+                    l = self.l_j[j]
+                    c = min(degeneracy_j[j] - f, -charge)
+                    f_j[j] += c
+                    charge += c
+            assert charge == 0.0, charge
+
+        # distribute the charge to the radial orbitals
+        if nspins == 1:
+            assert magmom == 0.0
+            f_sj = np.array([f_j])
+            correct_for_charge(f_sj[0], charge, 
+                               2 * (2 * l_j + 1))
+        else:
+            nval = f_j.sum() - charge
+            f_sj = 0.5 * np.array([f_j, f_j])
+            nup = 0.5 * (nval + magmom)
+            ndown = 0.5 * (nval - magmom)
+            correct_for_charge(f_sj[0], f_sj[0].sum() - nup,
+                               2 * l_j + 1)
+            correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
+                               2 * l_j + 1)
+        
         # Projector function indices:
         nj = len(self.n_j)
 
-        f_j = np.array(f_j, float)
-        if charge >= 0:
-            for j in range(nj - 1, -1, -1):
-                f = f_j[j]
-                c = min(f, charge)
-                f_j[j] -= c
-                charge -= c
-        else:
-            for j in range(nj):
-                f = f_j[j]
-                l = self.l_j[j]
-                c = min(2 * (2 * l + 1) - f, -charge)
-                f_j[j] += c
-                charge += c
-        assert charge == 0.0, charge
-
+        # distribute to the atomic wave functions
         i = 0
         j = 0
         for phit in self.phit_j:
@@ -120,8 +141,10 @@ class BaseSetup:
                 j += 1
             if j < nj:
                 f = f_j[j]
+                f_s = f_sj[:, j]
             else:
                 f = 0
+                f_s = np.array([0, 0])
 
             degeneracy = 2 * l + 1
 
@@ -136,21 +159,13 @@ class BaseSetup:
                 else:
                     magmom -= 2 * degeneracy - f
             else:
-                if nspins == 1:
-                    f_si[0, i:i + degeneracy] = 1.0 * f / degeneracy
-                else:
-                    maxmom = min(f, 2 * degeneracy - f)
-                    mag = magmom
-                    if abs(mag) > maxmom:
-                        mag = cmp(mag, 0) * maxmom
-                    f_si[0, i:i + degeneracy] = 0.5 * (f + mag) / degeneracy
-                    f_si[1, i:i + degeneracy] = 0.5 * (f - mag) / degeneracy
-                    magmom -= mag
-                
+                for s in range(nspins):
+                    f_si[s, i:i + degeneracy] = f_s[s] / degeneracy
+
             i += degeneracy
             j += 1
 
-        if magmom != 0:
+        if hund and magmom != 0:
             raise ValueError('Bad magnetic moment %g for %s atom!'
                              % (magmom, self.symbol))
         assert i == niao
