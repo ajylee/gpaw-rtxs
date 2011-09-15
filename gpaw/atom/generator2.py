@@ -7,7 +7,6 @@ import numpy as np
 from scipy.special import gamma
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
-
 from ase.utils import prnt
 from ase.units import Hartree
 
@@ -21,6 +20,80 @@ from gpaw.atom.configurations import configurations
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
     GaussianBasis
+
+
+parameters = {
+'H':  ('1s,s,p', 1.0),
+'He': ('1s,s,p', 1.0),
+'Li': ('2s,s,2p', 2.4),
+'Be': ('2s,s,2p', 2.0),
+'B':  ('2s,s,2p,p,d', 1.4),
+'C':  ('2s,s,2p,p,d', 1.3),
+'N':  ('2s,s,2p,p,d', 1.3),
+'O':  ('2s,s,2p,p,d', 1.5),
+'F':  ('2s,s,2p,p,d', 1.4),
+'Ne': ('2s,s,2p,p,d', 1.8),
+'Na': ('3s,s,p', 2.8),
+'Mg': ('3s,s,p', 2.8),
+'Al': ('3s,s,3p,p,d', 2.2),
+'Si': ('3s,s,3p,p,d', 2.4),
+'P':  ('3s,s,3p,p,d', 1.9),
+'S':  ('3s,s,3p,p,d', 2.2),
+'Cl': ('3s,s,3p,p,d', 2.1),
+'Ar': ('3s,s,3p,p,d', 2.0),
+'K':  ('3s,4s,3p,4p,d', 2.4),
+'Ca': ('3s,4s,3p,4p,3d', 2.5),
+'Sc': ('3s,4s,3p,4p,3d,d', 2.8, 'f'),
+'Ti': ('3s,4s,3p,4p,3d,d', 2.7, 'f'),
+'V':  ('3s,4s,3p,4p,3d,d', 2.7, 'f'),
+'Cr': ('3s,4s,3p,4p,3d,d', 2.7, 'f'),
+'Mn': ('4s,s,4p,p,3d,d', 2.8),
+'Fe': ('4s,s,4p,p,3d,d', 2.8),
+'Co': ('4s,s,4p,p,3d,d', 2.7),
+'Ni': ('4s,s,4p,p,3d,d', 2.7),
+'Cu': ('4s,s,4p,p,3d,d', 2.5),
+'Zn': ('4s,s,4p,p,3d,d', 2.8),
+'Ga': ('4s,s,4p,p,3d,d', 2.6),
+'Ge': ('4s,s,4p,p,d', 2.7),
+'As': ('4s,s,4p,p,d', 2.7),
+'Se': ('4s,s,4p,p,d', 2.7),
+'Br': ('4s,s,4p,p,d', 2.7),
+'Kr': ('4s,s,4p,p,d', 2.4),
+'Rb': ('4s,5s,4p,p,d', 2.7),
+'Sr': ('5s,s,4p,p,d', 2.9),
+'Y':  ('5s,s,?p,p,4d,d', 3.0),
+'Zr': ('5s,s,?p,p,4d,d', 2.9),
+'Nb': ('5s,s,?p,p,4d,d', 2.9),
+'Mo': ('5s,s,?p,p,4d,d', 2.9),
+'Ru': ('5s,s,?p,p,4d,d', 2.9),
+'Rh': ('5s,s,?p,p,4d,d', 2.9),
+'Pd': ('?s,s,?p,p,4d,d', 2.8),
+'Ag': ('5s,s,?p,p,4d,d', 2.9),
+'Cd': ('5s,s,?p,p,4d,d', 2.7),
+'In': ('5s,s,5p,p,4d,d', 2.7),
+'Sn': ('5s,s,5p,p,d', 2.8),
+'Sb': ('5s,s,5p,p,d', 2.7),
+'Te': ('5s,s,5p,p,d', 2.7),
+'I':  ('5s,s,5p,p,d', 2.7),
+'Xe': ('5s,s,5p,p,d', 2.8),
+'Cs': ('5s,6s,5p,p,d', 3.2),
+'Ba': ('6s,s,5p,p,d', 3.0),
+'La': ('6s,s,5p,p,5d,d', 3.1),
+'Ce': ('6s,s,5p,p,5d,d,4f,f', 3.1),
+'Lu': ('6s,s,?p,p,5d,d,4f,f', 3.4),
+'Hf': ('6s,s,?p,p,5d,d,4f,f', 3.1),
+'Ta': ('6s,s,?p,p,5d,d', 3.0),
+'W':  ('6s,s,?p,p,5d,d', 3.0),
+'Re': ('6s,s,?p,p,5d,d', 3.0),
+'Os': ('6s,s,?p,p,5d,d', 3.0),
+'Ir': ('6s,s,?p,p,5d,d', 2.9),
+'Pt': ('6s,s,?p,p,5d,d', 3.0),
+'Au': ('6s,s,?p,p,5d,d', 3.0),
+'Hg': ('6s,s,?p,p,5d,d', 2.9),
+'Tl': ('6s,s,6p,p,5d,d', 2.8),
+'Pb': ('6s,s,6p,p,5d,d', 2.8),
+'Bi': ('6s,s,6p,p,d', 3.0),
+'Rn': ('6s,s,6p,p,d', 2.7)}
 
 
 class PAWWaves:
@@ -45,7 +118,7 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self):
+    def pseudize(self, old=False):
         rgd = self.rgd
 
         phi_ng = self.phi_ng = np.array(self.phi_ng)
@@ -53,10 +126,13 @@ class PAWWaves:
         phit_ng = self.phit_ng = rgd.empty(N)
         gcut = rgd.ceil(self.rcut)
 
+        P = 6
+        if old:
+            P = 4
         self.nt_g = 0
         self.c_np = []
         for n in range(N):
-            phit_ng[n], c_p = rgd.pseudize(phi_ng[n], gcut, self.l, points=6)
+            phit_ng[n], c_p = rgd.pseudize(phi_ng[n], gcut, self.l, points=P)
             self.c_np.append(c_p)
             self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
             
@@ -120,7 +196,6 @@ class PAWWaves:
             self.dS_nn = np.dot(np.dot(iL_nn, self.dS_nn), iL_nn.T)
             self.dH_nn = np.dot(np.dot(iL_nn, self.dH_nn), iL_nn.T)
 
-        print np.linalg.inv(U_nn.T)
         self.pt_ng = np.dot(np.linalg.inv(U_nn.T), q_ng)
         self.pt_ng[:, 1:] /= r_g[1:]
         if l == 0:
@@ -139,26 +214,70 @@ class PAWWaves:
 
 
 class PAWSetupGenerator:
-    def __init__(self, aea, states, radii, fd=sys.stdout):
+    def __init__(self, aea, projectors, rc, fd=sys.stdout, old=False):
         """fd: stream
             Text output."""
         
         self.aea = aea
-        self.rgd = aea.rgd
         
+        self.old = old
+
         if fd is None:
             fd = devnull
         self.fd = fd
 
+        lmax = -1
+        states = {}
+        for s in projectors.split(','):
+            l = 'spdf'.find(s[-1])
+            if len(s) == 1:
+                n = None
+            elif '.' in s:
+                n = float(s[:-1])
+            else:
+                n = int(s[:-1])
+            if l in states:
+                states[l].append(n)
+            else:
+                states[l] = [n]
+            if l > lmax:
+                lmax = l
+
+        # Add empty bound states:
+        for l, nn in states.items():
+            for n in nn:
+                if (isinstance(n, int) and
+                    (l not in aea.f_lsn or n - l > len(aea.f_lsn[l][0]))):
+                    aea.add(n, l, 0)
+
+        for l in range(lmax):
+            if l not in states:
+                states[l] = []
+
+        aea.initialize()
+        aea.run()
+        aea.refine()
+        
+        self.rgd = aea.rgd
+
         self.log('Generating PAW setup.')
+
+        if isinstance(rc, float):
+            radii = [rc]
+        else:
+            radii = rc
 
         self.rcmax = max(radii)
         self.gcmax = self.rgd.ceil(self.rcmax)
 
+        if lmax >= 0:
+            radii += [radii[-1]] * (lmax + 1 - len(radii))
+
         self.waves_l = []
-        for l, nn in enumerate(states):
+        for l in range(lmax + 1):
             waves = PAWWaves(self.rgd, l, radii[l])
-            for n in nn:
+            e = -1.0
+            for n in states[l]:
                 if isinstance(n, int):
                     # Bound state:
                     ch = aea.channels[l]
@@ -166,7 +285,10 @@ class PAWSetupGenerator:
                     f = ch.f_n[n - l - 1]
                     phi_g = ch.phi_ng[n - l - 1]
                 else:
-                    e = n
+                    if n is None:
+                        e += 1.0
+                    else:
+                        e = n
                     n = -1
                     f = 0.0
                     phi_g = self.rgd.zeros()
@@ -197,8 +319,10 @@ class PAWSetupGenerator:
             return log(spillage(alpha)) - log(eps)
 
         self.alpha = fsolve(f, 7.0)[0]
-        self.alpha = round(self.alpha, 2)
-        self.log('Shape function: exp(-alpha*r^2), alpha=%.2f Bohr^-2' %
+        self.alpha = round(self.alpha, 1)
+        if self.old:
+            self.alpha = 10.0 / self.rcmax**2
+        self.log('Shape function: exp(-alpha*r^2), alpha=%.1f Bohr^-2' %
                  self.alpha)
         self.log('Fraction of shape-function outside rcmax=%.2f Bohr: %e' %
                  (self.rcmax, spillage(self.alpha)))
@@ -230,14 +354,15 @@ class PAWSetupGenerator:
         self.npseudocore = self.rgd.integrate(self.nct_g)
 
         self.log('Core electrons:', self.ncore)
-        self.log('Pseudo core electrons: %.3f' % self.rgd.integrate(self.nct_g))
+        self.log('Pseudo core electrons: %.6f' %
+                 self.rgd.integrate(self.nct_g))
         
         self.nt_g = self.nct_g.copy()
         self.Q = -self.aea.Z + self.ncore - self.npseudocore
 
     def pseudize(self):
         for waves in self.waves_l:
-            waves.pseudize()
+            waves.pseudize(self.old)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
@@ -268,11 +393,14 @@ class PAWSetupGenerator:
                     
     def find_polynomial_potential(self, r0, P, e0=None):
         g0 = self.rgd.ceil(r0)
-        if e0 is None:
+        assert e0 is None
+        if self.old:
+            vtr_g = self.vHtr_g + self.vxct_g * self.rgd.r_g
+            self.vtr_g = self.rgd.pseudize(vtr_g, g0, 1, P)[0]
+            self.v0r_g = self.vtr_g - vtr_g
+        else:
             self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
             self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
-        else:
-            asdgfkljh
 
         self.l0 = None
         self.e0 = None
@@ -333,11 +461,14 @@ class PAWSetupGenerator:
     def check(self):
         self.log('Checking eigenvalues of pseudo atom using ' +
                  'a Gaussian basis set:')
-        self.log('Bound AE and PS states: [Hartree]')
+        self.log('           AE [Hartree]   PS [Hartree]   error [Hartree]')
         basis = self.aea.channels[0].basis
         eps = basis.eps
         alpha_B = basis.alpha_B
-        for l in range(4):#len(self.aea.channels)):
+
+        ok = True
+
+        for l in range(4):
             basis = GaussianBasis(l, alpha_B, self.rgd, eps)
             H_bb = basis.calculate_potential_matrix(self.vtr_g)
             H_bb += basis.T_bb
@@ -352,32 +483,49 @@ class PAWSetupGenerator:
                     H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
                     S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
                     n0 = waves.n_n[0] - l - 1
+                    if n0 < 0 and l < len(self.aea.channels):
+                        n0 = (self.aea.channels[l].f_n > 0).sum()
                 
             e_b = np.empty(len(basis))
             general_diagonalize(H_bb, e_b, S_bb)
             nbound = (e_b < 0).sum()
 
+            print n0,nbound
             if l < len(self.aea.channels):
                 e0_b = self.aea.channels[l].e_n
                 nbound0 = (e0_b < 0).sum()
+                print nbound0
 
-                for n in range(1 + l, nbound0 + 1 + l):
-                    self.log('          %d%s' % (n, 'spdf'[l]), end='')
-                self.log()
-                for e in e0_b[:nbound0]:
-                    self.log('%12.4f' % e, end='')
-                self.log('\n', end=' ' * 12 * n0)
-                for e in e_b[:nbound0 - n0]:
-                    self.log('%12.4f' % e, end='')
-                self.log()
+                extra = 6
+                for n in range(1 + l, nbound0 + 1 + l + extra):
+                    if n - 1 - l < nbound0:
+                        self.log('%2d%s' % (n, 'spdf'[l]), end='')
+                    else:
+                        self.log('   ', end='')
+                    self.log('  %15.6f' % e0_b[n - 1 - l], end='')
+                    if n - 1 - l - n0 >= 0:
+                        self.log('%15.6f' * 2 %
+                                 (e_b[n - 1 - l - n0],
+                                  e_b[n - 1 - l - n0] - e0_b[n - 1 - l]))
+                    else:
+                        self.log()
                 
                 if nbound != nbound0 - n0:
                     self.log('Wrong number of %s-states!' % 'spdf'[l])
+                    ok = False
                 elif (nbound > 0 and
                       abs(e_b[:nbound] - e0_b[n0:nbound0]).max() > 1e-3):
+                    self.log('Error in bound %s-states!' % 'spdf'[l])
+                    ok = False
+                elif (abs(e_b[nbound:nbound + extra] -
+                          e0_b[nbound0:nbound0 + extra]).max() > 2e-2):
                     self.log('Error in %s-states!' % 'spdf'[l])
-            else:
-                assert nbound == 0
+                    ok = False
+            elif nbound > 0:
+                self.log('Wrong number of %s-states!' % 'spdf'[l])
+                ok = False
+
+        return ok
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -546,6 +694,7 @@ def build_parser():
                       'Example: -l spdf,-1:1:0.05,1.3. ' +
                       'Energy range and/or radius can be left out.')
     parser.add_option('-w', '--write', action='store_true')
+    parser.add_option('--old', action='store_true')
     return parser
 
 
@@ -561,45 +710,15 @@ def main(AEA=AllElectronAtom):
         
     aea = AEA(symbol, **kwargs)
 
-    lmax = -1
-    states = {}
+    projectors, radii = parameters[symbol][:2]
+
     if opt.projectors:
-        for s in opt.projectors.split(','):
-            l = 'spdf'.find(s[-1])
-            n = eval(s[:-1])
-            if l in states:
-                states[l].append(n)
-            else:
-                states[l] = [n]
-            if l > lmax:
-                lmax = l
-
-    # Add empty bound states:
-    for l, nn in states.items():
-        for n in nn:
-            if (isinstance(n, int) and
-                (l not in aea.f_lsn or n - l > len(aea.f_lsn[l][0]))):
-                aea.add(n, l, 0)
-
-    for l in range(lmax):
-        if l not in states:
-            states[l] = []
-
-    aea.initialize()
-    aea.run()
-    aea.refine()
+        projectors = opt.projectors
                 
     if opt.radius:
         radii = [float(r) for r in opt.radius.split(',')]
-    else:
-        rave = aea.rgd.integrate(aea.n_sg[0], 1) / aea.Z
-        radii = [0.5 * rave]
-    if lmax >= 0:
-        radii += [radii[-1]] * (lmax + 1 - len(radii))
 
-    projectors = [states[l] for l in range(lmax + 1)]
-
-    gen = PAWSetupGenerator(aea, projectors, radii)
+    gen = PAWSetupGenerator(aea, projectors, radii, old=opt.old)
 
     gen.calculate_core_density()
     gen.pseudize()
@@ -622,19 +741,22 @@ def main(AEA=AllElectronAtom):
             l0 = 'spdfg'.find(type)
             gen.find_local_potential(l0, r0, nderiv, e0)
     else:
-        gen.find_polynomial_potential(max(radii), 4)
+        if len(parameters[symbol]) == 2:
+            gen.find_polynomial_potential(gen.rcmax, 6)
+        else:
+            gen.find_local_potential(3, gen.rcmax, 6, 0.0)
         
     gen.construct_projectors()
 
-    gen.check()
+    ok = gen.check()
 
-    if opt.write:
+    if ok and opt.write:
         gen.make_paw_setup().write_xml()
         
     if opt.logarithmic_derivatives or opt.plot:
         import matplotlib.pyplot as plt
         if opt.logarithmic_derivatives:
-            r = 1.1 * max(radii)
+            r = 1.1 * gen.rcmax
             emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.2
             emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.2
             lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives,
@@ -735,20 +857,19 @@ class PAWSetup:
         self.R_sii = np.zeros((1, 0, 0))
 
 if 0:
-    aea = AllElectronAtom('H')
-    aea.add(2, 1, 0)
-    aea.initialize()
-    aea.run()
-    g = PAWSetupGenerator(aea, [(0.8, [1])], 1)
-    #g = PAWSetupGenerator(aea, [], 0, 0.8)
-    g.generate()
-    g.plot()
-    setup = g.make_paw_setup()
-    from ase.data.molecules import molecule
-    from gpaw import GPAW
-
-    a = molecule('H', pbc=1, magmoms=[0])
-    a.center(vacuum=2)
-    a.set_calculator(
-        GPAW(setups={0: setup}))
-    a.get_potential_energy()
+    for Z in range(1, 44):
+        aea = AllElectronAtom(Z)
+        symbol = chemical_symbols[Z]
+        p = parameters[symbol]
+        projectors, radii = p[:2]
+        gen = PAWSetupGenerator(aea, projectors, radii)
+        gen.calculate_core_density()
+        gen.pseudize()
+        if len(p) == 2:
+            gen.find_polynomial_potential(gen.rcmax, 6)
+        else:
+            gen.find_local_potential(3, gen.rcmax, 6, 0.0)
+        gen.construct_projectors()
+        assert gen.check()
+        #gen.make_paw_setup().write_xml()
+ 
