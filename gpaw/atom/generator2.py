@@ -204,13 +204,14 @@ class PAWWaves:
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
         if len(self) == 0:
             return
-        self.dekin_nn = (self.rgd.integrate(self.phi_ng[:, None] *
-                                            self.phi_ng *
-                                            vr_g, -1) / (4 * pi) -
-                         self.rgd.integrate(self.phit_ng[:, None] *
+        self.dekin_nn = (self.rgd.integrate(self.phit_ng[:, None] *
                                             self.phit_ng *
                                             vtr_g, -1) / (4 * pi) -
+                         self.rgd.integrate(self.phi_ng[:, None] *
+                                            self.phi_ng *
+                                            vr_g, -1) / (4 * pi) +
                          self.dH_nn)
+        print self.dekin_nn
 
 
 class PAWSetupGenerator:
