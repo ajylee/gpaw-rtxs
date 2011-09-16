@@ -111,7 +111,8 @@ class BaseSetup:
                         c = min(degeneracy_j[j] - f, -charge)
                         f_j[j] += c
                         charge += c
-            assert charge == 0.0, charge
+            if charge != 0:
+                correct_for_charge(f_j, charge, degeneracy_j, True)
 
         # distribute the charge to the radial orbitals
         if nspins == 1:

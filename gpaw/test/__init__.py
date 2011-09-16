@@ -136,7 +136,7 @@ tests = [
     'revPBE.py',
     'lcao_largecellforce.py',
     'lcao_h2o.py',
-    'spinFe3plus.py,'
+    'spinFe3plus.py',
     'spin_contamination.py',
     'lrtddft2.py',
     'stdout.py',
