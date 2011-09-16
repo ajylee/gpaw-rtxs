@@ -59,16 +59,16 @@ parameters = {
 'Se': ('4s,s,4p,p,d', 2.7),
 'Br': ('4s,s,4p,p,d', 2.7),
 'Kr': ('4s,s,4p,p,d', 2.4),
-'Rb': ('4s,5s,4p,p,d', 2.7),
-'Sr': ('5s,s,4p,p,d', 2.9),
+'Rb': ('4s,5s,4p,5p,d', 2.7),
+'Sr': ('4s,5s,4p,5p,d', 2.9),
 'Y':  ('5s,s,?p,p,4d,d', 3.0),
 'Zr': ('5s,s,?p,p,4d,d', 2.9),
 'Nb': ('5s,s,?p,p,4d,d', 2.9),
 'Mo': ('5s,s,?p,p,4d,d', 2.9),
-'Ru': ('5s,s,?p,p,4d,d', 2.9),
+'Ru': ('4s,5s,4p,5p,4d,d', 2.9, 'f'),
 'Rh': ('5s,s,?p,p,4d,d', 2.9),
 'Pd': ('?s,s,?p,p,4d,d', 2.8),
-'Ag': ('5s,s,?p,p,4d,d', 2.9),
+'Ag': ('5s,s,5p,p,4d,d', 3.1),
 'Cd': ('5s,s,?p,p,4d,d', 2.7),
 'In': ('5s,s,5p,p,4d,d', 2.7),
 'Sn': ('5s,s,5p,p,d', 2.8),
@@ -79,7 +79,7 @@ parameters = {
 'Cs': ('5s,6s,5p,p,d', 3.2),
 'Ba': ('6s,s,5p,p,d', 3.0),
 'La': ('6s,s,5p,p,5d,d', 3.1),
-'Ce': ('6s,s,5p,p,5d,d,4f,f', 3.1),
+'Ce': ('5s,6s,5p,6p,5d,d', 2.8, 'f', 1.5),
 'Lu': ('6s,s,?p,p,5d,d,4f,f', 3.4),
 'Hf': ('6s,s,?p,p,5d,d,4f,f', 3.1),
 'Ta': ('6s,s,?p,p,5d,d', 3.0),
@@ -260,7 +260,7 @@ class PAWSetupGenerator:
         
         self.rgd = aea.rgd
 
-        self.log('Generating PAW setup.')
+        self.log('\nGenerating PAW setup for', aea.symbol)
 
         if isinstance(rc, float):
             radii = [rc]
@@ -356,6 +356,7 @@ class PAWSetupGenerator:
         self.log('Core electrons:', self.ncore)
         self.log('Pseudo core electrons: %.6f' %
                  self.rgd.integrate(self.nct_g))
+        self.log('Valence electrons:', self.nvalence)
         
         self.nt_g = self.nct_g.copy()
         self.Q = -self.aea.Z + self.ncore - self.npseudocore
@@ -485,23 +486,23 @@ class PAWSetupGenerator:
                     n0 = waves.n_n[0] - l - 1
                     if n0 < 0 and l < len(self.aea.channels):
                         n0 = (self.aea.channels[l].f_n > 0).sum()
-                
+            elif l < len(self.aea.channels):
+                n0 = (self.aea.channels[l].f_n > 0).sum()                
+
             e_b = np.empty(len(basis))
             general_diagonalize(H_bb, e_b, S_bb)
             nbound = (e_b < 0).sum()
 
-            print n0,nbound
             if l < len(self.aea.channels):
                 e0_b = self.aea.channels[l].e_n
                 nbound0 = (e0_b < 0).sum()
-                print nbound0
-
                 extra = 6
                 for n in range(1 + l, nbound0 + 1 + l + extra):
-                    if n - 1 - l < nbound0:
-                        self.log('%2d%s' % (n, 'spdf'[l]), end='')
+                    if n - 1 - l < len(self.aea.channels[l].f_n):
+                        f = self.aea.channels[l].f_n[n - 1 - l]
+                        self.log('%2d%s  %2d' % (n, 'spdf'[l], f), end='')
                     else:
-                        self.log('   ', end='')
+                        self.log('       ', end='')
                     self.log('  %15.6f' % e0_b[n - 1 - l], end='')
                     if n - 1 - l - n0 >= 0:
                         self.log('%15.6f' * 2 %
