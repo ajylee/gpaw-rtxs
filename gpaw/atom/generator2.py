@@ -9,6 +9,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from ase.utils import prnt
 from ase.units import Hartree
+from ase.data import atomic_numbers, chemical_symbols
 
 from gpaw.utilities import erf
 from gpaw.spline import Spline
@@ -25,7 +26,7 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 parameters = {
 'H':  ('1s,s,p', 1.0),
 'He': ('1s,s,p', 1.0),
-'Li': ('2s,s,2p', 2.4),
+'Li': ('2s,s,2p', 2.5),
 'Be': ('2s,s,2p', 2.0),
 'B':  ('2s,s,2p,p,d', 1.4),
 'C':  ('2s,s,2p,p,d', 1.3),
@@ -61,13 +62,14 @@ parameters = {
 'Kr': ('4s,s,4p,p,d', 2.4),
 'Rb': ('4s,5s,4p,5p,d', 2.7),
 'Sr': ('4s,5s,4p,5p,d', 2.9),
-'Y':  ('5s,s,?p,p,4d,d', 3.0),
-'Zr': ('5s,s,?p,p,4d,d', 2.9),
-'Nb': ('5s,s,?p,p,4d,d', 2.9),
-'Mo': ('5s,s,?p,p,4d,d', 2.9),
+'Y':  ('4s,5s,4p,5p,4d,d', 2.6, 'f'),
+'Zr': ('4s,5s,4p,5p,4d,d', 2.7, 'f'),
+'Nb': ('4s,5s,4p,5p,4d,d', 2.8, 'f'),
+'Mo': ('4s,5s,4p,5p,4d,d', 2.9, 'f'),
+'Tc': ('4s,5s,4p,5p,4d,d', 2.9, 'f'),
 'Ru': ('4s,5s,4p,5p,4d,d', 2.9, 'f'),
-'Rh': ('5s,s,?p,p,4d,d', 2.9),
-'Pd': ('?s,s,?p,p,4d,d', 2.8),
+'Rh': ('5s,s,5p,p,4d,d', 3.2),
+'Pd': ('5s,s,5p,p,4d,d', 3.1),
 'Ag': ('5s,s,5p,p,4d,d', 3.1),
 'Cd': ('5s,s,?p,p,4d,d', 2.7),
 'In': ('5s,s,5p,p,4d,d', 2.7),
@@ -679,8 +681,16 @@ class PAWSetupGenerator:
 
         return setup
 
-     
-def build_parser(): 
+
+def str2z(x):
+    if isinstance(x, int):
+        return x
+    if x[0].isdigit():
+        return int(x)
+    return atomic_numbers[x]
+
+
+def generate(argv=None):
     from optparse import OptionParser
 
     parser = OptionParser(usage='%prog [options] element',
@@ -709,20 +719,33 @@ def build_parser():
     parser.add_option('--old', action='store_true')
     parser.add_option('-s', '--scalar-relativistic', action='store_true')
     parser.add_option('--no-check', action='store_true')
-    return parser
+
+    opt, args = parser.parse_args(argv)
+
+    if len(args) == 0:
+        symbols = range(1, 87)
+    elif len(args) == 1 and '-' in args[0]:
+        Z1, Z2 = args[0].split('-')
+        Z1 = str2z(Z1)
+        if Z2:
+            Z2 = str2z(Z2)
+        else:
+            Z2 = 86
+        symbols = range(Z1, Z2 + 1)
+    else: 
+        symbols = args
+                    
+    for symbol in symbols:
+        Z = str2z(symbol)
+        symbol = chemical_symbols[Z]
+
+        gen = _generate(symbol, opt)
+
+    return gen
 
 
-def main(AEA=AllElectronAtom):
-    parser = build_parser()
-    opt, args = parser.parse_args()
-
-    if len(args) != 1:
-        parser.error('Incorrect number of arguments')
-    symbol = args[0]
-
-    kwargs = {'xc': opt.xc_functional}
-        
-    aea = AEA(symbol, **kwargs)
+def _generate(symbol, opt):
+    aea = AllElectronAtom(symbol, xc=opt.xc_functional)
 
     projectors, radii = parameters[symbol][:2]
 
@@ -811,85 +834,9 @@ def main(AEA=AllElectronAtom):
             gen.plot()
 
         plt.show()
+    
+    return gen
 
 
 if __name__ == '__main__':
-    main()
-
-class PAWSetup:
-    def __init__(self, alpha, r_g, phit_g, v0_g):
-        self.natoms = 0
-        self.E = 0.0
-        self.Z = 1
-        self.Nc = 0
-        self.Nv = 1
-        self.niAO = 1
-        self.pt_j = []
-        self.ni = 0
-        self.l_j = []
-        self.nct = None
-        self.Nct = 0.0
-
-        rc = 1.0
-        r2_g = np.linspace(0, rc, 100)**2
-        x_g = np.exp(-alpha * r2_g)
-        x_g[-1] = 0 
-
-        self.ghat_l = [Spline(0, rc,
-                              (4 * pi)**0.5 * (alpha / pi)**1.5 * x_g)]
-
-        self.vbar = Spline(0, rc, (4 * pi)**0.5 * v0_g[0] * x_g)
-
-        r = np.linspace(0, 4.0, 100)
-        phit = splev(r, splrep(r_g, phit_g))
-        poly = np.polyfit(r[[-30,-29,-2,-1]], [0, 0, phit[-2], phit[-1]], 3)
-        phit[-30:] -= np.polyval(poly, r[-30:])
-        self.phit_j = [Spline(0, 4.0, phit)]
-                              
-        self.Delta_pL = np.zeros((0, 1))
-        self.Delta0 = -1 / (4 * pi)**0.5
-        self.lmax = 0
-        self.K_p = self.M_p = self.MB_p = np.zeros(0)
-        self.M_pp = np.zeros((0, 0))
-        self.Kc = 0.0
-        self.MB = 0.0
-        self.M = 0.0
-        self.xc_correction = null_xc_correction
-        self.HubU = None
-        self.dO_ii = np.zeros((0, 0))
-        self.type = 'local'
-        self.fingerprint = None
-        
-    def get_basis_description(self):
-        return '1s basis cut off at 4 Bohr'
-
-    def print_info(self, text):
-        text('Local pseudo potential')
-        
-    def calculate_initial_occupation_numbers(self, magmom, hund, charge,
-                                             nspins):
-        return np.array([(1.0,)])
-
-    def initialize_density_matrix(self, f_si):
-        return np.zeros((1, 0))
-
-    def calculate_rotations(self, R_slmm):
-        self.R_sii = np.zeros((1, 0, 0))
-
-if 0:
-    for Z in range(1, 44):
-        aea = AllElectronAtom(Z)
-        symbol = chemical_symbols[Z]
-        p = parameters[symbol]
-        projectors, radii = p[:2]
-        gen = PAWSetupGenerator(aea, projectors, radii)
-        gen.calculate_core_density()
-        gen.pseudize()
-        if len(p) == 2:
-            gen.find_polynomial_potential(gen.rcmax, 6)
-        else:
-            gen.find_local_potential(3, gen.rcmax, 6, 0.0)
-        gen.construct_projectors()
-        assert gen.check()
-        #gen.make_paw_setup().write_xml()
- 
+    generate()
