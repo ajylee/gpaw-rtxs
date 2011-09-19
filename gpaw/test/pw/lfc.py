@@ -21,8 +21,8 @@ spos_ac = np.array([(0.15, 0.5, 0.95)])
 
 pd = PWDescriptor(45, gd, kpts)
 
-eikr = np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
-                                  (kpts / gd.N_c).T).T)[0]
+eikr = np.ascontiguousarray(np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
+                                                         (kpts / gd.N_c).T).T)[0])
 
 from gpaw.fftw import FFTPlan
 print(FFTPlan)
