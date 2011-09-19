@@ -88,7 +88,7 @@ parameters = {
 'Os': ('6s,s,?p,p,5d,d', 3.0),
 'Ir': ('6s,s,?p,p,5d,d', 2.9),
 'Pt': ('6s,s,?p,p,5d,d', 3.0),
-'Au': ('6s,s,?p,p,5d,d', 3.0),
+'Au': ('6s,s,6p,p,5d,d', 3.0),
 'Hg': ('6s,s,?p,p,5d,d', 2.9),
 'Tl': ('6s,s,6p,p,5d,d', 2.8),
 'Pb': ('6s,s,6p,p,5d,d', 2.8),
@@ -180,7 +180,7 @@ class PAWWaves:
 
         L_nn = np.eye(N)
         U_nn = A_nn.copy()
-
+        
         if 0:#N - self.n_n.count(-1) == 1:
             assert self.n_n[0] != -1
             # We have a single bound-state projector.
@@ -211,7 +211,6 @@ class PAWWaves:
                                             self.phi_ng *
                                             vr_g, -1) / (4 * pi) +
                          self.dH_nn)
-        print self.dekin_nn
 
 
 class PAWSetupGenerator:
@@ -467,7 +466,7 @@ class PAWSetupGenerator:
     def check(self):
         self.log('Checking eigenvalues of pseudo atom using ' +
                  'a Gaussian basis set:')
-        self.log('           AE [Hartree]   PS [Hartree]   error [Hartree]')
+        self.log('                 AE [eV]        PS [eV]      error [eV]')
         basis = self.aea.channels[0].basis
         eps = basis.eps
         alpha_B = basis.alpha_B
@@ -495,7 +494,13 @@ class PAWSetupGenerator:
                 n0 = (self.aea.channels[l].f_n > 0).sum()                
 
             e_b = np.empty(len(basis))
-            general_diagonalize(H_bb, e_b, S_bb)
+            try:
+                general_diagonalize(H_bb, e_b, S_bb)
+            except RuntimeError:
+                self.log('Singular overlap matrix!')
+                ok = False
+                continue
+
             nbound = (e_b < 0).sum()
 
             if l < len(self.aea.channels):
@@ -508,11 +513,12 @@ class PAWSetupGenerator:
                         self.log('%2d%s  %2d' % (n, 'spdf'[l], f), end='')
                     else:
                         self.log('       ', end='')
-                    self.log('  %15.6f' % e0_b[n - 1 - l], end='')
+                    self.log('  %15.3f' % (e0_b[n - 1 - l] * Hartree), end='')
                     if n - 1 - l - n0 >= 0:
-                        self.log('%15.6f' * 2 %
-                                 (e_b[n - 1 - l - n0],
-                                  e_b[n - 1 - l - n0] - e0_b[n - 1 - l]))
+                        self.log('%15.3f' * 2 %
+                                 (e_b[n - 1 - l - n0] * Hartree,
+                                  (e_b[n - 1 - l - n0] - e0_b[n - 1 - l]) *
+                                  Hartree))
                     else:
                         self.log()
                 
@@ -702,6 +708,7 @@ def build_parser():
     parser.add_option('-w', '--write', action='store_true')
     parser.add_option('--old', action='store_true')
     parser.add_option('-s', '--scalar-relativistic', action='store_true')
+    parser.add_option('--no-check', action='store_true')
     return parser
 
 
@@ -757,7 +764,11 @@ def main(AEA=AllElectronAtom):
         
     gen.construct_projectors()
 
-    ok = gen.check()
+    if opt.no_check:
+        ok = True
+    else:
+        ok = gen.check()
+        
 
     if ok and opt.write:
         gen.make_paw_setup().write_xml()

@@ -7,6 +7,7 @@ from math import pi, log
 import numpy as np
 from numpy.linalg import eigh
 from scipy.special import gamma
+from scipy.linalg import solve_banded
 import ase.units as units
 from ase.utils import devnull, prnt
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
@@ -204,34 +205,31 @@ class Channel:
 
         cm1_g, c0_g, cp1_g = coefs(rgd, l, vr_g, e, scalar_relativistic)
 
-        c0_g /= -cp1_g
-        cm1_g /= -cp1_g
+        c_xg = np.zeros((3, g0 + 2))
+        c_xg[0, :2] = 1.0
+        c_xg[0, 2:] = cp1_g[1:g0 + 1]
+        c_xg[1, 1:-1] = c0_g[1:g0 + 1]
+        c_xg[2, :-2] = cm1_g[1:g0 + 1]
 
+        b_g = np.zeros(g0 + 2)
         if pt_g is not None:
-            c_g = 2 * pt_g * r_g / cp1_g
-            c_g[1:] /= r_g[1:]**l
-            agm1 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
+            b_g[2:] = -2 * pt_g[1:g0 + 1] * r_g[1:g0 + 1]**(1 - l)
+            a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
         else:
-            c_g = rgd.zeros()
-            agm1 = 1
+            a0 = 1
 
-        g = 1
-        u_g[0] = 0.0
-        ag = agm1 + vr_g[0] * rgd.dr_g[0]
+        a1 = a0 + vr_g[0] * rgd.dr_g[0]
+        b_g[:2] = [a0, a1]
 
-        while True:
-            u_g[g] = ag * r_g[g]**(l + 1)
-            agp1 = agm1 * cm1_g[g] + ag * c0_g[g] - c_g[g]
-            if g == g0:
-                break
-            g += 1
-            agm1 = ag
-            ag = agp1
+        a_g = solve_banded((2, 0), c_xg, b_g,
+                           overwrite_ab=True, overwrite_b=True)
 
-        r = r_g[g]
-        dr = rgd.dr_g[g]
-        da = 0.5 * (agp1 - agm1)
-        dudr = (l + 1) * r**l * ag + r**(l + 1) * da / dr
+        r = r_g[g0]
+        dr = rgd.dr_g[g0]
+        da = 0.5 * (a_g[g0 + 1] - a_g[g0 - 1])
+        dudr = (l + 1) * r**l * a_g[g0] + r**(l + 1) * da / dr
+
+        u_g[:g0 + 2] = a_g * r_g[:g0 + 2]**(l + 1)
 
         return dudr
 
