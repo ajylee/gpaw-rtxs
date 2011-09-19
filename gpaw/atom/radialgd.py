@@ -33,12 +33,15 @@ class RadialGridDescriptor:
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
 
-    def derivative(self, n_g, dndr_g):
+    def derivative(self, n_g, dndr_g=None):
         """Finite-difference derivative of radial function."""
+        if dndr_g is None:
+            dndr_g = self.empty()
         dndr_g[0] = n_g[1] - n_g[0]
         dndr_g[1:-1] = 0.5 * (n_g[2:] - n_g[:-2])
         dndr_g[-1] = n_g[-1] - n_g[-2]
         dndr_g /= self.dr_g
+        return dndr_g
 
     def derivative2(self, a_g, b_g):
         """Finite-difference derivative of radial function.
