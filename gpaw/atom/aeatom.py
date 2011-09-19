@@ -99,6 +99,31 @@ class GaussianBasis:
         return V_bb
 
 
+def coefs(rgd, l, vr_g, e, scalar_relativistic):
+    d2gdr2_g = rgd.d2gdr2()
+    r_g = rgd.r_g
+
+    x0_g = 2 * (e * r_g - vr_g)
+    x1_g = 2 * (l + 1) / rgd.dr_g + r_g * rgd.d2gdr2()
+    x2_g = r_g / rgd.dr_g**2
+
+    if scalar_relativistic:
+        r_g = r_g.copy()
+        r_g[0] = 1.0
+        v_g = vr_g / r_g
+        M_g = 1 + (e - v_g) / (2 * c**2)
+        kappa_g = (rgd.derivative(vr_g) - v_g) / r_g / (2 * c**2 * M_g)
+        x0_g *= M_g
+        x0_g += l * kappa_g
+        x1_g += r_g * kappa_g / rgd.dr_g
+
+    cm1_g = x2_g - x1_g / 2
+    c0_g = x0_g - 2 * x2_g
+    cp1_g = x2_g + x1_g / 2
+    
+    return cm1_g, c0_g, cp1_g
+    
+
 class Channel:
     def __init__(self, l, s=0, f_n=(), basis=None):
         self.l = l
@@ -120,7 +145,7 @@ class Channel:
         self.C_nb = C_bn.T
         self.phi_ng = self.basis.expand(self.C_nb[:len(self.f_n)])
 
-    def solve2(self, vr_g):
+    def solve2(self, vr_g, scalar_relativistic=False):
         rgd = self.basis.rgd
         r_g = rgd.r_g
         l = self.l
@@ -136,9 +161,11 @@ class Channel:
 
             iter = 0
             while True:
-                du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e)
+                du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
+                                                scalar_relativistic)
                 u1 = u_g[g0]
-                du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e)
+                du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e,
+                                               scalar_relativistic)
                 u2 = u_g[g0]
                 A = du1dr / u1 - du2dr / u2
                 u_g[g0:] *= u1 / u2
@@ -170,25 +197,22 @@ class Channel:
         f_n = self.f_n
         return np.dot(f_n, self.e_n[:len(f_n)])
 
-    def integrate_outwards(self, u_g, rgd, vr_g, g0, e, pt_g=None):
+    def integrate_outwards(self, u_g, rgd, vr_g, g0, e,
+                           scalar_relativistic=False, pt_g=None):
         l = self.l
-        d2gdr2_g = rgd.d2gdr2()
+        r_g = rgd.r_g
 
-        r_g = rgd.r_g.copy()
+        cm1_g, c0_g, cp1_g = coefs(rgd, l, vr_g, e, scalar_relativistic)
 
-        x0_g = 2 * (e * r_g - vr_g)
-        x1_g = 2 * (l + 1) / rgd.dr_g + r_g * rgd.d2gdr2()
-        x2_g = r_g / rgd.dr_g**2
+        c0_g /= -cp1_g
+        cm1_g /= -cp1_g
 
-        yp1_g = x1_g / 2 + x2_g
-        ym1_g = (x1_g / 2 - x2_g) / yp1_g
-        y_g = (2 * x2_g - x0_g) / yp1_g
         if pt_g is not None:
-            y0_g = 2 * pt_g * r_g / yp1_g
-            y0_g[1:] /= r_g[1:]**l
+            c_g = 2 * pt_g * r_g / cp1_g
+            c_g[1:] /= r_g[1:]**l
             agm1 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
         else:
-            y0_g = rgd.zeros()
+            c_g = rgd.zeros()
             agm1 = 1
 
         g = 1
@@ -197,7 +221,7 @@ class Channel:
 
         while True:
             u_g[g] = ag * r_g[g]**(l + 1)
-            agp1 = agm1 * ym1_g[g] + ag * y_g[g] - y0_g[g]
+            agp1 = agm1 * cm1_g[g] + ag * c0_g[g] - c_g[g]
             if g == g0:
                 break
             g += 1
@@ -211,20 +235,16 @@ class Channel:
 
         return dudr
 
-    def integrate_inwards(self, u_g, rgd, vr_g, g0, e):
+    def integrate_inwards(self, u_g, rgd, vr_g, g0, e,
+                          scalar_relativistic=False):
         l = self.l
-        d2gdr2_g = rgd.d2gdr2()
+        r_g = rgd.r_g
 
-        r_g = rgd.r_g.copy()
+        cm1_g, c0_g, cp1_g = coefs(rgd, l, vr_g, e, scalar_relativistic)
 
-        x0_g = 2 * (e * r_g - vr_g)
-        x1_g = 2 * (l + 1) / rgd.dr_g + r_g * rgd.d2gdr2()
-        x2_g = r_g / rgd.dr_g**2
-
-        ym1_g = x1_g / 2 - x2_g
-        ym1_g[:g0] = 1.0  # prevent division by zero
-        yp1_g = (x1_g / 2 + x2_g) / ym1_g
-        y_g = (2 * x2_g - x0_g) / ym1_g
+        cm1_g[:g0] = 1.0  # prevent division by zero
+        c0_g /= -cm1_g
+        cp1_g /= -cm1_g
 
         g = len(u_g) - 2
         agp1 = 1.0
@@ -237,7 +257,7 @@ class Channel:
                 u_g[g:] /= 1e50
                 ag = ag / 1e50
                 agp1 = agp1 / 1e50
-            agm1 = agp1 * yp1_g[g] - ag * y_g[g]
+            agm1 = agp1 * cp1_g[g] + ag * c0_g[g]
             if g == g0:
                 break
             g -= 1
@@ -248,146 +268,6 @@ class Channel:
         dr = rgd.dr_g[g]
         da = 0.5 * (agp1 - agm1)
         dudr = (l + 1) * r**l * ag + r**(l + 1) * da / dr
-
-        return dudr
-    
-    def integrate_inwardsOLD(self, u_g, rgd, vr_g, g0, e):
-        l = self.l
-
-        r_g = rgd.r_g.copy()
-        r_g[0] = 1.0
-
-        x0_g = 2 * (e - 0.5 * l * (l + 1) / r_g**2 - vr_g / r_g)
-        x1_g = rgd.d2gdr2()
-        x2_g = 1 / rgd.dr_g**2
-
-        ym1_g = x1_g / 2 - x2_g
-        yp1_g = (x1_g / 2 + x2_g) / ym1_g
-        y_g = (x0_g - 2 * x2_g) / ym1_g
-
-        g = len(u_g) - 2
-        agp1 = 1.0#np.exp(-(-2 * e)**0.5 * rgd.r_g[-1])
-        u_g[-1] = agp1
-        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[-2] - rgd.r_g[-1]))
-
-        while True:
-            u_g[g] = ag
-            if ag > 1e50:
-                u_g[g:] /= 1e50
-                ag = ag / 1e50
-                agp1 = agp1 / 1e50
-            agm1 = agp1 * yp1_g[g] + ag * y_g[g]
-            if g == g0:
-                break
-            g -= 1
-            agp1 = ag
-            ag = agm1
-            #print g,rgd.r_g[g],ag
-
-        da = 0.5 * (agp1 - agm1)
-        dudr = da / rgd.dr_g[g]
-
-        return dudr
-
-    def integrate_inwards0(self, u_g, rgd, vr_g, g0, e):
-        """
-        ::
-
-                 2
-              1 d u         l(l + 1)
-            - - --- + v u + -------- u = e u
-              2   2              2
-                dr             2r
-
-        Using u(r) = a(g), we get::
-
-                      2       2    2                          2 
-            a" (dg/dr)  + a' d g/dr  + a (2e - 2v - l(l + 1)/r ) = 0
-        """
-
-        l = self.l
-
-        r_g = rgd.r_g.copy()
-        r_g[0] = 1.0
-
-        x0_g = 2 * e - l * (l + 1) / r_g**2 - 2 * vr_g / r_g
-        x1_g = rgd.d2gdr2()
-        x2_g = 1 / rgd.dr_g**2
-
-        ym2_g = x1_g / 12 - x2_g / 12
-        ym1_g = -(-2 / 3.0 * x1_g + 4 / 3.0 * x2_g) / ym2_g
-        y_g = -(x0_g - 2.5 * x2_g) / ym2_g
-        yp1_g = -(2 / 3.0 * x1_g + 4 / 3.0 * x2_g) / ym2_g
-        yp2_g = -(-x1_g / 12 - x2_g / 12) / ym2_g
-
-        #ym1_g = -1 / 2.0 * x1_g + x2_g
-        #y_g = -(x0_g - 2 * x2_g) / ym1_g
-        #yp1_g = -(1 / 2.0 * x1_g + x2_g) / ym1_g
-
-        g = len(u_g) - 3
-        u_g[-4:] = np.exp(-(-2 * e)**0.5 * rgd.r_g[-4:])
-        agm1, ag, agp1, agp2 = u_g[-4:]
-        print rgd.r_g[-4:]
-        print u_g[-4:]
-
-        while True:
-            print g,ag
-            u_g[g] = ag
-            agm2 = (agp2 * yp2_g[g] +
-                    agp1 * yp1_g[g] +
-                    ag * y_g[g] +
-                    agm1 * ym1_g[g])
-            if g == g0:
-                break
-            g -= 1
-            agp2 = agp1
-            agp1 = ag
-            ag = agm1
-            agm1 = agm2
-
-        da = (-agp2 + 8 * agp1 - 8 * agm1 + agm2) / 12
-        #da = (agp1 - agm1) / 2
-        dudr = da / rgd.dr_g[g]
-
-        return dudr
-
-    def integrate_outwards0(self, u_g, rgd, vr_g, g0, e):
-        l = self.l
-
-        r_g = rgd.r_g.copy()
-        r_g[0] = 1.0
-
-        x0_g = 2 * e - l * (l + 1) / r_g**2 - 2 * vr_g / r_g
-        x1_g = rgd.d2gdr2()
-        x2_g = 1 / rgd.dr_g**2
-
-        yp2_g = -x1_g / 12 - x2_g / 12
-        yp1_g = -(2 / 3.0 * x1_g + 4 / 3.0 * x2_g) / yp2_g
-        y_g = -(x0_g - 2.5 * x2_g) / yp2_g
-        ym1_g = -(-2 / 3.0 * x1_g + 4 / 3.0 * x2_g) / yp2_g
-        ym2_g = -(x1_g / 12 - x2_g / 12) / yp2_g
-
-        g = 2
-        u_g[:4] = rgd.r_g[:4]**(l + 1)
-        agm2, agm1, ag, agp1 = u_g[:4]
-
-        while True:
-            print g, ag/rgd.r_g[g]
-            u_g[g] = ag
-            agp2 = (agp1 * yp1_g[g] +
-                    ag * y_g[g] +
-                    agm1 * ym1_g[g] +
-                    agm2 * ym2_g[g])
-            if g == g0:
-                break
-            g += 1
-            agm2 = agm1
-            agm1 = ag
-            ag = agp1
-            agp1 = agp2
-
-        da = (-agp2 + 8 * agp1 - 8 * agm1 + agm2) / 12
-        dudr = da / rgd.dr_g[g]
 
         return dudr
 
@@ -596,7 +476,7 @@ class AllElectronAtom:
             if self.mode == 'gaussians':
                 channel.solve(self.vr_sg[channel.s])
             else:
-                channel.solve2(self.vr_sg[channel.s])
+                channel.solve2(self.vr_sg[channel.s], self.scalar_relativistic)
             self.eeig += channel.get_eigenvalue_sum()
 
     def calculate_density(self):
@@ -739,7 +619,7 @@ class AllElectronAtom:
         logderivs = []
         for e in energies:
             dudr = ch.integrate_outwards(u_g, self.rgd, self.vr_sg[0],
-                                         gcut, e)
+                                         gcut, e, self.scalar_relativistic)
             logderivs.append(dudr / u_g[gcut])
         return logderivs
             
@@ -758,7 +638,7 @@ def build_parser():
                       'electrons to the alpha-spin channel (use "b" for ' +
                       'beta-spin).  The number of electrons defaults to ' +
                       'one. Examples: "1s", "2p2b", "4f0.1b,3d-0.1a".')
-    parser.add_option('-s', '--spin-polarized', action='store_true')
+    parser.add_option('--spin-polarized', action='store_true')
     parser.add_option('-d', '--dirac', action='store_true')
     parser.add_option('-p', '--plot', action='store_true')
     parser.add_option('-e', '--exponents',
@@ -770,6 +650,7 @@ def build_parser():
                       'Example: -l spdf,-1:1:0.05,1.3. ' +
                       'Energy range and/or radius can be left out.')
     parser.add_option('-r', '--refine', action='store_true')
+    parser.add_option('-s', '--scalar-relativistic', action='store_true')
     return parser
 
 
@@ -833,6 +714,10 @@ def main():
     aea.run()
 
     if opt.refine:
+        aea.refine()
+
+    if opt.scalar_relativistic:
+        aea.scalar_relativistic = True
         aea.refine()
 
     if opt.logarithmic_derivatives:

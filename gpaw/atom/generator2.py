@@ -215,12 +215,13 @@ class PAWWaves:
 
 
 class PAWSetupGenerator:
-    def __init__(self, aea, projectors, rc, fd=sys.stdout, old=False):
+    def __init__(self, aea, projectors, rc, fd=sys.stdout,
+                 scalar_relativistic=False, old=False):
         """fd: stream
             Text output."""
         
         self.aea = aea
-        
+
         self.old = old
 
         if fd is None:
@@ -257,6 +258,7 @@ class PAWSetupGenerator:
 
         aea.initialize()
         aea.run()
+        aea.scalar_relativistic = scalar_relativistic
         aea.refine()
         
         self.rgd = aea.rgd
@@ -295,7 +297,8 @@ class PAWSetupGenerator:
                     phi_g = self.rgd.zeros()
                     gc = self.gcmax + 20
                     ch = Channel(l)
-                    ch.integrate_outwards(phi_g, self.rgd, aea.vr_sg[0], gc, e)
+                    ch.integrate_outwards(phi_g, self.rgd, aea.vr_sg[0], gc, e,
+                                          aea.scalar_relativistic)
                     phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
                     if l == 0:
                         phi_g[0] = phi_g[1]
@@ -417,7 +420,8 @@ class PAWSetupGenerator:
 
         ch = Channel(l0)
         phi_g = self.rgd.zeros()
-        ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e0)
+        ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e0,
+                              self.aea.scalar_relativistic)
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
         if l0 == 0:
             phi_g[0] = phi_g[1]
@@ -603,7 +607,7 @@ class PAWSetupGenerator:
                 for n in range(N):
                     dudr_n[n] = ch.integrate_outwards(u_ng[n], rgd,
                                                       self.vtr_g, gcut, e,
-                                                      pt_ng[n])
+                                                      pt_g=pt_ng[n])
             
                 A_nn = (dH_nn - e * dS_nn) / (4 * pi)
                 B_nn = rgd.integrate(pt_ng[:, None] * u_ng, -1)
@@ -697,6 +701,7 @@ def build_parser():
                       'Energy range and/or radius can be left out.')
     parser.add_option('-w', '--write', action='store_true')
     parser.add_option('--old', action='store_true')
+    parser.add_option('-s', '--scalar-relativistic', action='store_true')
     return parser
 
 
@@ -720,7 +725,9 @@ def main(AEA=AllElectronAtom):
     if opt.radius:
         radii = [float(r) for r in opt.radius.split(',')]
 
-    gen = PAWSetupGenerator(aea, projectors, radii, old=opt.old)
+    gen = PAWSetupGenerator(aea, projectors, radii,
+                            scalar_relativistic=opt.scalar_relativistic,
+                            old=opt.old)
 
     gen.calculate_core_density()
     gen.pseudize()

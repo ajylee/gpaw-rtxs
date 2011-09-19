@@ -62,3 +62,52 @@ and the density is:
 
 .. math:: n(r) = |\psi_{\text{1s}}(r)|^2 = e^{-2r}/\pi.
 
+
+Radial Schrödinger equation
+===========================
+
+With `\psi_{n\ell m}(\br) = u(r) / r Y_{\ell m}(\hat\br)`, we have the
+radial Schrödinger equation:
+
+.. math::
+
+   -\frac12 \frac{d^2u}{dr^2} + \frac{\ell(\ell + 1)}{2r^2} u + v u
+   = \epsilon u.
+
+We want to solve this equation on a non-equidistant radial grid with
+`r_g=r(g)` for `g=0,1,...`.  Inserting `u(r) = a(g) r^{\ell + 1}`, we
+get:
+
+.. math::
+
+   \frac{d^2 a}{dg^2} (\frac{dg}{dr})^2 r +
+   \frac{da}{dg}(r \frac{d^2g}{dr^2} + 2 (\ell + 1) \frac{dg}{dr}) +
+   2 r (\epsilon - v) a = 0.
+
+
+Including Scalar-relativistic corrections
+-----------------------------------------
+
+The scalar-relativistic equation is:
+
+.. math::
+
+   -\frac{1}{2 M} \frac{d^2u}{dr^2} + \frac{\ell(\ell + 1)}{2Mr^2} u -
+   \frac{1}{(2Mc)^2}\frac{dv}{dr}(\frac{du}{dr}-\frac{u}{r}) + v u
+   = \epsilon u.
+
+where the relativistic mass is:
+
+.. math::
+
+   M = 1 - \frac{1}{2c^2} (v - \epsilon).
+
+With `u(r) = a(g) r^{\ell + 1}` and `\kappa = (dv/dr)/(2Mc^2)`:
+
+.. math::
+
+   \frac{d^2 a}{dg^2} (\frac{dg}{dr})^2 r +
+   \frac{da}{dg}(r \kappa \frac{dg}{dr} + r \frac{d^2g}{dr^2} +
+   2 (\ell + 1) \frac{dg}{dr}) +
+   [2 M r (\epsilon - v) + \ell \kappa] a = 0.
+
