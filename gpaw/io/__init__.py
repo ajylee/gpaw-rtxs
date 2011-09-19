@@ -700,7 +700,7 @@ def read(paw, reader):
 
     if (nibzkpts != len(wfs.ibzk_kc) or
         nbands != band_comm.size * wfs.mynbands):
-        wfs.eigensolver.error = np.inf
+        paw.scf.reset()
     else:
         # Verify that symmetries for for k-point reduction hasn't changed:
         tol = 1e-12
