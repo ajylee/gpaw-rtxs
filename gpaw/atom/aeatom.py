@@ -156,7 +156,7 @@ class Channel:
 
             # Find classical turning point:
             x = vr_g * r_g + 0.5 * l * (l + 1) - e * r_g**2
-            g0 = len(x) -1
+            g0 = rgd.round(4.0)
             while x[g0] > 0:
                 g0 -= 1
 
@@ -333,6 +333,8 @@ class AllElectronAtom:
         self.nspins = 1 + int(bool(spinpol))
 
         self.dirac = bool(dirac)
+        
+        self.scalar_relativistic = False
 
         if isinstance(xc, str):
             self.xc = XC(xc)
@@ -363,7 +365,7 @@ class AllElectronAtom:
         self.log('XC-functional:  ', self.xc.name)
         self.log('Equation:       ', ['Schrödinger', 'Dirac'][self.dirac])
 
-        self.mode = 'gaussians'
+        self.method = 'Gaussian basis-set'
 
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
@@ -471,7 +473,7 @@ class AllElectronAtom:
         """Diagonalize Schrödinger equation."""
         self.eeig = 0.0
         for channel in self.channels:
-            if self.mode == 'gaussians':
+            if self.method == 'Gaussian basis-set':
                 channel.solve(self.vr_sg[channel.s])
             else:
                 channel.solve2(self.vr_sg[channel.s], self.scalar_relativistic)
@@ -509,8 +511,15 @@ class AllElectronAtom:
         if self.channels is None:
             self.initialize()
 
+        if self.dirac:
+            equation = 'Dirac'
+        elif self.scalar_relativistic:
+            equation = 'scalar-relativistic Schrödinger'
+        else:
+            equation = 'non-relativistic Schrödinger'
+        self.log('\nSolving %s equation using %s:' % (equation, self.method))
+
         dn = self.Z
-        self.log()
         
         for iter in range(maxiter):
             self.log('.', end='')
@@ -532,7 +541,7 @@ class AllElectronAtom:
             raise RuntimeError('Did not converge!')
 
     def refine(self):
-        self.mode = 'ode'
+        self.method = 'finite difference'
         self.run(dnmax=1e-6, mix=0.14, maxiter=200)
         
     def summary(self):

@@ -34,14 +34,14 @@ parameters = {
 'O':  ('2s,s,2p,p,d', 1.5),
 'F':  ('2s,s,2p,p,d', 1.4),
 'Ne': ('2s,s,2p,p,d', 1.8),
-'Na': ('3s,s,p', 2.8),
+'Na': ('2s,3s,2p,3p', 2.5, 'd'),  # how about Li, K, ...
 'Mg': ('3s,s,p', 2.8),
 'Al': ('3s,s,3p,p,d', 2.2),
 'Si': ('3s,s,3p,p,d', 2.4),
 'P':  ('3s,s,3p,p,d', 1.9),
 'S':  ('3s,s,3p,p,d', 2.2),
 'Cl': ('3s,s,3p,p,d', 2.1),
-'Ar': ('3s,s,3p,p,d', 2.0),
+'Ar': ('3s,s,3p,p,d', 2.2),
 'K':  ('3s,4s,3p,4p,d', 2.4),
 'Ca': ('3s,4s,3p,4p,3d', 2.5),
 'Sc': ('3s,4s,3p,4p,3d,d', 2.8, 'f'),
@@ -58,10 +58,10 @@ parameters = {
 'Ge': ('4s,s,4p,p,d', 2.7),
 'As': ('4s,s,4p,p,d', 2.7),
 'Se': ('4s,s,4p,p,d', 2.7),
-'Br': ('4s,s,4p,p,d', 2.7),
-'Kr': ('4s,s,4p,p,d', 2.4),
-'Rb': ('4s,5s,4p,5p,d', 2.7),
-'Sr': ('4s,5s,4p,5p,d', 2.9),
+'Br': ('4s,5s,4p,p,d', 2.7),
+'Kr': ('4s,5s,4p,p,d', 2.4),
+'Rb': ('4s,5s,4p,5p,d', 2.7, 'f'),
+'Sr': ('4s,5s,4p,5p,d', 2.7, 'f'),
 'Y':  ('4s,5s,4p,5p,4d,d', 2.6, 'f'),
 'Zr': ('4s,5s,4p,5p,4d,d', 2.7, 'f'),
 'Nb': ('4s,5s,4p,5p,4d,d', 2.8, 'f'),
@@ -629,10 +629,10 @@ class PAWSetupGenerator:
 
         return logderivs
     
-    def make_paw_setup(self):
+    def make_paw_setup(self, tag=None):
         aea = self.aea
         
-        setup = SetupData(aea.symbol, aea.xc.name, 'paw', readxml=False)
+        setup = SetupData(aea.symbol, aea.xc.name, tag, readxml=False)
 
         nj = sum(len(waves) for waves in self.waves_l)
         setup.e_kin_jj = np.zeros((nj, nj))
@@ -675,7 +675,10 @@ class PAWSetupGenerator:
         setup.tauct_g = self.rgd.zeros()
         print 'no tau!!!!!!!!!!!'
         
-        reltype = 'non-relativistic'
+        if self.aea.scalar_relativistic:
+            reltype = 'scalar-relativistic'
+        else:
+            reltype = 'non-relativistic'
         attrs = [('type', reltype), ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
 
@@ -719,6 +722,7 @@ def generate(argv=None):
     parser.add_option('--old', action='store_true')
     parser.add_option('-s', '--scalar-relativistic', action='store_true')
     parser.add_option('--no-check', action='store_true')
+    parser.add_option('-t', '--tag', type='string')
 
     opt, args = parser.parse_args(argv)
 
@@ -783,7 +787,8 @@ def _generate(symbol, opt):
         if len(parameters[symbol]) == 2:
             gen.find_polynomial_potential(gen.rcmax, 6)
         else:
-            gen.find_local_potential(3, gen.rcmax, 6, 0.0)
+            l0 = 'spdfg'.find(parameters[symbol][2])
+            gen.find_local_potential(l0, gen.rcmax, 6, 0.0)
         
     gen.construct_projectors()
 
@@ -794,14 +799,14 @@ def _generate(symbol, opt):
         
 
     if ok and opt.write:
-        gen.make_paw_setup().write_xml()
+        gen.make_paw_setup(opt.tag).write_xml()
         
     if opt.logarithmic_derivatives or opt.plot:
         import matplotlib.pyplot as plt
         if opt.logarithmic_derivatives:
             r = 1.1 * gen.rcmax
-            emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.2
-            emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.2
+            emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
+            emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
             lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives,
                                                 (emin, emax, 0.05), r)
             ldmax = 0.0
