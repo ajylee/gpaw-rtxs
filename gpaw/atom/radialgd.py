@@ -56,6 +56,25 @@ class RadialGridDescriptor:
         b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
         b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
 
+    def fft(self, a_g, l=0, N=512):
+        """Fourier transform.
+
+        Return G and a(G) arrays::
+           
+                              _ _        oo
+                   / _       iG.r    __ /    
+          a(G) = G |dr a(r) e     = 4|| |r dr sin(Gr) a(G)
+                   /                    /
+                                        0
+        """
+        assert l == 0
+        assert N % 2 == 0
+        x = np.linspace(0, self.r_g[-1], N)
+        from scipy.interpolate import InterpolatedUnivariateSpline
+        ar_x = InterpolatedUnivariateSpline(self.r_g, self.r_g * a_g)(x)
+        G = np.linspace(0, pi / x[1], N // 2 + 1)
+        return G, (-4 * pi * x[1]) * np.fft.rfft(ar_x, N).imag
+
     def purepythonpoisson(self, n_g, l=0):
         r_g = self.r_g
         dr_g = self.dr_g
