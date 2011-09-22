@@ -58,8 +58,8 @@ class KPointDescriptor:
         else:
             self.bzk_kc = np.array(kpts, float)
             try:
-                self.N_c, self.offset_c = get_monkhorst_pack_size_and_offset(
-                    self.bzk_kc)
+                self.N_c, self.offset_c = \
+                          get_monkhorst_pack_size_and_offset(self.bzk_kc)
             except ValueError:
                 self.N_c = None
                 self.offset_c = None
@@ -272,15 +272,19 @@ class KPointDescriptor:
             Restrict search to specified k-points.
 
         """
-        # Monkhorst-pack grid
-        N_c, offset_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)
 
-        offset = True
-        if np.abs(offset_c).sum() < 1e-8:
-            offset = False
-            N_c = self.N_c
-            dk_c = 1. / N_c
-            kmax_c = (N_c - 1) * dk_c / 2.
+        # Monkhorst-pack grid
+        if self.N_c is not None:
+            N_c, offset_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)
+
+            offset = True
+            if np.abs(offset_c).sum() < 1e-8:
+                offset = False
+                N_c = self.N_c
+                dk_c = 1. / N_c
+                kmax_c = (N_c - 1) * dk_c / 2.
+        else:
+            offset = True
             
         if kpts_k is None:
             kpts_kc = self.bzk_kc
@@ -291,8 +295,9 @@ class KPointDescriptor:
         kplusq_kc = kpts_kc + q_c
 
         # Translate back into the first BZ
-        kplusq_kc[np.where(kplusq_kc > 0.501)] -= 1.
-        kplusq_kc[np.where(kplusq_kc < -0.499)] += 1.
+        if self.N_c is not None:
+            kplusq_kc[np.where(kplusq_kc > 0.501)] -= 1.
+            kplusq_kc[np.where(kplusq_kc < -0.499)] += 1.
 
         # List of k+q indices
         kplusq_k = []
