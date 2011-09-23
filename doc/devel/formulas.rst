@@ -20,7 +20,7 @@ or
 
 .. math::
 
-    \frac{1}{r} = \int d\mathbf{G}\frac{4\pi}{G^2}
+    \frac{1}{r} = \int \frac{d\mathbf{G}}{(2\pi)^3}\frac{4\pi}{G^2}
     e^{i\mathbf{G}\cdot\br}.
 
 
@@ -39,9 +39,9 @@ Its Fourrier transform is:
     \int_0^\infty 4\pi r^2 dr \frac{\sin(kr)}{kr} n(r) =
     e^{-k^2/(4a)}.
 
-With `\nabla^2 v=4\pi n`, we get the potential:
+With `\nabla^2 v=-4\pi n`, we get the potential:
 
-.. math:: v(r) = -\frac{\text{erf}(\sqrt\alpha r)}{r},
+.. math:: v(r) = \frac{\text{erf}(\sqrt\alpha r)}{r},
 
 and the energy:
 
