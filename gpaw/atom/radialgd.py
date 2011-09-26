@@ -56,24 +56,27 @@ class RadialGridDescriptor:
         b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
         b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
 
-    def fft(self, a_g, l=0, N=512):
+    def fft(self, ar_g, l=0, N=512):
         """Fourier transform.
 
         Return G and a(G) arrays::
            
-                              _ _        oo
-                   / _       iG.r    __ /    
-          a(G) = G |dr a(r) e     = 4|| |r dr sin(Gr) a(G)
-                   /                    /
+                            _ _        oo
+                 / _       iG.r    __ /    
+          a(G) = |dr a(r) e     = 4|| |r dr sin(Gr) a(r) / G
+                 /                    /
                                         0
         """
         assert l == 0
         assert N % 2 == 0
-        x = np.linspace(0, self.r_g[-1], N)
+        r_x = np.linspace(0, self.r_g[-1], N)
         from scipy.interpolate import InterpolatedUnivariateSpline
-        ar_x = InterpolatedUnivariateSpline(self.r_g, self.r_g * a_g)(x)
-        G = np.linspace(0, pi / x[1], N // 2 + 1)
-        return G, (-4 * pi * x[1]) * np.fft.rfft(ar_x, N).imag
+        ar_x = InterpolatedUnivariateSpline(self.r_g, ar_g)(r_x)
+        G_k = np.linspace(0, pi / r_x[1], N // 2 + 1)
+        a_k = (-4 * pi * r_x[1]) * np.fft.rfft(ar_x, N).imag
+        a_k[1:] /= G_k[1:]
+        a_k[0] = 4 * pi * np.dot(r_x, ar_x) * r_x[1]
+        return G_k, a_k
 
     def purepythonpoisson(self, n_g, l=0):
         r_g = self.r_g
