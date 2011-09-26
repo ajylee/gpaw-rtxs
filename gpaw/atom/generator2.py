@@ -541,6 +541,42 @@ class PAWSetupGenerator:
 
         return ok
 
+    def test_convergence(self):
+        rgd = self.rgd
+        r_g = rgd.r_g
+        G_k, nt_k = self.rgd.fft(self.nt_g * r_g)
+        rhot_k = self.rgd.fft(self.rhot_g * r_g)[1]
+        ghat_k = self.rgd.fft(self.ghat_g * r_g)[1]
+        v0_k = self.rgd.fft(self.v0r_g)[1]
+        vt_k = self.rgd.fft(self.vtr_g)[1]
+        phi_k = self.rgd.fft(self.waves_l[0].phit_ng[0] * r_g)[1]
+        eee_k = 0.5 * nt_k**2 * (4 * pi)**2 / (2 * pi)**3
+        ecc_k = 0.5 * rhot_k**2 * (4 * pi)**2 / (2 * pi)**3
+        egg_k = 0.5 * ghat_k**2 * (4 * pi)**2 / (2 * pi)**3
+        ekin_k = 0.5 * phi_k**2 * G_k**4 / (2 * pi)**3
+        evt_k = nt_k * vt_k * G_k**2 * 4 * pi / (2 * pi)**3
+
+        eee = 0.5 * rgd.integrate(self.nt_g * rgd.poisson(self.nt_g), -1)
+        ecc = 0.5 * rgd.integrate(self.rhot_g * self.vHtr_g, -1)
+        egg = 0.5 * rgd.integrate(self.ghat_g * rgd.poisson(self.ghat_g), -1)
+        ekin = self.aea.ekin - self.waves_l[0].dekin_nn[0, 0] 
+        evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
+        import pylab as p
+        for label, e_k, e in [
+            ('e-e', eee_k, eee),
+            ('c-c', ecc_k, ecc),
+            ('g-g', egg_k, egg),
+            ('kin', ekin_k, ekin),
+            ('vn', evt_k, evt)]:
+            e_k = (np.add.accumulate(e_k) - 0.5 * e_k[0] - 0.5 * e_k) * G_k[1]
+            print label, e, e_k[-1]
+            p.plot(G_k, (e_k - e) * Hartree, label=label)
+        #p.axis(xmin=4, xmax=10)
+        p.xlabel('G')
+        p.ylabel('[eV]')
+        p.legend()
+        p.show()
+
     def plot(self):
         import matplotlib.pyplot as plt
         r_g = self.rgd.r_g
@@ -723,6 +759,7 @@ def generate(argv=None):
     parser.add_option('-s', '--scalar-relativistic', action='store_true')
     parser.add_option('--no-check', action='store_true')
     parser.add_option('-t', '--tag', type='string')
+    parser.add_option('-c', '--convergence', action='store_true')
 
     opt, args = parser.parse_args(argv)
 
@@ -796,8 +833,10 @@ def _generate(symbol, opt):
         ok = True
     else:
         ok = gen.check()
-        
 
+    if opt.convergence:
+        gen.test_convergence()
+        
     if ok and opt.write:
         gen.make_paw_setup(opt.tag).write_xml()
         
