@@ -110,3 +110,42 @@ class LDA(XCFunctional):
         assert f_sg.flags.contiguous and f_sg.dtype == float
         self.kernel.xc.calculate_fxc_spinpaired(n_sg.ravel(), f_sg)
 
+
+class PurePythonLDAKernel:
+    def __init__(self):
+        self.name = 'LDA'
+        self.type = 'LDA'
+        
+    def calculate(self, e_g, n_sg, dedn_sg,
+                  sigma_xg=None, dedsigma_xg=None,
+                  tau_sg=None, dedtau_sg=None):
+        assert len(n_sg) == 1
+        lda(e_g, n_sg[0], dedn_sg[0])
+
+
+def lda(e, n, v):
+    C0I = 0.238732414637843
+    C1 = -0.45816529328314287  
+    n[n < 1e-20] = 1e-40
+    rs = (C0I / n)**(1 / 3.0)
+    ex = C1 / rs
+    dexdrs = -ex / rs;
+    ec, decdrs = G(rs**0.5)
+    e[:] = n * (ex + ec)
+    v += ex + ec - rs * (dexdrs + decdrs) / 3.0
+    
+
+def G(rtrs):
+    A = 0.031091
+    alpha1 = 0.21370
+    beta1, beta2, beta3, beta4 = 7.5957, 3.5876, 1.6382, 0.49294
+    Q0 = -2.0 * A * (1.0 + alpha1 * rtrs * rtrs)
+    Q1 = 2.0 * A * rtrs * (beta1 + 
+                           rtrs * (beta2 + 
+                                   rtrs * (beta3 + 
+                                           rtrs * beta4)))
+    G1 = Q0 * np.log(1.0 + 1.0 / Q1)
+    dQ1drs = A * (beta1 / rtrs + 2.0 * beta2 +
+                  rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs))
+    dGdrs = -2.0 * A * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0))
+    return G1, dGdrs
