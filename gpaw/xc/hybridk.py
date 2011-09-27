@@ -303,7 +303,7 @@ class HybridXC(XCFunctional):
                             if setup.X_p is not None:
                                 self.exx_skn[kpt.s, kpt.k] -= self.hybrid * \
                                     (P_ni[:, i1].conj() * setup.X_p[p12] *
-                                     P_ni[:, i2]).real * 2 / self.nspins
+                                     P_ni[:, i2]).real / self.nspins
                         
         self.world.sum(self.exx_skn)
 
@@ -315,6 +315,7 @@ class HybridXC(XCFunctional):
         for a, D_sp in self.density.D_asp.items():
             setup = self.setups[a]
             self.exx += self.hybrid * setup.ExxC
+            self.exx -= self.hybrid * 0.5 * np.dot(D_sp.sum(0), setup.X_p)
 
         self.world.sum(self.debug_skn)
         assert (self.debug_skn == self.kd.nbzkpts * B).all()
