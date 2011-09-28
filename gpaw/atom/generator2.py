@@ -8,7 +8,7 @@ from scipy.special import gamma
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from ase.utils import prnt
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 from ase.data import atomic_numbers, chemical_symbols
 
 from gpaw.utilities import erf
@@ -120,7 +120,7 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, old=False):
+    def pseudize(self):
         rgd = self.rgd
 
         phi_ng = self.phi_ng = np.array(self.phi_ng)
@@ -129,8 +129,6 @@ class PAWWaves:
         gcut = rgd.ceil(self.rcut)
 
         P = 6
-        if old:
-            P = 4
         self.nt_g = 0
         self.c_np = []
         for n in range(N):
@@ -217,13 +215,11 @@ class PAWWaves:
 
 class PAWSetupGenerator:
     def __init__(self, aea, projectors, rc, fd=sys.stdout,
-                 scalar_relativistic=False, old=False):
+                 scalar_relativistic=False, alpha=None):
         """fd: stream
             Text output."""
         
         self.aea = aea
-
-        self.old = old
 
         if fd is None:
             fd = devnull
@@ -308,29 +304,29 @@ class PAWSetupGenerator:
                 waves.add(phi_g, n, e, f)
             self.waves_l.append(waves)
 
-        self.construct_shape_function(eps=1e-9)
+        self.alpha = alpha
+        self.construct_shape_function(eps=1e-10)
 
         self.vtr_g = None
 
     def construct_shape_function(self, eps):
         """Build shape-function for compensation charge."""
 
-        def spillage(alpha):
-            """Fraction of gaussian charge outside rcmax."""
-            x = alpha * self.rcmax**2
-            return 1 - erf(sqrt(x)) + 2 * sqrt(x / pi) * exp(-x)
+        if self.alpha is None:
+            rc = 1.5 * self.rcmax
+            def spillage(alpha):
+                """Fraction of gaussian charge outside rc."""
+                x = alpha * rc**2
+                return 1 - erf(sqrt(x)) + 2 * sqrt(x / pi) * exp(-x)
         
-        def f(alpha):
-            return log(spillage(alpha)) - log(eps)
+            def f(alpha):
+                return log(spillage(alpha)) - log(eps)
 
-        self.alpha = fsolve(f, 7.0)[0]
-        self.alpha = round(self.alpha, 1)
-        if self.old:
-            self.alpha = 10.0 / self.rcmax**2
+            self.alpha = fsolve(f, 7.0)[0]
+            self.alpha = round(self.alpha, 1)
+
         self.log('Shape function: exp(-alpha*r^2), alpha=%.1f Bohr^-2' %
                  self.alpha)
-        self.log('Fraction of shape-function outside rcmax=%.2f Bohr: %e' %
-                 (self.rcmax, spillage(self.alpha)))
 
         self.ghat_g = (np.exp(-self.alpha * self.rgd.r_g**2) *
                        (self.alpha / pi)**1.5)
@@ -368,7 +364,7 @@ class PAWSetupGenerator:
 
     def pseudize(self):
         for waves in self.waves_l:
-            waves.pseudize(self.old)
+            waves.pseudize()
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
@@ -400,13 +396,9 @@ class PAWSetupGenerator:
     def find_polynomial_potential(self, r0, P, e0=None):
         g0 = self.rgd.ceil(r0)
         assert e0 is None
-        if self.old:
-            vtr_g = self.vHtr_g + self.vxct_g * self.rgd.r_g
-            self.vtr_g = self.rgd.pseudize(vtr_g, g0, 1, P)[0]
-            self.v0r_g = self.vtr_g - vtr_g
-        else:
-            self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
-            self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+
+        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
 
         self.l0 = None
         self.e0 = None
@@ -559,18 +551,33 @@ class PAWSetupGenerator:
         eee = 0.5 * rgd.integrate(self.nt_g * rgd.poisson(self.nt_g), -1)
         ecc = 0.5 * rgd.integrate(self.rhot_g * self.vHtr_g, -1)
         egg = 0.5 * rgd.integrate(self.ghat_g * rgd.poisson(self.ghat_g), -1)
-        ekin = self.aea.ekin - self.waves_l[0].dekin_nn[0, 0] 
+        ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0] 
         evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
         import pylab as p
-        for label, e_k, e in [
+
+        errors = 10.0**np.arange(-4, 0) / Hartree
+        self.log('\nConvergence of energy:')
+        self.log('plane-wave cutoff (wave-length) [ev (Bohr)]\n  ', end='')
+        for de in errors:
+            self.log('%14.4f' % (de * Hartree), end='')
+        for label, e_k, e0 in [
             ('e-e', eee_k, eee),
             ('c-c', ecc_k, ecc),
             ('g-g', egg_k, egg),
             ('kin', ekin_k, ekin),
             ('vn', evt_k, evt)]:
+            self.log('\n%3s: ' % label, end='')
             e_k = (np.add.accumulate(e_k) - 0.5 * e_k[0] - 0.5 * e_k) * G_k[1]
-            print label, e, e_k[-1]
-            p.plot(G_k, (e_k - e) * Hartree, label=label)
+            k = len(e_k) - 1
+            for de in errors:
+                while abs(e_k[k] - e_k[-1]) < de:
+                    k -= 1
+                G = k * G_k[1]
+                ecut = 0.5 * G**2
+                h = pi / G
+                self.log(' %6.1f (%4.2f)' % (ecut * Hartree, h), end='')
+            p.plot(G_k, (e_k - e0) * Hartree, label=label)
+        self.log()
         #p.axis(xmin=4, xmax=10)
         p.xlabel('G')
         p.ylabel('[eV]')
@@ -755,11 +762,11 @@ def generate(argv=None):
                       'Example: -l spdf,-1:1:0.05,1.3. ' +
                       'Energy range and/or radius can be left out.')
     parser.add_option('-w', '--write', action='store_true')
-    parser.add_option('--old', action='store_true')
     parser.add_option('-s', '--scalar-relativistic', action='store_true')
     parser.add_option('--no-check', action='store_true')
     parser.add_option('-t', '--tag', type='string')
     parser.add_option('-c', '--convergence', action='store_true')
+    parser.add_option('-a', '--alpha', type=float)
 
     opt, args = parser.parse_args(argv)
 
@@ -798,7 +805,7 @@ def _generate(symbol, opt):
 
     gen = PAWSetupGenerator(aea, projectors, radii,
                             scalar_relativistic=opt.scalar_relativistic,
-                            old=opt.old)
+                            alpha=opt.alpha)
 
     gen.calculate_core_density()
     gen.pseudize()
