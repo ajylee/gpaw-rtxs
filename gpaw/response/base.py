@@ -490,7 +490,7 @@ class BASECHI:
             return W_GG
         else:
             W_wGG = np.zeros_like(dfinv_wGG)
-            tmp_GG = np.ones((df.npw, df.npw))
+            tmp_GG = np.eye(df.npw, df.npw)
             for iw in range(df.Nw):
                 dfinv_wGG[iw] -= tmp_GG 
                 W_wGG[iw] = dfinv_wGG[iw] * df.Kc_GG
@@ -498,6 +498,3 @@ class BASECHI:
                 self.dfinvG0_wG = dfinv_wGG[:,:,0]
 
             return df, W_wGG
-
-        
-
