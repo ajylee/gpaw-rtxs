@@ -530,7 +530,7 @@ PyObject* h5p_set_fapl_mpio(PyObject *self, PyObject *args)
       MPI_Info_create(&info);
       sprintf(tmp,"%d", nprocs);
       MPI_Info_set(info,"cb_nodes",tmp); */
-#ifdef GPAW_BGP
+#ifdef __bgp__
       // Wavefunction write requires large amounts of memory.                   
       // Appears to be a deficiency in the ROMIO driver.
       // bgl_nodes_pset controls the number of aggregator
