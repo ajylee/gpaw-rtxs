@@ -3,7 +3,29 @@ from math import pi
 import numpy as np
 
 from gpaw.spline import Spline
-from gpaw.utilities import hartree, divrl
+from gpaw.utilities import hartree, divrl, _fact as fac
+
+
+def fsbt(l, fr_g, r_g, G_k):
+    """Fast spherical Bessel transform.
+
+    Returns::
+       
+                 oo
+         __ l+1 / 2                l
+        4||G    |r dr j (Gr) f(r) r ,
+                /      l
+                 0
+
+    using l+1 fft's."""
+
+    N = (len(G_k) - 1) * 2
+    f_k = 0.0
+    for n in range(l + 1):
+        f_k += (4 * pi * r_g[1] * (1j)**(l + 1 - n) *
+                fac[l + n] / fac[l - n] / fac[n] / 2**n *
+                np.fft.rfft(fr_g * r_g**(l - n), N)).real * G_k**(l - n)
+    return f_k
 
 
 class RadialGridDescriptor:
@@ -56,27 +78,32 @@ class RadialGridDescriptor:
         b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
         b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
 
-    def fft(self, ar_g, l=0, N=512):
+    def fft(self, fr_g, l=0, N=None):
         """Fourier transform.
 
-        Return G and a(G) arrays::
+        Returns G and f(G) arrays::
            
-                            _ _        oo
-                 / _       iG.r    __ /    
-          a(G) = |dr a(r) e     = 4|| |r dr sin(Gr) a(r) / G
-                 /                    /
-                                        0
+                                          _ _
+               l    ^    / _         ^   iG.r
+          f(G)i Y  (G) = |dr f(r)Y  (r) e    .
+                 lm      /        lm
         """
-        assert l == 0
+
+        if N is None:
+            N = self.N
+
         assert N % 2 == 0
+
         r_x = np.linspace(0, self.r_g[-1], N)
         from scipy.interpolate import InterpolatedUnivariateSpline
-        ar_x = InterpolatedUnivariateSpline(self.r_g, ar_g)(r_x)
+        fr_x = InterpolatedUnivariateSpline(self.r_g, fr_g)(r_x)
+
         G_k = np.linspace(0, pi / r_x[1], N // 2 + 1)
-        a_k = (-4 * pi * r_x[1]) * np.fft.rfft(ar_x, N).imag
-        a_k[1:] /= G_k[1:]
-        a_k[0] = 4 * pi * np.dot(r_x, ar_x) * r_x[1]
-        return G_k, a_k
+        f_k = fsbt(l, fr_x, r_x, G_k)
+        f_k[1:] /= G_k[1:]**(l + 1)
+        if l == 0:
+            f_k[0] = 4 * pi * np.dot(r_x, fr_x) * r_x[1]
+        return G_k, f_k
 
     def purepythonpoisson(self, n_g, l=0):
         r_g = self.r_g

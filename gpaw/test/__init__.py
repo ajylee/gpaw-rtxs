@@ -70,6 +70,7 @@ tests = [
     'erf.py',
     'kpt.py',
     'lf.py',
+    'fsbt.py',
     'lxc_fxc.py',
     'Gauss.py',
     'cluster.py',

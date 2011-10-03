@@ -24,6 +24,43 @@ or
     e^{i\mathbf{G}\cdot\br}.
 
 
+Fourier transforms
+==================
+
+The Fourier transform of a radial function multiplied by a spherical
+harmonic is:
+
+.. math::
+
+    f(G)Y_{\ell m}(\hat G) =
+    \int d\br e^{i\mathbf{G}\cdot\br} f(r)Y_{\ell m}(\br),
+
+where
+    
+.. math::
+
+    f(G) = 4\pi i^\ell \int_0^\infty r^2 dr j_\ell(Gr) f(r).
+
+The `spherical Bessel function`_ is defined as:
+
+.. math::
+
+    j_\ell(x) =
+    \text{Re}\{
+    \frac{e^{ix}}{x} \sum_{n=0}^\ell
+    \frac{(-i)^{\ell+1-n}}{n!(2x)^n}
+    \frac{(\ell+n)!}{(\ell-n)!}
+    \}.
+
+This is implemented in this function:
+
+.. autofunction:: gpaw.utilities.fbt
+
+.. _spherical Bessel function:
+    http://en.wikipedia.org/wiki/Bessel_function
+    #Spherical_Bessel_functions:_jn.2C_yn
+
+
 Gaussians
 =========
 
@@ -31,7 +68,7 @@ Gaussians
 
 .. math:: \int_0^\infty 4\pi r^2 dr n(r) = 1
 
-Its Fourrier transform is:
+Its Fourier transform is:
 
 .. math::
 
