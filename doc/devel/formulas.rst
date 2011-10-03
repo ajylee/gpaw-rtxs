@@ -41,6 +41,14 @@ where
 
     f(G) = 4\pi i^\ell \int_0^\infty r^2 dr j_\ell(Gr) f(r).
 
+.. note::
+
+    .. math::
+
+        e^{i \mathbf{G} \cdot \br} =
+	4 \pi \sum_{\ell m} i^\ell j_\ell(Gr) Y_{\ell m}(\hat{\br})
+        Y_{lm}(\hat{\mathbf{G}}).
+
 The `spherical Bessel function`_ is defined as:
 
 .. math::
@@ -54,7 +62,7 @@ The `spherical Bessel function`_ is defined as:
 
 This is implemented in this function:
 
-.. autofunction:: gpaw.utilities.fbt
+.. autofunction:: gpaw.atom.radialgd.fsbt
 
 .. _spherical Bessel function:
     http://en.wikipedia.org/wiki/Bessel_function
@@ -86,6 +94,26 @@ and the energy:
 
     \frac12 \int_0^\infty 4\pi r^2 dr n(r) v(r) =
     \sqrt{\frac{\alpha}{2\pi}}.
+
+
+Shape functions
+---------------
+
+GPAW uses Gaussians as shape functions for the PAW compensation charges:
+
+.. math::
+
+    g_{\ell m}(\br) =
+    \frac{\alpha^{\ell + 3 / 2} \ell ! 2^{2\ell + 2}}
+    {\sqrt{\pi} (2\ell + 1) !}
+    e^{-\alpha r^2}
+    Y_{\ell m}(\hat{\br}).
+
+They are normalized as:
+
+.. math::
+
+    \int d \br g_{\ell m}(\br) Y_{\ell m}(\hat{\br}) r^\ell = 1.
 
 
 Hydrogen
