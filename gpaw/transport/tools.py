@@ -977,8 +977,8 @@ def save_bias_data_file(Lead1, Lead2, Device):
     vt_sG = ham.gd.collect(ham.vt_sG) 
     vt_sG_L = hamL.gd.collect(hamL.vt_sG)
     vt_sG_R = hamR.gd.collect(hamR.vt_sG)
-    vt_sG += Ef_L - Ef
-    vt_sG_R += Ef_L - Ef_R
+    vt_sG += (Ef_L - Ef) / Hartree
+    vt_sG_R += (Ef_L - Ef_R) / Hartree
     vt_sG=np.append(vt_sG_L, vt_sG,axis=3)
     vt_sG=np.append(vt_sG,vt_sG_R,axis=3)
     dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
