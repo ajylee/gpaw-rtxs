@@ -52,6 +52,7 @@ class AngularIntegral:
     def initialize(self):
         """Initialize grids."""
         
+        center = self.center
         Rmax = self.Rmax
         dR = self.dR
         gd = self.gd
@@ -59,60 +60,61 @@ class AngularIntegral:
         # initialize the ylm and Radial grids
 
         # self.V_R will contain the volume of the R shell
-        # self.R_R will contain the mean radius of the R shell
         # self.R_g will contain the radial indicees corresponding to
         #     each grid point
         # self.ball_g will contain the mask of the ball of radius Rmax
-        nR = int(Rmax / dR + 1)
-        V_R = np.zeros((nR,))
-        R_R = np.zeros((nR,))
-        R_g = gd.zeros(dtype=int) - 1
-        ball_g = gd.zeros(dtype=int)
-        for i in range(gd.beg_c[0], gd.end_c[0]):
-            ii = i - gd.beg_c[0]
-            for j in range(gd.beg_c[1], gd.end_c[1]):
-                jj = j - gd.beg_c[1]
-                for k in range(gd.beg_c[2], gd.end_c[2]):
-                    kk = k - gd.beg_c[2]
-                    vr = self.center - Vector3d([i * gd.h_cv[0, 0],
-                                                 j * gd.h_cv[1, 1],
-                                                 k * gd.h_cv[2, 2]])
-                    r = vr.length()
-                    if r>0 and r<Rmax:
-                        rhat = vr / r
-                        iR = int(r / dR)
-                        R_g[ii,jj,kk] = iR
-                        ball_g[ii,jj,kk] = 1
-                        V_R[iR] += 1
-                        R_R[iR] += r            
-        gd.comm.sum(V_R)
-        gd.comm.sum(R_R)
+        # self.y_Lg will contain the YL values corresponding to
+        #     each grid point
+        V_R = np.empty((int(Rmax / dR + 1),))
+        R_R = np.empty((int(Rmax / dR + 1),))
 
-        self.R_g = R_g
+        r_cg, r2_g = coordinates(gd, self.center, tiny=1.e-78)
+        r_g = np.sqrt(r2_g)
+        rhat_cg = r_cg / r_g
+
+        ball_g = np.where(r_g < Rmax, 1, 0)
+        self.R_g = np.where(r_g < Rmax, r_g / dR, -1).astype(int)
+        
+        if hasattr(self, 'L_l'): # ExpandYl
+            npY = np.vectorize(Y, (float,), 'spherical harmonic')
+            nL = len(self.L_l)
+            y_Lg = []
+            for L in range(nL):
+                y_Lg.append(npY(L, rhat_cg[0], rhat_cg[1], rhat_cg[2]))
+            self.y_Lg = y_Lg
+
+        for i, v in enumerate(V_R):
+            R_g = np.where(self.R_g == i, 1, 0)
+            V_R[i] = gd.integrate(R_g)
+            R_R[i] = gd.integrate(R_g * r_g)
+
         self.ball_g = ball_g
-        self.V_R = V_R * gd.dv
+        self.V_R = V_R
         self.nominalR_R = self.dR * (np.arange(len(self.V_R)) + .5)
         self.R_R = np.where(V_R > 0, R_R / V_R, self.nominalR_R)
 
     def integrate(self, f_g):
-        """Integrate a function on the grid over the angles."""
+        """Integrate a function on the grid over the angles.
+
+        Contains the weight 4*pi*R^2 with R in Anstrom."""
         int_R = []
         for i, dV in enumerate(self.V_R):
             # get the R shell
             R_g = np.where(self.R_g == i, 1, 0)
             int_R.append(self.gd.integrate(f_g * R_g) / self.dR)
-        return np.array(int_R)
+        return np.array(int_R) * Bohr**2
 
     def average(self, f_g):
         """Give the angular average of a function on the grid."""
-        return self.integrate(f_g) / self.radii()**2 / (4 * pi)
+        V_R = np.where(self.V_R > 0,  self.V_R, 1.e32)
+        return self.integrate(f_g) * self.dR / V_R / Bohr**2
 
     def radii(self, model='nominal'):
-        """Return the radii of the radial shells"""
+        """Return the radii of the radial shells in Angstrom"""
         if model == 'nominal':
-            return self.nominalR_R
+            return self.nominalR_R * Bohr
         elif model == 'mean':
-            return self.R_R
+            return self.R_R * Bohr
         else:
             raise NonImplementedError
 
@@ -141,47 +143,7 @@ class ExpandYl(AngularIntegral):
 
         AngularIntegral.__init__(self, center, gd, Rmax, dR)
 
-    def initialize(self):
-        """Initialize grids."""
-        
-        center = self.center
-        Rmax = self.Rmax
-        dR = self.dR
-        gd = self.gd
-        nL = len(self.L_l)
-
-        # initialize the ylm and Radial grids
-
-        # self.V_R will contain the volume of the R shell
-        # self.R_g will contain the radial indicees corresponding to
-        #     each grid point
-        # self.ball_g will contain the mask of the ball of radius Rmax
-        # self.y_Lg will contain the YL values corresponding to
-        #     each grid point
-        V_R = np.zeros((int(Rmax / dR + 1),))
-        npY = np.vectorize(Y, (float,), 'spherical harmonic')
-
-        r_cg, r2_g = coordinates(gd, self.center, tiny=1.e-78)
-        r_g = np.sqrt(r2_g)
-        rhat_cg = r_cg / r_g
-
-        ball_g = np.where(r_g < Rmax, 1, 0)
-        R_g = np.where(r_g < Rmax, r_g / dR, -1).astype(int)
-        y_Lg = []
-        for L in range(nL):
-            y_Lg.append(npY(L, rhat_cg[0], rhat_cg[1], rhat_cg[2]))
-
-        for i, v in enumerate(V_R):
-            V_R[i] = np.where(R_g == i, 1, 0).sum()
-        gd.comm.sum(V_R)
-
-        self.R_g = R_g
-        self.ball_g = ball_g
-        self.V_R = V_R * gd.dv
-        self.y_Lg = y_Lg
-
-
-    def expand(self,psit_g):
+    def expand(self, psit_g):
         """Expand a wave function"""
       
         gamma_l = np.zeros((self.lmax+1))
@@ -189,7 +151,7 @@ class ExpandYl(AngularIntegral):
         L_l = self.L_l
         dR = self.dR
         
-        for i,dV in enumerate(self.V_R):
+        for i, dV in enumerate(self.V_R):
             # get the R shell and it's Volume
             R_g = np.where(self.R_g == i, 1, 0)
             if dV > 0:
