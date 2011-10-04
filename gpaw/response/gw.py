@@ -66,7 +66,7 @@ class GW(BASECHI):
         self.wmax = self.w_w[-1]
         self.wmin = self.w_w[0] 
         self.wcut = self.wmax + 5. / Hartree
-        self.Nw  = int(self.wmax / self.dw) + 1
+        self.Nw  = int(self.wmax / self.dw) + 2
         self.NwS = int(self.wcut / self.dw) + 1
 
 
@@ -160,8 +160,9 @@ class GW(BASECHI):
                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
                 tmp_wG[:,jG] = self.dfinvG0_wG[:,jG] / np.sqrt(np.inner(qG,qG))
                 const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)
-            tmp_wG *= const
+            tmp_wG *= const * self.nkpt**(1./3.)
             tmp_w = 2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinvG0_wG[:,0] * self.vol
+            tmp_w *= self.nkpt**(2./3.)
 
         if not self.hilbert_trans: #method 1
             Wbackup_wG0 = W_wGG[:,:,0].copy()
