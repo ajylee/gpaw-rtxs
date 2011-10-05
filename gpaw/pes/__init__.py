@@ -49,5 +49,5 @@ class BasePES:
 
         return self.be , self.f
 
-    def set_first_peak_energy(self,energy):
-        self.first_peak_energy=energy
+    def set_first_peak_energy(self, energy):
+        self.first_peak_energy = energy
