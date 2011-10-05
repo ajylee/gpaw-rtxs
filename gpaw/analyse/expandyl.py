@@ -84,7 +84,7 @@ class AngularIntegral:
             self.y_Lg = y_Lg
 
         for i, v in enumerate(V_R):
-            R_g = np.where(self.R_g == i, 1, 0)
+            R_g = np.where(self.R_g == i, 1., 0.)
             V_R[i] = gd.integrate(R_g)
             R_R[i] = gd.integrate(R_g * r_g)
 
@@ -96,7 +96,7 @@ class AngularIntegral:
     def integrate(self, f_g):
         """Integrate a function on the grid over the angles.
 
-        Contains the weight 4*pi*R^2 with R in Anstrom."""
+        Contains the weight 4*pi*R^2 with R in Angstrom."""
         int_R = []
         for i, dV in enumerate(self.V_R):
             # get the R shell
