@@ -53,8 +53,10 @@ flags_list = {1: "-g -O3 -qlanglvl=extc99 -qflag=w:w -qpic",
               4: "-g -O3 -qhot -qlanglvl=extc99 -qflag=w:w -qpic",
               }
 
-flags = flags_list[opt]  
-cmd = "/soft/apps/ibmcmp-dec2010/vac/bg/9.0/bin/bgxlc_r %s %s"%(flags, cmd)
+flags = flags_list[opt]
+# make sure this matches the version of the XL compiler in bgp_xlc.py
+# as well as the libraries in customize_surveyor_xlc.py
+cmd = "/soft/apps/ibmcmp-aug2011/vac/bg/9.0/bin/bgxlc_r %s %s"%(flags, cmd)
 
 print "\nexecmd: %s\n"%cmd
 call(cmd, shell=True)
