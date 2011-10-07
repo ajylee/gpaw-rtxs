@@ -91,6 +91,7 @@ class AngularIntegral:
         self.ball_g = ball_g
         self.V_R = V_R
         self.nominalR_R = self.dR * (np.arange(len(self.V_R)) + .5)
+        V_R = np.where(V_R > 0, V_R, -1)
         self.R_R = np.where(V_R > 0, R_R / V_R, self.nominalR_R)
 
     def integrate(self, f_g):
