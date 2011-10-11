@@ -45,15 +45,15 @@ class GPAWWrapper(ElectronicStructureCalculatorWrapper):
         ElectronicStructureCalculatorWrapper.add_options(self, parser)
         
         calc = optparse.OptionGroup(parser, 'GPAW')
-        calc.add_option('--show-text-output', action='store_true',
+        calc.add_option('-S', '--show-text-output', action='store_true',
                         help='Send text output from calculation to ' +
                         'standard out.')
         calc.add_option('-W', '--write-gpw-file', metavar='MODE',
                         help='Write gpw file.')
         parser.add_option_group(calc)
 
-    def parse(self, opts):
-        ElectronicStructureCalculatorWrapper.parse(self, opts)
+    def parse(self, opts, args):
+        ElectronicStructureCalculatorWrapper.parse(self, opts, args)
 
         self.show_text_output = opts.show_text_output
         self.write_gpw_file = opts.write_gpw_file
