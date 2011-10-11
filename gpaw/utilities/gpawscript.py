@@ -238,7 +238,7 @@ def main():
         #traceback.print_exc()
         sys.stderr.write("""
 An exception occurred!  Please report the issue to
-gridpaw-developer@listserv.fysik.dtu.dk - thanks!  Please also report this
+gpaw-developer@listserv.fysik.dtu.dk - thanks!  Please also report this
 if it was a user error, so that a better error message can be provided
 next time.""")
         raise
