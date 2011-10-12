@@ -45,6 +45,8 @@ class GPAWWrapper(ElectronicStructureCalculatorWrapper):
         ElectronicStructureCalculatorWrapper.add_options(self, parser)
         
         calc = optparse.OptionGroup(parser, 'GPAW')
+        calc.add_option('-p', '--parameters', metavar='h=0.2,...',
+                        help='''Example: -p "setups='qnd',mode='lcao'".''')
         calc.add_option('-S', '--show-text-output', action='store_true',
                         help='Send text output from calculation to ' +
                         'standard out.')
@@ -57,3 +59,16 @@ class GPAWWrapper(ElectronicStructureCalculatorWrapper):
 
         self.show_text_output = opts.show_text_output
         self.write_gpw_file = opts.write_gpw_file
+
+        if opts.parameters:
+            # Import stuff that eval() may need to know:
+            from gpaw.wavefunctions.pw import PW
+            from gpaw.occupations import FermiDirac, MethfesselPaxton
+            from gpaw.mixer import Mixer, MixerSum
+            from gpaw.poisson import PoissonSolver
+            from gpaw.eigensolvers import RMM_DIIS
+            
+            if '=' in opts.parameters:
+                self.kwargs.update(eval('dict(' + opts.parameters + ')'))
+            else:
+                self.kwargs.update(eval(open(opts.parameters).read()))
