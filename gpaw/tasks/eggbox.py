@@ -14,35 +14,34 @@ class EggboxTestTask(ConvergenceTestTask):
         self.taskname = 'eggbox'
 
     def calculate(self, name, atoms):
-        g = int(name.split('-')[1])
-        atoms.calc.set(gpts=(g, g, g),
-                       occupations=FermiDirac(0.1),
+        atoms.calc.set(occupations=FermiDirac(0.1),
                        kpts=[1, 1, 1])
-        energies = []
-        forces = []
-        for i in range(25):
-            x = self.L / g * i / 48
-            atoms[0].x = x
-            e = atoms.calc.get_potential_energy(atoms,
-                                                force_consistent=True)
-            f = atoms.get_forces()[0, 0]
-            energies.append(e)
-            forces.append(f)
+        data = {}
+        for g in self.gs:
+            atoms.calc.set(gpts=(g, g, g))
+            energies = []
+            forces = []
+            for i in range(25):
+                x = self.L / g * i / 48
+                atoms[0].x = x
+                e = atoms.calc.get_potential_energy(atoms,
+                                                    force_consistent=True)
+                energies.append(e)
+                forces.append(atoms.get_forces()[0,0])
+            data[g] = (energies, forces)
 
-        return {'energies': energies,
-                'forces': forces}
+        return data
 
     def analyse(self):
         self.summary_header = [('name', '')] + [
             ('dE(h=%.2f)' % (self.L / g), 'meV') for g in self.gs]
 
         for name, data in self.data.items():
-            symbol, g = name.split('-')
-            g = int(g)
-            de = data['energies'].ptp()
-            if symbol not in self.results:
-                self.results[symbol] = [None] * len(self.gs)
-            self.results[symbol][self.gs.index(g)] = de * 1000
+            results = []
+            for g in self.gs:
+                de = data[g][0].ptp()
+                results.append(de * 1000)
+            self.results[name] = results
 
 
 if __name__ == '__main__':
