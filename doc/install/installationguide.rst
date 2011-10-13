@@ -214,8 +214,8 @@ See :ref:`PGO_gcc_EL5` for an example how use PGO to compile GPAW on CentOS.
 Installation of setup files
 ---------------------------
 
-1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz` from the 
-   :ref:`setups` page
+1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
+   of the <version> of setups from the :ref:`setups` page
    and unpack it somewhere, preferably in :envvar:`HOME`
    (``cd; tar zxf gpaw-setups-<version>.tar.gz``) - it could
    also be somewhere global where
