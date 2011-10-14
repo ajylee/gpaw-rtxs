@@ -1,6 +1,6 @@
 import optparse
 
-from ase.tasks.calcfactory import CalculatorFactory
+from ase.tasks.calcfactory import CalculatorFactory, str2dict
 
 from gpaw.utilities import h2gpts
 

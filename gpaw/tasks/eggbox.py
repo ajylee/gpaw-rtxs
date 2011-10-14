@@ -8,11 +8,11 @@ from gpaw.tasks.convergence import ConvergenceTestTask
 
 
 class EggboxTestTask(ConvergenceTestTask):
+    taskname = 'eggbox'
+
     def __init__(self, **kwargs):
         ConvergenceTestTask.__init__(self, **kwargs)
         
-        self.taskname = 'eggbox'
-
     def calculate(self, name, atoms):
         atoms.calc.set(occupations=FermiDirac(0.1),
                        kpts=[1, 1, 1])

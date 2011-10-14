@@ -10,6 +10,8 @@ from gpaw import FermiDirac
 
 
 class ConvergenceTestTask(Task):
+    taskname = 'convergence'
+
     def __init__(self, g1=20, g2=40, L=4.0, **kwargs):
         self.gs = range(g1, g2 + 1, 4)
         
@@ -17,8 +19,6 @@ class ConvergenceTestTask(Task):
 
         Task.__init__(self, calcfactory='gpaw', **kwargs)
         
-        self.taskname = 'convergence'
-
     def build_system(self, name):
         return Atoms(name, pbc=True, cell=(self.L, self.L, self.L))
 

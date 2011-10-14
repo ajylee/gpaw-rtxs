@@ -61,6 +61,6 @@ correction:
       calculation.
 
 See the full Python script here: :download:`dipole.py`.  The script
-used to create the figures in this tutorial is shown below:
+used to create the figures in this tutorial is shown here:
 
 .. literalinclude:: plot.py
