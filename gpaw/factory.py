@@ -1,17 +1,17 @@
 import optparse
 
-from ase.tasks.calcwrapper import ElectronicStructureCalculatorWrapper
+from ase.tasks.calcfactory import CalculatorFactory
 
 from gpaw.utilities import h2gpts
 
 
-class GPAWWrapper(ElectronicStructureCalculatorWrapper):
+class GPAWFactory(CalculatorFactory):
     def __init__(self, show_text_output=False, write_gpw_file=None,
                  **kwargs):
         self.show_text_output = show_text_output
         self.write_gpw_file = write_gpw_file
 
-        ElectronicStructureCalculatorWrapper.__init__(self, 'GPAW', **kwargs)
+        CalculatorFactory.__init__(self, None, 'GPAW', **kwargs)
 
     def __call__(self, name, atoms):
         kpts = self.calculate_kpts(atoms)
@@ -39,15 +39,14 @@ class GPAWWrapper(ElectronicStructureCalculatorWrapper):
                     calc.write(name, mode))
 
         from gpaw import GPAW
-        return GPAW(txt=txt, kpts=kpts, xc=self.xc, **self.kwargs)
+        return GPAW(txt=txt, kpts=kpts, **self.kwargs)
         
     def add_options(self, parser):
-        ElectronicStructureCalculatorWrapper.add_options(self, parser)
+        CalculatorFactory.add_options(self, parser)
         
         calc = optparse.OptionGroup(parser, 'GPAW')
-        calc.add_option('-p', '--parameters', metavar='h=0.2,...',
-                        help='Comma-separated key=value pairs.  ' +
-                        'Example: -p setups=qnd,mode=lcao,h=0.18.')
+        calc.add_option('--parameter-file', metavar='h=0.2,...',
+                        help='Read GPAW parameters from file.')
         calc.add_option('-S', '--show-text-output', action='store_true',
                         help='Send text output from calculation to ' +
                         'standard out.')
@@ -56,11 +55,6 @@ class GPAWWrapper(ElectronicStructureCalculatorWrapper):
         parser.add_option_group(calc)
 
     def parse(self, opts, args):
-        ElectronicStructureCalculatorWrapper.parse(self, opts, args)
-
-        self.show_text_output = opts.show_text_output
-        self.write_gpw_file = opts.write_gpw_file
-
         if opts.parameters:
             # Import stuff that eval() may need to know:
             from gpaw.wavefunctions.pw import PW
@@ -68,18 +62,14 @@ class GPAWWrapper(ElectronicStructureCalculatorWrapper):
             from gpaw.mixer import Mixer, MixerSum
             from gpaw.poisson import PoissonSolver
             from gpaw.eigensolvers import RMM_DIIS
-            
-            if '=' in opts.parameters:
-                s = (opts.parameters + ',').split('=')
-                for i in range(len(s) - 1):
-                    key = s[i]
-                    m = s[i + 1].rfind(',')
-                    value = s[i + 1][:m]
-                    try:
-                        value = eval(value)
-                    except (NameError, SyntaxError):
-                        pass
-                    self.kwargs[key] = value
-                    s[i + 1] = s[i + 1][m + 1:]
-            else:
-                self.kwargs.update(eval(open(opts.parameters).read()))
+       
+            self.kwargs.update(str2dict(opts.parameters, locals()))
+            opts.parameters = None
+
+        CalculatorFactory.parse(self, opts, args)
+
+        self.show_text_output = opts.show_text_output
+        self.write_gpw_file = opts.write_gpw_file
+
+        if opts.parameter_file:
+            self.kwargs.update(eval(open(opts.parameter_file).read()))

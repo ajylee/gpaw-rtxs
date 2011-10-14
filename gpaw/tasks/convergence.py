@@ -15,7 +15,7 @@ class ConvergenceTestTask(Task):
         
         self.L = L
 
-        Task.__init__(self, calcwrapper='gpaw', **kwargs)
+        Task.__init__(self, calcfactory='gpaw', **kwargs)
         
         self.taskname = 'convergence'
 
