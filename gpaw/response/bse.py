@@ -165,7 +165,6 @@ class BSE(BASECHI):
         e_S = self.e_S
         op_scc = calc.wfs.symmetry.op_scc
 
-        self.phi_aGp = self.get_phi_aGp()
         if self.use_W:
             bzq_qc=self.bzq_qc
             ibzq_qc = self.ibzq_qc
@@ -192,7 +191,9 @@ class BSE(BASECHI):
             self.reader = Reader('phi_qaGp')
             self.printtxt('Finished reading phi_aGp !')
             self.printtxt('Memory used %f M' %(maxrss() / 1024.**2))
-        
+        else:
+            self.phi_aGp = self.get_phi_aGp()
+
        # calculate kernel
         K_SS = np.zeros((self.nS, self.nS), dtype=complex)
         W_SS = np.zeros_like(K_SS)
@@ -295,7 +296,7 @@ class BSE(BASECHI):
             for iS in range(self.nS):
                 for jS in range(self.nS):
                     if np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) > 1e-4:
-                        print H_SS[iS,jS]- H_SS[jS,iS].conj()
+                        print iS, jS, H_SS[iS,jS]- H_SS[jS,iS].conj()
 #                    assert np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) < 1e-4
 
 #        if not self.positive_w:
@@ -355,13 +356,12 @@ class BSE(BASECHI):
 
     def get_phi_qaGp(self):
 
-        phi_aGp = self.phi_aGp.copy()
-
         N1_max = 0
         N2_max = 0
-        natoms = len(phi_aGp)
+        natoms = len(self.calc.wfs.setups)
         for id in range(natoms):
-            N1, N2 = phi_aGp[id].shape
+            N1 = self.npw
+            N2 = self.calc.wfs.setups[id].ni**2
             if N1 > N1_max:
                 N1_max = N1
             if N2 > N2_max:
@@ -422,7 +422,8 @@ class BSE(BASECHI):
         phi_aGp = {}
         natoms = len(phimax_aGp)
         for a in range(natoms):
-            N1, N2 = self.phi_aGp[a].shape
+            N1 = self.npw
+            N2 = self.calc.wfs.setups[a].ni**2
             phi_aGp[a] = phimax_aGp[a, :N1, :N2]
 
         return phi_aGp
