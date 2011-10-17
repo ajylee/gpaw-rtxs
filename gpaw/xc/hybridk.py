@@ -90,7 +90,7 @@ class HybridXC(XCFunctional):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
                  alpha=None, skip_gamma=False, ecut=None,
-                 logfilename='-'):
+                 logfilename='-', bands=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -101,6 +101,9 @@ class HybridXC(XCFunctional):
             Standard DFT functional with scaled down exchange.
         finegrid: boolean
             Use fine grid for energy functional evaluations?
+        bands: list or None
+            List of bands to calculate energy for.  Default is None
+            meaning do all bands.
         """
 
         if name == 'EXX':
@@ -128,6 +131,7 @@ class HybridXC(XCFunctional):
         self.ecut = ecut
         self.fd = logfilename
         self.write_timing_information = True
+        self.bands = bands
 
         XCFunctional.__init__(self, name)
 
@@ -372,6 +376,10 @@ class HybridXC(XCFunctional):
 
                 if abs(f1) < fcut and abs(f2) < fcut:
                     continue
+
+                if self.bands is not None:
+                    if not (n1 in self.bands or is_ibz2 and n2 in self.bands):
+                        continue
 
                 if self.skip_gamma and same:
                     continue
