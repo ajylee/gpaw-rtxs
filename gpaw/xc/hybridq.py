@@ -180,14 +180,13 @@ class HybridXC(XCFunctional):
                       self.kd.nbzkpts)
         self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
-        self.kd.get_bz_q_points()
-        self.bzq_kc = self.kd.bzq_kc
+        self.bzq_kc = self.kd.get_bz_q_points() 
         qd = KPointDescriptor(self.bzq_kc, self.nspins)
         qd.set_symmetry(self.atoms, self.setups, usesymm=True)
        
         if self.qsym:
             self.ibzq_kc = qd.ibzk_kc
-            self.q_weights = qd.weight_k * len(self.kd.bzq_kc)
+            self.q_weights = qd.weight_k * len(self.bzq_kc)
         else:
             self.ibzq_kc = self.bzq_kc
             self.q_weights = np.ones(len(self.bzq_kc))
