@@ -17,7 +17,7 @@ Development version in trunk
 
 * GPAW should now work also with NumPy 1.6.
 
-* Much improved :program:`gpaw command line tool <gpaw>` now based on the `new
+* Much improved :ref:`command line tool` now based on the `new
   tool`_ in ASE.
 
 
