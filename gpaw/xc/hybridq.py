@@ -180,13 +180,12 @@ class HybridXC(XCFunctional):
                       self.kd.nbzkpts)
         self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
-        self.bzq_kc = self.kd.get_bz_q_points() 
-        qd = KPointDescriptor(self.bzq_kc, self.nspins)
-        qd.set_symmetry(self.atoms, self.setups, usesymm=True)
-       
+        self.bzq_kc = self.kd.get_bz_q_points()
         if self.qsym:
-            self.ibzq_kc = qd.ibzk_kc
-            self.q_weights = qd.weight_k * len(self.bzq_kc)
+            op_scc = self.kd.symmetry.op_scc
+            self.ibzq_kc = self.kd.get_ibz_q_points(self.bzq_kc,
+                                                    op_scc)[0]
+            self.q_weights = self.kd.q_weights * len(self.bzq_kc)
         else:
             self.ibzq_kc = self.bzq_kc
             self.q_weights = np.ones(len(self.bzq_kc))
@@ -258,7 +257,6 @@ class HybridXC(XCFunctional):
 
     def calculate_exx(self):
         """Non-selfconsistent calculation."""
-
         kd = self.kd
         K = len(kd.bzk_kc)
         W = world.size // self.nspins
@@ -331,8 +329,8 @@ class HybridXC(XCFunctional):
             f1 = kpt1.f_n[n1]
             for n2, psit2_R in enumerate(kpt2.psit_nG):
                 if self.acdf:
-                    f2 = self.q_weights[iq] * kpt2.weight * (1 - np.sign(kpt2.eps_n[n2]
-                                                                         - kpt1.eps_n[n1]))
+                    f2 = (self.q_weights[iq] * kpt2.weight
+                          * (1 - np.sign(kpt2.eps_n[n2] - kpt1.eps_n[n1])))
                 else:
                     f2 = kpt2.f_n[n2] * self.q_weights[iq]
                 if abs(f1) < fcut or abs(f2) < fcut:

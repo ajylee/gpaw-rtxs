@@ -326,14 +326,14 @@ class KPointDescriptor:
         """Return the q=k1-k2. q-mesh is always Gamma-centered."""
         Nk_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)[0]
         bzq_qc = monkhorst_pack(Nk_c)
-        
+
         shift_c = []
         for Nk in Nk_c:
             if Nk % 2 == 0:
                 shift_c.append(0.5 / Nk)
             else:
                 shift_c.append(0.)
-        
+
         bzq_qc += shift_c
         return bzq_qc
 
@@ -344,7 +344,8 @@ class KPointDescriptor:
 
         ibzq_qc_tmp = []
         ibzq_qc_tmp.append(bzq_qc[-1])
-
+        weight_tmp = [0]
+        
         for i, op_cc in enumerate(op_scc):
             if np.abs(op_cc - np.eye(3)).sum() < 1e-8:
                 identity_iop = i
@@ -367,11 +368,13 @@ class KPointDescriptor:
                     raise ValueError('cant find k!')
                     
                 ibzq_q_tmp[i] = ibzk
+                weight_tmp[ibzk] += 1.
                 iop_q[i] = iop
                 timerev_q[i] = timerev
                 diff_qc[i] = diff_c                
             except ValueError:
                 ibzq_qc_tmp.append(bzq_qc[i])
+                weight_tmp.append(1.)
                 ibzq_q_tmp[i] = len(ibzq_qc_tmp) - 1
                 iop_q[i] = identity_iop
                 timerev_q[i] = False
@@ -385,7 +388,7 @@ class KPointDescriptor:
             ibzq_qc[i] = ibzq_qc_tmp[nq-i-1]
         for i in range(len(bzq_qc)):
             ibzq_q[i] = nq - ibzq_q_tmp[i] - 1
-
+        self.q_weights = np.array(weight_tmp[::-1]) / len(bzq_qc)
         return ibzq_qc, ibzq_q, iop_q, timerev_q, diff_qc
 
 
