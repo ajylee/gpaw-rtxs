@@ -181,7 +181,7 @@ class PAWWaves:
         L_nn = np.eye(N)
         U_nn = A_nn.copy()
         
-        if 0:#N - self.n_n.count(-1) == 1:
+        if N - self.n_n.count(-1) == 1:
             assert self.n_n[0] != -1
             # We have a single bound-state projector.
             for n1 in range(N):
@@ -454,6 +454,7 @@ class PAWSetupGenerator:
     def construct_projectors(self):
         for waves in self.waves_l:
             waves.construct_projectors(self.vtr_g)
+            #self.rgd.filter(waves.pt_ng[0], 1.5, 7.0, 0, 1)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
@@ -553,6 +554,18 @@ class PAWSetupGenerator:
         egg = 0.5 * rgd.integrate(self.ghat_g * rgd.poisson(self.ghat_g), -1)
         ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0] 
         evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
+
+        nt=self.waves_l[0].phi_ng[0]**2 / 4 / pi
+        ntg =self.rgd.fft(nt * r_g)[1]
+        print ntg[0]
+        ex=0.5 * rgd.integrate(nt * rgd.poisson(nt), -1)
+        ex_k = 0.5 * ntg**2 * (4 * pi)**2 / (2 * pi)**3
+        nt=self.waves_l[0].phit_ng[0]**2 / 4 / pi
+        ntg =self.rgd.fft(nt * r_g)[1]
+        print ntg[0]
+        ey=0.5 * rgd.integrate(nt * rgd.poisson(nt), -1)
+        ey_k = 0.5 * ntg**2 * (4 * pi)**2 / (2 * pi)**3
+
         import pylab as p
 
         errors = 10.0**np.arange(-4, 0) / Hartree
@@ -561,13 +574,16 @@ class PAWSetupGenerator:
         for de in errors:
             self.log('%14.4f' % (de * Hartree), end='')
         for label, e_k, e0 in [
-            ('e-e', eee_k, eee),
-            ('c-c', ecc_k, ecc),
-            ('g-g', egg_k, egg),
-            ('kin', ekin_k, ekin),
-            ('vn', evt_k, evt)]:
+            #('e-e', eee_k, eee),
+            #('c-c', ecc_k, ecc),
+            #('g-g', egg_k, egg),
+            #('kin', ekin_k, ekin),
+            #('vn', evt_k, evt),
+            ('x', ex_k, ex),
+            ('y', ey_k, ey)]:
             self.log('\n%3s: ' % label, end='')
             e_k = (np.add.accumulate(e_k) - 0.5 * e_k[0] - 0.5 * e_k) * G_k[1]
+            print label,e0,e_k[-1]
             k = len(e_k) - 1
             for de in errors:
                 while abs(e_k[k] - e_k[-1]) < de:

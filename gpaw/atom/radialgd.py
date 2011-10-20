@@ -78,6 +78,10 @@ class RadialGridDescriptor:
         b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
         b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
 
+    def interpolate(self, f_g, r_x):
+        from scipy.interpolate import InterpolatedUnivariateSpline
+        return InterpolatedUnivariateSpline(self.r_g, f_g)(r_x)
+        
     def fft(self, fr_g, l=0, N=None):
         """Fourier transform.
 
@@ -95,8 +99,7 @@ class RadialGridDescriptor:
         assert N % 2 == 0
 
         r_x = np.linspace(0, self.r_g[-1], N)
-        from scipy.interpolate import InterpolatedUnivariateSpline
-        fr_x = InterpolatedUnivariateSpline(self.r_g, fr_g)(r_x)
+        fr_x = self.interpolate(fr_g, r_x)
 
         G_k = np.linspace(0, pi / r_x[1], N // 2 + 1)
         f_k = fsbt(l, fr_x, r_x, G_k)
@@ -104,6 +107,75 @@ class RadialGridDescriptor:
         if l == 0:
             f_k[0] = 4 * pi * np.dot(r_x, fr_x) * r_x[1]
         return G_k, f_k
+
+    def filter(self, f_g, rcut, Gcut, l=0, M=1):
+        Rcut = 100.0
+        N = 1024 * 8
+        r_x = np.linspace(0, Rcut, N, endpoint=False)
+        h = Rcut / N
+
+        alpha = 2.0
+        mcut = np.exp(-alpha * rcut**2)
+        r2_x = r_x**2
+        m_x = np.exp(-alpha * r2_x)
+        for n in range(M):
+            m_x -= (alpha * (rcut**2 - r2_x))**n * (mcut / fac[n])
+        xcut = int(np.ceil(rcut / r_x[1]))
+        m_x[xcut:] = 0.0
+
+        G_k = np.linspace(0, pi / h, N // 2 + 1)
+
+        fr_x = self.interpolate(f_g * self.r_g**(1-l), r_x)
+        fG0_k = fsbt(l, fr_x, r_x, G_k)
+        mG_k = fsbt(0, m_x*r_x, r_x, G_k)
+
+        fr_x[:xcut] /= m_x[:xcut]
+
+        fG_k = fsbt(l, fr_x, r_x, G_k)
+        kcut = int(Gcut / G_k[1])
+        fG_k[kcut:] = 0.0
+        fG_k[1:] /= G_k[1:]**(2*l)
+        ffr_x = fsbt(l, fG_k, G_k, r_x[:N // 2 + 1])/(4*pi)**2/pi*2
+        ffr_x[1:] /= r_x[1:N//2+1]**(2*l)
+        import pylab as p
+        p.plot(self.r_g, f_g*self.r_g)
+        p.plot(r_x[:N // 2 + 1],ffr_x*m_x[:N // 2 + 1])
+        p.show()
+        
+        fG2_k = fsbt(l, ffr_x*m_x[:N // 2 + 1], r_x[:N // 2 + 1], G_k)
+        p.plot(G_k,mG_k)
+        p.plot(G_k,fG0_k)
+        p.plot(G_k,fG2_k)
+        p.show()
+        return
+        l=2
+        mG_k = fsbt(l, m_x * r_x, r_x, G_k)
+        mG_k[1:]/=G_k[1:]**4
+        mr_x = fsbt(l, mG_k, G_k, r_x[:N // 2 + 1])/(4*pi)**2/pi*2
+        import pylab as p
+        p.plot(r_x, m_x*r_x**5)
+        p.plot(r_x[:N // 2 + 1],mr_x)
+        p.show()
+        
+        self.fft(m_g * self.r_g, l)
+        from_g = f_g * self.r_g
+        from_g[:gcut] /= m_g[:gcut]
+        #self.plot(from_g,show=1)
+        G_k,f_k = self.fft(from_g, l)
+        #p.plot(G_k, m_k)
+        #p.plot(G_k, f_k)
+        r_x = np.linspace(0, pi / G_k[1], 1024+1)
+        fr_x = fsbt(l, f_k * G_k , G_k, r_x)
+
+        r2_x = r_x**2
+        m_x = np.exp(-alpha * r2_x)
+        for n in range(M):
+            m_x -= (alpha * (rcut**2 - r2_x))**n * (mcut / fac[n])
+
+        print self.N, self.r_g[-1],r_x[-1]
+        p.plot(r_x, fr_x * m_x / 250)
+        p.plot(self.r_g, f_g * self.r_g)
+        p.show()
 
     def purepythonpoisson(self, n_g, l=0):
         r_g = self.r_g
