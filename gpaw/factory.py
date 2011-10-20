@@ -17,7 +17,8 @@ class GPAWFactory(CalculatorFactory):
         kpts = self.calculate_kpts(atoms)
 
         if (not atoms.pbc.any() and len(atoms) == 1 and
-            atoms.get_initial_magnetic_moments().any()):
+            atoms.get_initial_magnetic_moments().any() and
+            'hund' not in self.kwargs):
             self.kwargs['hund'] = True
 
         if atoms.pbc.any() and 'gpts' not in self.kwargs:
