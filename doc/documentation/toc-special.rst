@@ -4,6 +4,7 @@
    lcao/lcao
    parallel_runs/parallel_runs
    convergence/convergence	
+   cmdline
    restart_files
    rmm-diis
    orthogonalization

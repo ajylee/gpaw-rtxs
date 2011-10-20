@@ -13,6 +13,11 @@ class ConvergenceTestTask(Task):
     taskname = 'convergence'
 
     def __init__(self, g1=20, g2=40, L=4.0, **kwargs):
+        """Calculate convergence of energy.
+
+        The energy of a single atom and a dimer molecule is calculated
+        for a range of grid-spacings."""
+
         self.gs = range(g1, g2 + 1, 4)
         
         self.L = L

@@ -11,6 +11,11 @@ class EggboxTestTask(ConvergenceTestTask):
     taskname = 'eggbox'
 
     def __init__(self, **kwargs):
+        """Calculate size of eggbox error.
+
+        A single atom is translated from (0, 0, 0) to (h / 2, 0, 0) in
+        25 steps in order to measure to eggbox error."""
+
         ConvergenceTestTask.__init__(self, **kwargs)
         
     def calculate(self, name, atoms):

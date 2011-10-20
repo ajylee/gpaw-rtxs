@@ -45,7 +45,7 @@ class GPAWFactory(CalculatorFactory):
         CalculatorFactory.add_options(self, parser)
         
         calc = optparse.OptionGroup(parser, 'GPAW')
-        calc.add_option('--parameter-file', metavar='h=0.2,...',
+        calc.add_option('--parameter-file', metavar='FILE',
                         help='Read GPAW parameters from file.')
         calc.add_option('-S', '--show-text-output', action='store_true',
                         help='Send text output from calculation to ' +
