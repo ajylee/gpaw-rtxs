@@ -200,6 +200,9 @@ class PAWWaves:
         self.pt_ng[:, 1:] /= r_g[1:]
         if l == 0:
             self.pt_ng[:, 0] = self.pt_ng[:, 1]
+        
+        for n in range(N):
+            self.rgd.filter(self.pt_ng[n], self.rcut * 1.7, 15.0, l, 2)
 
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
         if len(self) == 0:
@@ -454,7 +457,6 @@ class PAWSetupGenerator:
     def construct_projectors(self):
         for waves in self.waves_l:
             waves.construct_projectors(self.vtr_g)
-            #self.rgd.filter(waves.pt_ng[0], 1.5, 7.0, 0, 1)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
