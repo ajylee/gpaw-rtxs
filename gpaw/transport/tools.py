@@ -409,6 +409,23 @@ def distribute_atomic_matrices(all_asp, asp, setups):
         if asp.get(a) is not None:
             asp[a] = all_asp[a]    
 
+def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, rank_a, comm, keys):
+    gD_ap = []
+    D_ap0 = [None] * len(keys)
+    for a, setup in enumerate(setups):
+	if a not in keys:
+	    ni = setup.ni
+	    sp = np.empty((ni * (ni + 1) // 2))
+	else:
+	    sp = D_ap[keys.index(a)]
+	if comm.size > 1:
+	    comm.broadcast(sp, rank_a[a])
+        gD_ap.append(sp)
+    for a in range(len(setups0)):
+        if a in keys:
+	    D_ap0[keys.index(a)] = gD_ap[a]
+    return D_ap0	    
+
 def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
                                  bias=[-3,3], depth=3, comm=None):
     from gpaw.transport.sparse_matrix import Banded_Sparse_HSD, CP_Sparse_HSD, Se_Sparse_Matrix
@@ -964,6 +981,26 @@ def angular_momentum_slice(overlap_slice, l, direction):
         ss = overlap_slice[i]
         am_slice[i] = aml(ss, l, direction)
     return am_slice	
+
+def cut_grids_side(array, gd, gd0):
+    #abstract the grid value from a including-buffer-layer calculation
+    #the vaccum buffer layer is fixed on the right side
+    from scipy import interpolate
+    global_array = gd.collect(array)
+    nx, ny, nz = global_array.shape
+    global_array.shape = (nx*ny, nz)
+    new_array = gd0.zeros()
+    global_new_array = gd0.collect(new_array)
+    x = np.arange(gd.N_c[2]) * gd.h_cv[2, 2]
+    xnew = np.arange(gd0.N_c[2]) * gd0.h_cv[2, 2]
+    nz0 = gd0.N_c[2]
+    global_new_array.shape = (nx*ny, nz0)
+    for i, line in enumerate(global_array):
+        tck = interpolate.splrep(x, line, s=0)
+        global_new_array[i] = interpolate.splev(xnew, tck, der=0)
+    global_new_array.shape = (nx, ny, nz0)
+    gd0.distribute(global_new_array, new_array)
+    return new_array
 
 def save_bias_data_file(Lead1, Lead2, Device):
     import pickle
