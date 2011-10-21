@@ -1,4 +1,5 @@
 from ase import *
+from ase.structure import molecule
 from ase.units import Ha, Bohr
 from ase.parallel import paropen
 from gpaw import *
@@ -10,7 +11,7 @@ max_cut = 400.
 
 # N -------------------------------------------
 
-N = data.molecules.molecule('N')
+N = molecule('N')
 N.set_pbc(True)
 N.set_cell((d, d, d))
 N.center()
@@ -41,7 +42,7 @@ calc.write('N.gpw', mode='all')
 
 # N2 ------------------------------------------
 
-N2 = data.molecules.molecule('N2')
+N2 = molecule('N2')
 N2.set_pbc(True)
 N2.set_cell((d, d, d))
 N2.center()

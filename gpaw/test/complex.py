@@ -1,5 +1,5 @@
 from gpaw import GPAW, restart
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw.test import equal
 Eini0 = -17.6122060535
 Iini0 = 12

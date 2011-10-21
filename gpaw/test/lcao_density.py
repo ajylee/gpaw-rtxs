@@ -12,7 +12,7 @@ TODO: non-gamma-point test
 """
 
 import numpy as np
-from ase.data.molecules import molecule
+from ase.structure import molecule
 
 from gpaw import GPAW
 from gpaw.utilities.blas import axpy

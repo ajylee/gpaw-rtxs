@@ -1,4 +1,4 @@
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.visualize import view
 from gpaw import GPAW
 from gpaw.wannier import Wannier

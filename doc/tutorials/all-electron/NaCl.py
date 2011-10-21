@@ -1,6 +1,6 @@
 import numpy as np
 
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw import GPAW
 
 unitcell = np.array([6.5, 6.6, 9.])
@@ -13,10 +13,10 @@ for formula in ('Na', 'Cl', 'NaCl',):
                 h=0.18,
                 convergence={'eigenstates':1E-8},
                 txt=formula + '.txt')
-    
+
     if formula == 'Cl':
         calc.set(hund=True)
-        
+
     sys = molecule(formula, cell=unitcell, calculator=calc)
     sys.center()
     sys.get_potential_energy()

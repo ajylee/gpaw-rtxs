@@ -1,4 +1,4 @@
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.structure import graphene_nanoribbon
 from ase.optimize import QuasiNewton
 from gpaw import GPAW

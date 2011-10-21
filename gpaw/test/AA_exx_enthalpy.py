@@ -1,5 +1,5 @@
 from ase import Atoms, Atom
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.parallel import barrier
 from ase.units import Hartree, mol, kcal
 from gpaw import GPAW, setup_paths

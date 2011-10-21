@@ -1,4 +1,4 @@
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.parallel import paropen
 from gpaw import GPAW
 from gpaw.utilities.tools import split_formula

@@ -1,4 +1,4 @@
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.parallel import rank, barrier
 
 from gpaw import GPAW, FermiDirac

@@ -20,7 +20,7 @@ will calculate the vibrational frequencies for a water molecule.
   :svn:`~doc/exercises/vibrations/h2o.py`.  An alternative is to
   use the MP2 structures from ASE's molecular database::
 
-    from ase.data.molecules import molecule
+    from ase.structure import molecule
     h2o = molecule('H2O')
     h2o.center(vacuum=3.5)
 

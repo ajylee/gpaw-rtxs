@@ -7,7 +7,7 @@ import traceback
 import numpy as np
 from ase.structure import bulk, estimate_lattice_constant
 from ase.atoms import Atoms, string2symbols
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.visualize import view
 from ase.io import read, write
 from ase.constraints import FixAtoms

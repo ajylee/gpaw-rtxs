@@ -4,7 +4,7 @@ from ase import Atoms, Atom
 from ase.parallel import barrier, rank, size
 from gpaw.cluster import Cluster
 from gpaw.test import equal
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from math import pi, sqrt
 
 R = 2.0

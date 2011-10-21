@@ -107,9 +107,10 @@ if [ "${INSTALL_DACAPO}" == "True" ];
 cat <<EOF > CO.py
 #!/usr/bin/env python
 from ase import *
+from ase.structure import molecule
 from ase.calculators.jacapo import *
 
-CO = data.molecules.molecule('CO')
+CO = molecule('CO')
 CO.set_cell([6,6,6])
 CO.center()
 

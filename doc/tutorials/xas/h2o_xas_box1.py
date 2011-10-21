@@ -1,5 +1,5 @@
 import numpy as np
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw import GPAW, setup_paths
 setup_paths.insert(0, '.')
 
@@ -18,4 +18,3 @@ for L in np.arange(4, 14, 2) * 8 * h:
     atoms.set_calculator(calc)
     e1 = atoms.get_potential_energy()
     calc.write('h2o_hch_%.1f.gpw' % L)
-

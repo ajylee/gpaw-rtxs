@@ -1,5 +1,5 @@
 from ase import Atoms
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
 from gpaw.mpi import world

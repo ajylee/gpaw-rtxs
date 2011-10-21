@@ -48,7 +48,7 @@ import numpy as np
 
 from math import sin, cos
 from ase import Atoms
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.units import Bohr
 from gpaw.mpi import compare_atoms
 from gpaw.utilities.tools import md5_array
