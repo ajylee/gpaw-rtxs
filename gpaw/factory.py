@@ -16,17 +16,19 @@ class GPAWFactory(CalculatorFactory):
     def __call__(self, name, atoms):
         kpts = self.calculate_kpts(atoms)
 
+        kwargs = self.kwargs.copy()  # modify a copy
+        
         if (not atoms.pbc.any() and len(atoms) == 1 and
             atoms.get_initial_magnetic_moments().any() and
-            'hund' not in self.kwargs):
-            self.kwargs['hund'] = True
+            'hund' not in kwargs):
+            kwargs['hund'] = True
 
-        if atoms.pbc.any() and 'gpts' not in self.kwargs:
+        if atoms.pbc.any() and 'gpts' not in kwargs:
             # Use fixed number of gpts:
-            h = self.kwargs.get('h', 0.2)
+            h = kwargs.get('h', 0.2)
             gpts = h2gpts(h, atoms.cell)
-            self.kwargs['h'] = None
-            self.kwargs['gpts'] = gpts
+            kwargs['h'] = None
+            kwargs['gpts'] = gpts
 
         if self.show_text_output:
             txt = '-'
@@ -40,7 +42,7 @@ class GPAWFactory(CalculatorFactory):
                     calc.write(name, mode))
 
         from gpaw import GPAW
-        return GPAW(txt=txt, kpts=kpts, **self.kwargs)
+        return GPAW(txt=txt, kpts=kpts, **kwargs)
         
     def add_options(self, parser):
         CalculatorFactory.add_options(self, parser)
