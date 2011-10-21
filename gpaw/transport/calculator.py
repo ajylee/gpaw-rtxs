@@ -613,6 +613,7 @@ class Transport(GPAW):
             density.update(wfs)
             hamiltonian.update(density)
             calc.print_iteration(iter)
+	self.copy_mixer_history(calc, 'buffer')	
         self.initialize_hamiltonian_matrix(calc)      
         del calc
         self.boundary_align_up()        
@@ -677,7 +678,7 @@ class Transport(GPAW):
                     density.rhot_g += self.surround.extra_rhot_g
                 hamiltonian.update(density)
                 calc.print_iteration(iter)
-        
+	    self.copy_mixer_history(calc)	
         self.initialize_hamiltonian_matrix(calc)      
         if not (self.non_sc and self.scat_restart):
             del calc
@@ -716,6 +717,50 @@ class Transport(GPAW):
                 self.hsd.reset(s, q, h_spkmm[s, q], 'H', True)
                 self.hsd.reset(s, q, np.zeros([nb, nb], dtype), 'D', True)
 
+    def copy_mixer_history(self, calc, guess_type='buffer'):
+        if guess_type == 'buffer':
+	    from gpaw.transport.tools import cut_grids_side, \
+	                       collect_and_distribute_atomic_matrices
+	    gd = calc.wfs.gd
+	    gd0 = self.wfs.gd
+	    setups = calc.density.setups
+	    setups0 = self.density.setups
+	    rank_a = calc.density.rank_a
+            keys = self.density.D_asp.keys()
+	    for mixer, mixer0 in zip(calc.density.mixer.mixers,
+	                             self.density.mixer.mixers):
+	        for nt_G, R_G, D_ap, dD_ap in zip(mixer.nt_iG,
+	                                          mixer.R_iG,
+	    				      mixer.D_iap,
+	    				      mixer.dD_iap):
+                    nt_G0 = cut_grids_side(nt_G, gd, gd0)
+	      	    R_G0 = cut_grids_side(R_G, gd, gd0)
+		    lD_ap = collect_and_distribute_atomic_matrices(D_ap,
+		                                        setups, setups0,
+						       rank_a, gd.comm, keys)
+		    ldD_ap = collect_and_distribute_atomic_matrices(dD_ap,
+		                                        setups, setups0,
+						       rank_a, gd.comm, keys)
+	            mixer0.nt_iG.append(nt_G0)
+		    mixer0.R_iG.append(R_G0)
+		    mixer0.D_iap.append(lD_ap)
+		    mixer0.dD_iap.append(ldD_ap)
+		nt_G0 = cut_grids_side(mixer.nt_iG[-1], gd, gd0)    
+		lD_ap = collect_and_distribute_atomic_matrices(mixer.D_iap[-1],
+		                                    setups, setups0,
+						    rank_a, gd.comm, keys)
+		mixer0.nt_iG.append(nt_G0)
+		mixer0.D_iap.append(lD_ap)
+		mixer0.A_ii = mixer.A_ii    
+        else:
+            for mixer, mixer0 in zip(calc.density.mixer.mixers,
+                                       self.density.mixer.mixers):
+                mixer0.nt_iG = mixer.nt_iG[:]
+	        mixer0.R_iG = mixer.R_iG[:]
+	        mixer0.D_iap = mixer.D_iap[:]
+	        mixer0.dD_iap = mixer.dD_iap[:]
+		mixer0.A_ii = mixer.A_ii
+       
     def scale_and_combine_hamiltonian(self):
  	#assert self.cell_ham_file is not None
         #fd = file(self.cell_ham_file, 'r')
@@ -1148,7 +1193,7 @@ class Transport(GPAW):
         level_in_scat = self.hsd.H[0][0].recover()[ind, ind]
         overlap_on_site = self.hsd.S[0].recover()[ind, ind]
         shift = (level_in_scat - level_in_lead) / overlap_on_site
-        if not self.buffer_guess and abs(shift) > tol:
+        if abs(shift) > tol:
             for s in range(self.my_nspins):
                 for pk in range(self.my_npk):
                     self.hsd.H[s][pk].reset_from_others(self.hsd.H[s][pk],
