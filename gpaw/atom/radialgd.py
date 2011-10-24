@@ -21,10 +21,13 @@ def fsbt(l, f_g, r_g, G_k):
 
     N = (len(G_k) - 1) * 2
     f_k = 0.0
+    F_g = f_g * r_g
     for n in range(l + 1):
         f_k += (r_g[1] * (1j)**(l + 1 - n) *
                 fac[l + n] / fac[l - n] / fac[n] / 2**n *
-                np.fft.rfft(f_g * r_g**(1 - n), N)).real * G_k**(l - n)
+                np.fft.rfft(F_g, N)).real * G_k**(l - n)
+        F_g[1:] /= r_g[1:]
+
     f_k[1:] /= G_k[1:]**(l + 1)
     if l == 0:
         f_k[0] = np.dot(r_g, f_g * r_g) * r_g[1]
