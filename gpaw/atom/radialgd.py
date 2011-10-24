@@ -105,23 +105,24 @@ class RadialGridDescriptor:
         assert N % 2 == 0
 
         r_x = np.linspace(0, self.r_g[-1], N)
-        fr_x = self.interpolate(fr_g, r_x)
-
+        f_x = self.interpolate(fr_g, r_x)
+        f_x[1:] /= r_x[1:]
+        f_x[0] = f_x[1]
         G_k = np.linspace(0, pi / r_x[1], N // 2 + 1)
-        f_k = 4 * pi * fsbt(l, fr_x, r_x, G_k)
+        f_k = 4 * pi * fsbt(l, f_x, r_x, G_k)
         return G_k, f_k
 
-    def filter(self, f_g, rcut, Gcut, l=0, M=1):
+    def filter(self, f_g, rcut, Gcut, l=0):
         Rcut = 100.0
         N = 1024 * 8
         r_x = np.linspace(0, Rcut, N, endpoint=False)
         h = Rcut / N
 
-        alpha = 1.0
+        alpha = 4.0 / rcut**2
         mcut = np.exp(-alpha * rcut**2)
         r2_x = r_x**2
         m_x = np.exp(-alpha * r2_x)
-        for n in range(M):
+        for n in range(2):
             m_x -= (alpha * (rcut**2 - r2_x))**n * (mcut / fac[n])
         xcut = int(np.ceil(rcut / r_x[1]))
         m_x[xcut:] = 0.0
@@ -133,35 +134,27 @@ class RadialGridDescriptor:
             f_x = InterpolatedUnivariateSpline(self.r_g, f_g)(r_x)
         else:
             a_g = f_g.copy()
-            a_g[1:] /= self.r_g**(l - 1)
+            a_g[1:] /= self.r_g[1:]**(l - 1)
             f_x = InterpolatedUnivariateSpline(
                 self.r_g, a_g)(r_x) * r_x**(l - 1)
 
         f_x[:xcut] /= m_x[:xcut]
-
         f_k = fsbt(l, f_x, r_x, G_k)
         kcut = int(Gcut / G_k[1])
         f_k[kcut:] = 0.0
-        ff_x = fsbt(l, f_k, G_k, r_x[:N // 2 + 1])/pi*2
-        ff_x*=m_x[:N // 2 + 1]
-        import pylab as p
-        p.plot(self.r_g, f_g)
-        p.plot(r_x[:N // 2 + 1],ff_x)
-        p.axis(xmax=rcut)
-        
-        if 0:
-            fG2_k = fsbt(l, ffr_x, r_x[:N // 2 + 1], G_k)
-            p.plot(G_k,mG_k)
-            p.plot(G_k,fG0_k)
-            p.plot(G_k,fG2_k)
-            p.axis(xmax=Gcut*2)
-            p.show()
-        from scipy.interpolate import InterpolatedUnivariateSpline
-        f=InterpolatedUnivariateSpline(r_x[:xcut+1], ff_x[:xcut+1])(self.r_g)
-        p.plot(self.r_g,f)
-        p.show()
-        return f
-        #return InterpolatedUnivariateSpline(r_x[:xcut+1], ffr_x[:xcut+1])(self.r_g)
+        ff_x = fsbt(l, f_k, G_k, r_x[:N // 2 + 1]) / pi * 2
+        ff_x *= m_x[:N // 2 + 1]
+
+        if l < 2:
+            f_g = InterpolatedUnivariateSpline(
+                r_x[:xcut + 1], ff_x[:xcut + 1])(self.r_g)
+        else:
+            ff_x[1:xcut + 1] /= r_x[1:xcut + 1]**(l - 1)
+            f_g = InterpolatedUnivariateSpline(
+                r_x[:xcut + 1], ff_x[:xcut + 1])(self.r_g) * self.r_g**(l - 1)
+        f_g[self.ceil(rcut):] = 0.0
+
+        return f_g
 
     def purepythonpoisson(self, n_g, l=0):
         r_g = self.r_g

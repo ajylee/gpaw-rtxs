@@ -4,7 +4,6 @@ import sys
 from math import pi, exp, sqrt, log
 
 import numpy as np
-from scipy.special import gamma
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from ase.utils import prnt
@@ -144,7 +143,7 @@ class PAWWaves:
                     phit_ng[n1] * phit_ng[n2]) / (4 * pi)
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
-    def construct_projectors(self, vtr_g):
+    def construct_projectors(self, vtr_g, rcfilter, Gcut):
         N = len(self)
         if N == 0:
             self.pt_ng = []
@@ -173,9 +172,14 @@ class PAWWaves:
                 (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
                 r_g * d2adg2_g * dgdr_g**2)
             q_g[gcut:] = 0
+            q_g[1:] /= r_g[1:]
+            if l == 0:
+                q_g[0] = q_g[1]
+            if Gcut is not None:
+                q_g = rgd.filter(q_g, rcfilter, Gcut, l)
             q_ng[n] = q_g
 
-        A_nn = rgd.integrate(phit_ng[:, None] * q_ng, -1) / (4 * pi)
+        A_nn = rgd.integrate(phit_ng[:, None] * q_ng) / (4 * pi)
         self.dH_nn = self.e_n * self.dS_nn - A_nn
 
         L_nn = np.eye(N)
@@ -197,13 +201,7 @@ class PAWWaves:
             self.dH_nn = np.dot(np.dot(iL_nn, self.dH_nn), iL_nn.T)
 
         self.pt_ng = np.dot(np.linalg.inv(U_nn.T), q_ng)
-        self.pt_ng[:, 1:] /= r_g[1:]
-        if l == 0:
-            self.pt_ng[:, 0] = self.pt_ng[:, 1]
         
-        for n in range(N):
-            self.rgd.filter(self.pt_ng[n], self.rcut * 1.7, 15.0, l, 2)
-
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
         if len(self) == 0:
             return
@@ -217,8 +215,9 @@ class PAWWaves:
 
 
 class PAWSetupGenerator:
-    def __init__(self, aea, projectors, rc, fd=sys.stdout,
-                 scalar_relativistic=False, alpha=None):
+    def __init__(self, aea, projectors, rc,
+                 scalar_relativistic=False, alpha=None,
+                 gamma=1.5, h=0.2 / Bohr, fd=sys.stdout):
         """fd: stream
             Text output."""
         
@@ -273,12 +272,22 @@ class PAWSetupGenerator:
         self.rcmax = max(radii)
         self.gcmax = self.rgd.ceil(self.rcmax)
 
+        self.rcfilter = self.rcmax * gamma
+        if h == 0:
+            self.Gcut = None
+        else:
+            self.Gcut = pi / h - 2 / self.rcfilter
+            self.log('Wang mask function for Fourier filtering:')
+            self.log('gamma=%.2f, h=%.2f Bohr, rcut=%.2f, Gcut=%.2f Bohr^-1' %
+                     (gamma, h, self.rcfilter, self.Gcut))
+
         if lmax >= 0:
             radii += [radii[-1]] * (lmax + 1 - len(radii))
 
         self.waves_l = []
         for l in range(lmax + 1):
-            waves = PAWWaves(self.rgd, l, radii[l])
+            rcut = radii[l]
+            waves = PAWWaves(self.rgd, l, rcut)
             e = -1.0
             for n in states[l]:
                 if isinstance(n, int):
@@ -295,7 +304,7 @@ class PAWSetupGenerator:
                     n = -1
                     f = 0.0
                     phi_g = self.rgd.zeros()
-                    gc = self.gcmax + 20
+                    gc = self.rgd.round(self.rcfilter) + 10
                     ch = Channel(l)
                     ch.integrate_outwards(phi_g, self.rgd, aea.vr_sg[0], gc, e,
                                           aea.scalar_relativistic)
@@ -406,6 +415,8 @@ class PAWSetupGenerator:
         self.l0 = None
         self.e0 = None
 
+        self.filter_zero_potential()
+
     def find_local_potential(self, l0, r0, P, e0):
         self.log('Local potential matching %s-scattering at e=%.3f eV' %
                  ('spdfg'[l0], e0 * Hartree) +
@@ -454,9 +465,20 @@ class PAWSetupGenerator:
         self.l0 = l0
         self.e0 = e0
 
+        self.filter_zero_potential()
+
+    def filter_zero_potential(self):
+        if self.Gcut is not None:
+            self.vtr_g -= self.v0r_g
+            self.v0r_g[1:] /= self.rgd.r_g[1:]
+            self.v0r_g[0] = self.v0r_g[1]
+            self.v0r_g = self.rgd.filter(
+                self.v0r_g, self.rcfilter, self.Gcut) * self.rgd.r_g
+            self.vtr_g += self.v0r_g
+
     def construct_projectors(self):
         for waves in self.waves_l:
-            waves.construct_projectors(self.vtr_g)
+            waves.construct_projectors(self.vtr_g, self.rcfilter, self.Gcut)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
@@ -555,18 +577,8 @@ class PAWSetupGenerator:
         ecc = 0.5 * rgd.integrate(self.rhot_g * self.vHtr_g, -1)
         egg = 0.5 * rgd.integrate(self.ghat_g * rgd.poisson(self.ghat_g), -1)
         ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0] 
+        print self.aea.ekin, self.ekincore, self.waves_l[0].dekin_nn[0, 0] 
         evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
-
-        nt=self.waves_l[0].phi_ng[0]**2 / 4 / pi
-        ntg =self.rgd.fft(nt * r_g)[1]
-        print ntg[0]
-        ex=0.5 * rgd.integrate(nt * rgd.poisson(nt), -1)
-        ex_k = 0.5 * ntg**2 * (4 * pi)**2 / (2 * pi)**3
-        nt=self.waves_l[0].phit_ng[0]**2 / 4 / pi
-        ntg =self.rgd.fft(nt * r_g)[1]
-        print ntg[0]
-        ey=0.5 * rgd.integrate(nt * rgd.poisson(nt), -1)
-        ey_k = 0.5 * ntg**2 * (4 * pi)**2 / (2 * pi)**3
 
         import pylab as p
 
@@ -576,16 +588,14 @@ class PAWSetupGenerator:
         for de in errors:
             self.log('%14.4f' % (de * Hartree), end='')
         for label, e_k, e0 in [
-            #('e-e', eee_k, eee),
-            #('c-c', ecc_k, ecc),
-            #('g-g', egg_k, egg),
-            #('kin', ekin_k, ekin),
-            #('vn', evt_k, evt),
-            ('x', ex_k, ex),
-            ('y', ey_k, ey)]:
+            ('e-e', eee_k, eee),
+            ('c-c', ecc_k, ecc),
+            ('g-g', egg_k, egg),
+            ('kin', ekin_k, ekin),
+            ('vt', evt_k, evt)]:
             self.log('\n%3s: ' % label, end='')
             e_k = (np.add.accumulate(e_k) - 0.5 * e_k[0] - 0.5 * e_k) * G_k[1]
-            print label,e0,e_k[-1]
+            print e_k[-1],e0, e_k[-1]-e0
             k = len(e_k) - 1
             for de in errors:
                 while abs(e_k[k] - e_k[-1]) < de:
@@ -594,7 +604,7 @@ class PAWSetupGenerator:
                 ecut = 0.5 * G**2
                 h = pi / G
                 self.log(' %6.1f (%4.2f)' % (ecut * Hartree, h), end='')
-            p.plot(G_k, (e_k - e0) * Hartree, label=label)
+            p.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
         self.log()
         #p.axis(xmin=4, xmax=10)
         p.xlabel('G')
@@ -785,6 +795,11 @@ def generate(argv=None):
     parser.add_option('-t', '--tag', type='string')
     parser.add_option('-c', '--convergence', action='store_true')
     parser.add_option('-a', '--alpha', type=float)
+    parser.add_option('-F', '--filter', metavar='gamma,h', default='1.5,0.2',
+                      help='Fourrier filtering parameters for Wang ' +
+                      'mask-function.  Default: ' +
+                      u'gamma=1.5 and h=0.2 Å.  Use gamma=1 and ' +
+                      u'h=0 Å to turn off filtering.')
 
     opt, args = parser.parse_args(argv)
 
@@ -821,9 +836,11 @@ def _generate(symbol, opt):
     if opt.radius:
         radii = [float(r) for r in opt.radius.split(',')]
 
+    gamma, h = (float(x) for x in opt.filter.split(','))
+
     gen = PAWSetupGenerator(aea, projectors, radii,
-                            scalar_relativistic=opt.scalar_relativistic,
-                            alpha=opt.alpha)
+                            opt.scalar_relativistic,
+                            opt.alpha, gamma, h / Bohr)
 
     gen.calculate_core_density()
     gen.pseudize()
