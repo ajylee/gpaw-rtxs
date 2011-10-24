@@ -17,6 +17,8 @@ encountering convergence problems:
   temperature <manual_occ>` is set to zero by default, even if you
   use periodic boundary conditions. In the case of metallic systems
   you might want to specify a finite Fermi temperature.
+  Remember to check the convergence of the results with respect to
+  the finite Fermi temperature!
 
 * If you are specifying the :ref:`number of bands <manual_nbands>`
   manually, try to increase the number of empty states. You might also
@@ -54,3 +56,4 @@ encountering convergence problems:
   the single-zeta polarization basis set from the double-zeta
   polarization basis sets that is available in the latest Setups. 
  
+* For spin polarised systems try to play with initial magnetic moments.
