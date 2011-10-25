@@ -985,20 +985,23 @@ def angular_momentum_slice(overlap_slice, l, direction):
 def cut_grids_side(array, gd, gd0):
     #abstract the grid value from a including-buffer-layer calculation
     #the vaccum buffer layer is fixed on the right side
+    #Assume the buffer system has the same domain spliting with the original one
     from scipy import interpolate
     global_array = gd.collect(array)
-    nx, ny, nz = global_array.shape
-    global_array.shape = (nx*ny, nz)
+    nx, ny, nz = gd.N_c
+    if gd.comm.rank == 0:
+        global_array.shape = (nx * ny, nz)
     new_array = gd0.zeros()
     global_new_array = gd0.collect(new_array)
     x = np.arange(gd.N_c[2]) * gd.h_cv[2, 2]
     xnew = np.arange(gd0.N_c[2]) * gd0.h_cv[2, 2]
     nz0 = gd0.N_c[2]
-    global_new_array.shape = (nx*ny, nz0)
-    for i, line in enumerate(global_array):
-        tck = interpolate.splrep(x, line, s=0)
-        global_new_array[i] = interpolate.splev(xnew, tck, der=0)
-    global_new_array.shape = (nx, ny, nz0)
+    if gd0.comm.rank == 0:
+        global_new_array.shape = (nx * ny, nz0)
+        for i, line in enumerate(global_array):
+            tck = interpolate.splrep(x, line, s=0)
+            global_new_array[i] = interpolate.splev(xnew, tck, der=0)
+        global_new_array.shape = (nx, ny, nz0)
     gd0.distribute(global_new_array, new_array)
     return new_array
 
