@@ -285,9 +285,9 @@ class HybridXC(XCFunctional):
         print >> self.txt, 'Contributions: q     w     E_q (eV)' 
         for q in range(len(exx_q)):
             print >> self.txt, self.ibzq_kc[q], self.q_weights[q]/len(self.bzq_kc), exx_q[q]*Ha/self.q_weights[q]*len(self.bzq_kc)
-        print >> self.txt, 'PAW correction: %s eV' % (paw * Ha)
+        print >> self.txt, 'PAW correction: %s eV' % (paw)
         print >> self.txt
-        print >> self.txt, 'E_EXX = %s eV' % (self.exx * Ha)
+        print >> self.txt, 'E_EXX = %s eV' % (self.exx)
         print >> self.txt
         print >> self.txt, 'Calculation completed at:  ', ctime()
         print >> self.txt
