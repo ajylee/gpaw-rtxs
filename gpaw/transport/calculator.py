@@ -587,10 +587,10 @@ class Transport(GPAW):
         kpts = kwargs['kpts']
         kpts = kpts[:2] + (1,)
         kwargs['kpts'] = kpts
-        if self.spinpol:
-            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
-        else:
+        if hasattr(self.density.mixer, 'mixers'):
             kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
+        else:
+            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
         if 'txt' in kwargs and kwargs['txt'] != '-':
             kwargs['txt'] = 'guess_' + kwargs['txt']            
         atoms.set_calculator(gpaw.GPAW(**kwargs))
@@ -629,10 +629,10 @@ class Transport(GPAW):
         #kwargs['kpts'] = kpts
         if self.non_sc:
             kwargs['kpts'] = kpts[:2] + (self.scat_ntk,)
-        if self.spinpol:
-            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
-        else:
+        if hasattr(self.density.mixer, 'mixers'):
             kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
+        else:
+            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
         if 'txt' in kwargs and kwargs['txt'] != '-':
             kwargs['txt'] = 'guess_' + kwargs['txt']            
         atoms.set_calculator(gpaw.GPAW(**kwargs))
@@ -717,7 +717,14 @@ class Transport(GPAW):
                 self.hsd.reset(s, q, h_spkmm[s, q], 'H', True)
                 self.hsd.reset(s, q, np.zeros([nb, nb], dtype), 'D', True)
 
-    def copy_mixer_history(self, calc, guess_type='buffer'):
+    def copy_mixer_history(self, calc, guess_type='normal'):
+	if hasattr(self.density.mixer, 'mixers'):
+	    mixers = calc.density.mixer.mixers
+	    mixers0 = self.density.mixer.mixers
+        else:
+	    mixers = [calc.density.mixer]
+	    mixers0 = [self.density.mixer]
+
         if guess_type == 'buffer':
 	    from gpaw.transport.tools import cut_grids_side, \
 	                       collect_and_distribute_atomic_matrices
@@ -727,8 +734,7 @@ class Transport(GPAW):
 	    setups0 = self.density.setups
 	    rank_a = calc.density.rank_a
             keys = self.density.D_asp.keys()
-	    for mixer, mixer0 in zip(calc.density.mixer.mixers,
-	                             self.density.mixer.mixers):
+	    for mixer, mixer0 in zip(mixers, mixers0):
 	        for nt_G, R_G, D_ap, dD_ap in zip(mixer.nt_iG,
 	                                          mixer.R_iG,
 	    				      mixer.D_iap,
@@ -753,8 +759,7 @@ class Transport(GPAW):
 		mixer0.D_iap.append(lD_ap)
 		mixer0.A_ii = mixer.A_ii    
         else:
-            for mixer, mixer0 in zip(calc.density.mixer.mixers,
-                                       self.density.mixer.mixers):
+            for mixer, mixer0 in zip(mixers, mixers0):
                 mixer0.nt_iG = mixer.nt_iG[:]
 	        mixer0.R_iG = mixer.R_iG[:]
 	        mixer0.D_iap = mixer.D_iap[:]
@@ -2415,7 +2420,7 @@ class Transport(GPAW):
                     N_c[2] += self.bnc[i]
                 p['gpts'] = N_c
             if 'mixer' in p:
-                if not self.spinpol:
+                if hasattr(self.density.mixer, 'mixers'):
                     p['mixer'] = Mixer(self.density.mixer.beta, 5, weight=100.0)
                 else:
                     p['mixer'] = MixerDif(self.density.mixer.beta, 5, weight=100.0)
