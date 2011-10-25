@@ -175,10 +175,14 @@ class Channel:
                 if abs(A) < 1e-5:
                     break
 
-                e += 0.5 * A * u_g[g0]**2
+                de = 0.5 * A * u_g[g0]**2
+                #de = -min(abs(de / e), 0.1) * e * de / abs(de)
+                e += de
+                #if e > 0:
+                #    e = e - 0.99 * 0.5 * A * u_g[g0]**2
                 iter += 1
                 assert iter < 400, (n, l, e)
-
+                
             self.e_n[n] = e
             self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
             if self.l == 0:
@@ -524,7 +528,7 @@ class AllElectronAtom:
         for iter in range(maxiter):
             self.log('.', end='')
             self.fd.flush()
-            if iter > 1:
+            if iter > 0:
                 self.vr_sg *= mix
                 self.vr_sg += (1 - mix) * vr_old_sg
                 dn = self.rgd.integrate(abs(self.n_sg - n_old_sg).sum(0))

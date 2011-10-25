@@ -70,8 +70,8 @@ parameters = {
 'Rh': ('5s,s,5p,p,4d,d', 3.2, {}),
 'Pd': ('5s,s,5p,p,4d,d', 3.1, {}),
 'Ag': ('5s,s,5p,p,4d,d', 3.1, {}),
-'Cd': ('5s,s,?p,p,4d,d', 2.7, {}),
-'In': ('5s,s,5p,p,4d,d', 2.7, {}),
+'Cd': ('5s,s,5p,p,4d,d', 3.0, {}),
+'In': ('5s,s,5p,p,4d,d', 2.9, {}),
 'Sn': ('5s,s,5p,p,d', 2.8, {}),
 'Sb': ('5s,s,5p,p,d', 2.7, {}),
 'Te': ('5s,s,5p,p,d', 2.7, {}),
@@ -88,7 +88,7 @@ parameters = {
 'Re': ('6s,s,?p,p,5d,d', 3.0, {}),
 'Os': ('6s,s,?p,p,5d,d', 3.0, {}),
 'Ir': ('6s,s,?p,p,5d,d', 2.9, {}),
-'Pt': ('6s,s,?p,p,5d,d', 3.0, {}),
+'Pt': ('6s,s,6p,p,5d,d', 3.3, {}),
 'Au': ('6s,s,6p,p,5d,d', 3.0, {}),
 'Hg': ('6s,s,?p,p,5d,d', 2.9, {}),
 'Tl': ('6s,s,6p,p,5d,d', 2.8, {}),
@@ -519,7 +519,7 @@ class PAWSetupGenerator:
                 self.log('Singular overlap matrix!')
                 ok = False
                 continue
-
+            
             nbound = (e_b < 0).sum()
 
             if l < len(self.aea.channels):
@@ -795,7 +795,7 @@ def generate(argv=None):
     parser.add_option('-t', '--tag', type='string')
     parser.add_option('-c', '--convergence', action='store_true')
     parser.add_option('-a', '--alpha', type=float)
-    parser.add_option('-F', '--filter', metavar='gamma,h', default='1.5,0.2',
+    parser.add_option('-F', '--filter', metavar='gamma,h',
                       help='Fourrier filtering parameters for Wang ' +
                       'mask-function.  Default: ' +
                       u'gamma=1.5 and h=0.2 Å.  Use gamma=1 and ' +
@@ -836,7 +836,11 @@ def _generate(symbol, opt):
     if opt.radius:
         radii = [float(r) for r in opt.radius.split(',')]
 
-    gamma, h = (float(x) for x in opt.filter.split(','))
+    gamma = extra.get('gamma', 1.5)
+    h = extra.get('h', 0.2)  # Angstrom
+
+    if opt.filter:
+        gamma, h = (float(x) for x in opt.filter.split(','))
 
     gen = PAWSetupGenerator(aea, projectors, radii,
                             opt.scalar_relativistic,
