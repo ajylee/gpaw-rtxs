@@ -23,78 +23,78 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 
 
 parameters = {
-'H':  ('1s,s,p', 1.0),
-'He': ('1s,s,p', 1.0),
-'Li': ('2s,s,2p', 2.5),
-'Be': ('2s,s,2p', 2.0),
-'B':  ('2s,s,2p,p,d', 1.4),
-'C':  ('2s,s,2p,p,d', 1.3),
-'N':  ('2s,s,2p,p,d', 1.3),
-'O':  ('2s,s,2p,p,d', 1.5),
-'F':  ('2s,s,2p,p,d', 1.4),
-'Ne': ('2s,s,2p,p,d', 1.8),
-'Na': ('2s,3s,2p,3p', 2.5, 'd'),  # how about Li, K, ...
-'Mg': ('3s,s,p', 2.8),
-'Al': ('3s,s,3p,p,d', 2.2),
-'Si': ('3s,s,3p,p,d', 2.4),
-'P':  ('3s,s,3p,p,d', 1.9),
-'S':  ('3s,s,3p,p,d', 2.2),
-'Cl': ('3s,s,3p,p,d', 2.1),
-'Ar': ('3s,s,3p,p,d', 2.2),
-'K':  ('3s,4s,3p,4p,d', 2.4),
-'Ca': ('3s,4s,3p,4p,3d', 2.5),
-'Sc': ('3s,4s,3p,4p,3d,d', 2.8, 'f'),
-'Ti': ('3s,4s,3p,4p,3d,d', 2.7, 'f'),
-'V':  ('3s,4s,3p,4p,3d,d', 2.7, 'f'),
-'Cr': ('3s,4s,3p,4p,3d,d', 2.7, 'f'),
-'Mn': ('4s,s,4p,p,3d,d', 2.8),
-'Fe': ('4s,s,4p,p,3d,d', 2.8),
-'Co': ('4s,s,4p,p,3d,d', 2.7),
-'Ni': ('4s,s,4p,p,3d,d', 2.7),
-'Cu': ('4s,s,4p,p,3d,d', 2.5),
-'Zn': ('4s,s,4p,p,3d,d', 2.8),
-'Ga': ('4s,s,4p,p,3d,d', 2.6),
-'Ge': ('4s,s,4p,p,d', 2.7),
-'As': ('4s,s,4p,p,d', 2.7),
-'Se': ('4s,s,4p,p,d', 2.7),
-'Br': ('4s,5s,4p,p,d', 2.7),
-'Kr': ('4s,5s,4p,p,d', 2.4),
-'Rb': ('4s,5s,4p,5p,d', 2.7, 'f'),
-'Sr': ('4s,5s,4p,5p,d', 2.7, 'f'),
-'Y':  ('4s,5s,4p,5p,4d,d', 2.6, 'f'),
-'Zr': ('4s,5s,4p,5p,4d,d', 2.7, 'f'),
-'Nb': ('4s,5s,4p,5p,4d,d', 2.8, 'f'),
-'Mo': ('4s,5s,4p,5p,4d,d', 2.9, 'f'),
-'Tc': ('4s,5s,4p,5p,4d,d', 2.9, 'f'),
-'Ru': ('4s,5s,4p,5p,4d,d', 2.9, 'f'),
-'Rh': ('5s,s,5p,p,4d,d', 3.2),
-'Pd': ('5s,s,5p,p,4d,d', 3.1),
-'Ag': ('5s,s,5p,p,4d,d', 3.1),
-'Cd': ('5s,s,?p,p,4d,d', 2.7),
-'In': ('5s,s,5p,p,4d,d', 2.7),
-'Sn': ('5s,s,5p,p,d', 2.8),
-'Sb': ('5s,s,5p,p,d', 2.7),
-'Te': ('5s,s,5p,p,d', 2.7),
-'I':  ('5s,s,5p,p,d', 2.7),
-'Xe': ('5s,s,5p,p,d', 2.8),
-'Cs': ('5s,6s,5p,p,d', 3.2),
-'Ba': ('6s,s,5p,p,d', 3.0),
-'La': ('6s,s,5p,p,5d,d', 3.1),
-'Ce': ('5s,6s,5p,6p,5d,d', 2.8, 'f', 1.5),
-'Lu': ('6s,s,?p,p,5d,d,4f,f', 3.4),
-'Hf': ('6s,s,?p,p,5d,d,4f,f', 3.1),
-'Ta': ('6s,s,?p,p,5d,d', 3.0),
-'W':  ('6s,s,?p,p,5d,d', 3.0),
-'Re': ('6s,s,?p,p,5d,d', 3.0),
-'Os': ('6s,s,?p,p,5d,d', 3.0),
-'Ir': ('6s,s,?p,p,5d,d', 2.9),
-'Pt': ('6s,s,?p,p,5d,d', 3.0),
-'Au': ('6s,s,6p,p,5d,d', 3.0),
-'Hg': ('6s,s,?p,p,5d,d', 2.9),
-'Tl': ('6s,s,6p,p,5d,d', 2.8),
-'Pb': ('6s,s,6p,p,5d,d', 2.8),
-'Bi': ('6s,s,6p,p,d', 3.0),
-'Rn': ('6s,s,6p,p,d', 2.7)}
+'H':  ('1s,s,p', 1.0, {}),
+'He': ('1s,s,p', 1.3, {}),
+'Li': ('2s,s,2p', 2.5, {}),
+'Be': ('2s,s,2p', 2.0, {}),
+'B':  ('2s,s,2p,p,d', 1.4, {}),
+'C':  ('2s,s,2p,p,d', 1.3, {'gamma': 1.8}),
+'N':  ('2s,s,2p,p,d', 1.3, {'gamma': 1.8}),
+'O':  ('2s,s,2p,p,d', 1.5, {}),
+'F':  ('2s,s,2p,p,d', 1.4, {'gamma': 1.7}),
+'Ne': ('2s,s,2p,p,d', 1.8, {}),
+'Na': ('2s,3s,2p,3p', 2.5, {'local': 'd'}),  # how about Li, K, ...
+'Mg': ('3s,s,p', 2.8, {}),
+'Al': ('3s,s,3p,p,d', 2.2, {}),
+'Si': ('3s,s,3p,p,d', 2.4, {}),
+'P':  ('3s,s,3p,p,d', 1.9, {}),
+'S':  ('3s,s,3p,p,d', 2.2, {}),
+'Cl': ('3s,s,3p,p,d', 2.1, {}),
+'Ar': ('3s,s,3p,p,d', 2.2, {}),
+'K':  ('3s,4s,3p,4p,d', 2.4, {}),
+'Ca': ('3s,4s,3p,4p,3d', 2.5, {}),
+'Sc': ('3s,4s,3p,4p,3d,d', 2.8, {'local': 'f'}),
+'Ti': ('3s,4s,3p,4p,3d,d', 2.7, {'local': 'f'}),
+'V':  ('3s,4s,3p,4p,3d,d', 2.7, {'local': 'f'}),
+'Cr': ('3s,4s,3p,4p,3d,d', 2.7, {'local': 'f'}),
+'Mn': ('4s,s,4p,p,3d,d', 2.8, {}),
+'Fe': ('4s,s,4p,p,3d,d', 2.8, {}),
+'Co': ('4s,s,4p,p,3d,d', 2.7, {}),
+'Ni': ('4s,s,4p,p,3d,d', 2.7, {}),
+'Cu': ('4s,s,4p,p,3d,d', 2.5, {}),
+'Zn': ('4s,s,4p,p,3d,d', 2.8, {}),
+'Ga': ('4s,s,4p,p,3d,d', 2.6, {}),
+'Ge': ('4s,s,4p,p,d', 2.7, {}),
+'As': ('4s,s,4p,p,d', 2.7, {}),
+'Se': ('4s,5s,4p,p,d', 2.7, {}),
+'Br': ('4s,5s,4p,p', 2.5, {'local': 'd'}),
+'Kr': ('4s,5s,4p,p,d', 2.4, {}),
+'Rb': ('4s,5s,4p,5p,d', 2.7, {'local': 'f'}),
+'Sr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
+'Y':  ('4s,5s,4p,5p,4d,d', 2.6, {'local': 'f'}),
+'Zr': ('4s,5s,4p,5p,4d,d', 2.7, {'local': 'f'}),
+'Nb': ('4s,5s,4p,5p,4d,d', 2.8, {'local': 'f'}),
+'Mo': ('4s,5s,4p,5p,4d,d', 2.9, {'local': 'f'}),
+'Tc': ('4s,5s,4p,5p,4d,d', 2.9, {'local': 'f'}),
+'Ru': ('4s,5s,4p,5p,4d,d', 2.9, {'local': 'f'}),
+'Rh': ('5s,s,5p,p,4d,d', 3.2, {}),
+'Pd': ('5s,s,5p,p,4d,d', 3.1, {}),
+'Ag': ('5s,s,5p,p,4d,d', 3.1, {}),
+'Cd': ('5s,s,?p,p,4d,d', 2.7, {}),
+'In': ('5s,s,5p,p,4d,d', 2.7, {}),
+'Sn': ('5s,s,5p,p,d', 2.8, {}),
+'Sb': ('5s,s,5p,p,d', 2.7, {}),
+'Te': ('5s,s,5p,p,d', 2.7, {}),
+'I':  ('5s,s,5p,p,d', 2.7, {}),
+'Xe': ('5s,s,5p,p,d', 2.8, {}),
+'Cs': ('5s,6s,5p,p,d', 3.2, {}),
+'Ba': ('6s,s,5p,p,d', 3.0, {}),
+'La': ('6s,s,5p,p,5d,d', 3.1, {}),
+'Ce': ('5s,6s,5p,6p,5d,d', 2.8, {'local': 'f', '?': 1.5}),
+'Lu': ('6s,s,?p,p,5d,d,4f,f', 3.4, {}),
+'Hf': ('6s,s,?p,p,5d,d,4f,f', 3.1, {}),
+'Ta': ('6s,s,?p,p,5d,d', 3.0, {}),
+'W':  ('6s,s,?p,p,5d,d', 3.0, {}),
+'Re': ('6s,s,?p,p,5d,d', 3.0, {}),
+'Os': ('6s,s,?p,p,5d,d', 3.0, {}),
+'Ir': ('6s,s,?p,p,5d,d', 2.9, {}),
+'Pt': ('6s,s,?p,p,5d,d', 3.0, {}),
+'Au': ('6s,s,6p,p,5d,d', 3.0, {}),
+'Hg': ('6s,s,?p,p,5d,d', 2.9, {}),
+'Tl': ('6s,s,6p,p,5d,d', 2.8, {}),
+'Pb': ('6s,s,6p,p,5d,d', 2.8, {}),
+'Bi': ('6s,s,6p,p,d', 3.0, {}),
+'Rn': ('6s,s,6p,p,d', 2.7, {})}
 
 
 class PAWWaves:
@@ -606,7 +606,7 @@ class PAWSetupGenerator:
                 self.log(' %6.1f (%4.2f)' % (ecut * Hartree, h), end='')
             p.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
         self.log()
-        #p.axis(xmin=4, xmax=10)
+        p.axis(xmax=20)
         p.xlabel('G')
         p.ylabel('[eV]')
         p.legend()
@@ -828,7 +828,7 @@ def generate(argv=None):
 def _generate(symbol, opt):
     aea = AllElectronAtom(symbol, xc=opt.xc_functional)
 
-    projectors, radii = parameters[symbol][:2]
+    projectors, radii, extra = parameters[symbol]
 
     if opt.projectors:
         projectors = opt.projectors
@@ -863,10 +863,10 @@ def _generate(symbol, opt):
             l0 = 'spdfg'.find(type)
             gen.find_local_potential(l0, r0, nderiv, e0)
     else:
-        if len(parameters[symbol]) == 2:
+        if 'local' not in extra:
             gen.find_polynomial_potential(gen.rcmax, 6)
         else:
-            l0 = 'spdfg'.find(parameters[symbol][2])
+            l0 = 'spdfg'.find(extra['local'])
             gen.find_local_potential(l0, gen.rcmax, 6, 0.0)
         
     gen.construct_projectors()
@@ -879,7 +879,7 @@ def _generate(symbol, opt):
     if opt.convergence:
         gen.test_convergence()
         
-    if ok and opt.write:
+    if opt.write:
         gen.make_paw_setup(opt.tag).write_xml()
         
     if opt.logarithmic_derivatives or opt.plot:

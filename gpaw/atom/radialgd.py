@@ -100,7 +100,7 @@ class RadialGridDescriptor:
         """
 
         if N is None:
-            N = self.N
+            N = 2**13
 
         assert N % 2 == 0
 
