@@ -22,7 +22,7 @@ from gpaw.atom.radialgd import AERadialGridDescriptor
 c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
 
 # Colors for s, p, d, f, g:
-colors = 'krgbycm'
+colors = 'krgbycmmmmm'
 
 
 class GaussianBasis:
