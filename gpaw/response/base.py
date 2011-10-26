@@ -448,7 +448,7 @@ class BASECHI:
             return rho_G
 
 
-    def screened_interaction_kernel(self, iq, static=True):
+    def screened_interaction_kernel(self, iq, static=True, comm=None, kcommsize=None):
         """Calcuate W_GG(w) for a given q.
         if static: return W_GG(w=0)
         is not static: return W_GG(q,w) - Vc_GG
@@ -472,13 +472,13 @@ class BASECHI:
                     optical_limit=optical_limit, hilbert_trans=True, xc='RPA', full_response=True,
                     rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
                     eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,
-                    txt='no_output', comm=serial_comm)
+                    txt='no_output', comm=comm, kcommsize=kcommsize)
 
         dfinv_wGG = df.get_inverse_dielectric_matrix(xc='RPA')
         assert df.ecut[0] == self.ecut[0]
         if not static:
             assert df.eta == self.eta
-            assert df.Nw == self.Nw
+#            assert df.Nw == self.Nw
             assert df.dw == self.dw
 
         if static:
@@ -489,9 +489,10 @@ class BASECHI:
 
             return W_GG
         else:
+            Nw = np.shape(dfinv_wGG)[0]
             W_wGG = np.zeros_like(dfinv_wGG)
             tmp_GG = np.eye(df.npw, df.npw)
-            for iw in range(df.Nw):
+            for iw in range(Nw):
                 dfinv_wGG[iw] -= tmp_GG 
                 W_wGG[iw] = dfinv_wGG[iw] * df.Kc_GG
             if optical_limit:
