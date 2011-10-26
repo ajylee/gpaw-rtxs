@@ -452,7 +452,7 @@ class CHI(BASECHI):
                                self.Nw, self.wcomm.rank, self.wcomm.size, reshape=True)
         else:
             if self.Nw > 1:
-                assert self.Nw % (size / self.kcomm.size) == 0
+#                assert self.Nw % (self.comm.size / self.kcomm.size) == 0
                 self.wcomm = self.wScomm
                 self.Nw, self.Nw_local, self.wstart, self.wend =  parallel_partition(
                                self.Nw, self.wcomm.rank, self.wcomm.size, reshape=False)
