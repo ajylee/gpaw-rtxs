@@ -79,23 +79,27 @@ parameters = {
 'Xe': ('5s,s,5p,p,d', 2.8, {}),
 'Cs': ('5s,6s,5p,p,d', 3.2, {}),
 'Ba': ('6s,s,5p,p,d', 3.0, {}),
-'La': ('6s,s,5p,p,5d,d', 3.1, {}),
-'Ce': ('5s,6s,5p,6p,5d,d', 2.8, {'local': 'f', '?': 1.5}),
-'Lu': ('6s,s,?p,p,5d,d,4f,f', 3.4, {}),
-'Hf': ('6s,s,?p,p,5d,d,4f,f', 3.1, {}),
-'Ta': ('6s,s,?p,p,5d,d', 3.0, {}),
-'W':  ('6s,s,?p,p,5d,d', 3.0, {}),
-'Re': ('6s,s,?p,p,5d,d', 3.0, {}),
-'Os': ('6s,s,?p,p,5d,d', 3.0, {}),
-'Ir': ('6s,s,?p,p,5d,d', 2.9, {}),
+'La': ('5s,6s,s,5p,6p,5d,d', 3.0, {}),
+'Ce': ('5s,6s,s,5p,6p,p,5d,d', [3.3, 2.8], {}),
+'Lu': ('6s,s,6p,p,5d,d,4f,f', 3.4, {}),
+'Hf': ('6s,s,6p,p,5d,d,4f,f', 3.1, {}),
+'Ta': ('6s,s,6p,p,5d,d', 3.0, {}),
+'W':  ('6s,s,6p,p,5d,d', 3.0, {}),
+'Re': ('6s,s,6p,p,5d,d', 3.0, {}),
+'Os': ('6s,s,6p,p,5d,d', 3.0, {}),
+'Ir': ('6s,s,6p,p,5d,d', 2.9, {}),
 'Pt': ('6s,s,6p,p,5d,d', 3.3, {}),
 'Au': ('6s,s,6p,p,5d,d', 3.0, {}),
-'Hg': ('6s,s,?p,p,5d,d', 2.9, {}),
+'Hg': ('6s,s,6p,p,5d,d', 2.9, {}),
 'Tl': ('6s,s,6p,p,5d,d', 2.8, {}),
 'Pb': ('6s,s,6p,p,5d,d', 2.8, {}),
-'Bi': ('6s,s,6p,p,d', 3.0, {}),
-'Rn': ('6s,s,6p,p,d', 2.7, {})}
+'Bi': ('6s,s,6p,p,d', 3.0, {})
+}
 
+extra_parameters = {
+'Ru': ('4s,5s,s,4p,5p,p,4d,d', 2.9, {'local': 'f'}),
+'Ru': ('5s,s,5p,p,4d,d', [3.3, 3.3, 2.9], {}),
+}
 
 class PAWWaves:
     def __init__(self, rgd, l, rcut):
@@ -829,7 +833,7 @@ def _generate(symbol, opt):
     aea = AllElectronAtom(symbol, xc=opt.xc_functional)
 
     projectors, radii, extra = parameters[symbol]
-
+    
     if opt.projectors:
         projectors = opt.projectors
                 
