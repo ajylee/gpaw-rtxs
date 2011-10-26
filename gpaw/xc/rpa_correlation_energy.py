@@ -1,12 +1,13 @@
-import numpy as np
+import sys
 from time import ctime
+import numpy as np
+from ase.parallel import paropen
 from gpaw import GPAW
 from gpaw.response.df import DF
 from gpaw.utilities import devnull
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.mpi import rank
-from ase.parallel import paropen
-import sys
+from gpaw.mpi import rank, size, world
+from gpaw.response.parallel import parallel_partition, set_communicator
 
 class RPACorrelation:
 
@@ -52,6 +53,7 @@ class RPACorrelation:
    
     def get_rpa_correlation_energy(self,
                                    kcommsize=1,
+                                   dfcommsize=world.size,
                                    directions=None,
                                    skip_gamma=False,
                                    ecut=10,
@@ -71,42 +73,84 @@ class RPACorrelation:
                                     gauss_legendre,
                                     frequency_cut,
                                     frequency_scale)
-        
-        E_q = []
-        if restart is not None:
-            assert type(restart) is str
-            try:
-                f = paropen(restart, 'r')
-                lines = f.readlines()
-                for line in lines:
-                    E_q.append(eval(line))
-                f.close()
-                print >> self.txt, 'Correlation energy from %s q-points obtained from restart file: ' % len(E_q), restart
-                print >> self.txt
-            except:
-                IOError
 
-        for index, q in enumerate(self.ibz_q_points[len(E_q):]):
-            if abs(q[0]) < 0.001 and abs(q[1]) < 0.001 and abs(q[2]) < 0.001:
-                E_q0 = 0.
-                if skip_gamma:
-                    print >> self.txt, 'Not calculating q at the Gamma point'
-                    print >> self.txt
-                else:
-                    if directions is None:
-                        directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
-                    for d in directions:                                   
-                        E_q0 += self.E_q(q, index=index, direction=d[0]) * d[1]
-                E_q.append(E_q0)
-            else:
-                E_q.append(self.E_q(q, index=index))
-                
+        if dfcommsize == world.size:
+            self.dfcomm = world
+            E_q = []
             if restart is not None:
-                f = paropen(restart, 'a')
-                print >> f, E_q[-1]
-                f.close()
+                assert type(restart) is str
+                try:
+                    f = paropen(restart, 'r')
+                    lines = f.readlines()
+                    for line in lines:
+                        E_q.append(eval(line))
+                    f.close()
+                    print >> self.txt, 'Correlation energy from %s q-points obtained from restart file: ' % len(E_q), restart
+                    print >> self.txt
+                except:
+                    IOError
+    
+            for index, q in enumerate(self.ibz_q_points[len(E_q):]):
+                if abs(q[0]) < 0.001 and abs(q[1]) < 0.001 and abs(q[2]) < 0.001:
+                    E_q0 = 0.
+                    if skip_gamma:
+                        print >> self.txt, 'Not calculating q at the Gamma point'
+                        print >> self.txt
+                    else:
+                        if directions is None:
+                            directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
+                        for d in directions:                                   
+                            E_q0 += self.E_q(q, index=index, direction=d[0]) * d[1]
+                    E_q.append(E_q0)
+                else:
+                    E_q.append(self.E_q(q, index=index))
+                    
+                if restart is not None:
+                    f = paropen(restart, 'a')
+                    print >> f, E_q[-1]
+                    f.close()
+    
+            E = np.dot(np.array(self.q_weights), np.array(E_q).real)
 
-        E = np.dot(np.array(self.q_weights), np.array(E_q).real)
+        else: # parallelzation over q points
+            print >> self.txt, 'parallelization over q point ! '
+        # creast q list
+            qlist = []
+            qweight = []
+            id = 0
+            for iq, q in enumerate(self.ibz_q_points):
+                if abs(q[0]) < 0.001 and abs(q[1]) < 0.001 and abs(q[2]) < 0.001:
+                    if skip_gamma:
+                        continue
+                    else:
+                        if directions is None:
+                            directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
+                        for d in directions:
+                            qlist.append((id, q, d[0], d[1]))
+                            qweight.append(self.q_weights[iq])
+                            id += 1
+                        continue
+                qlist.append((id, q, 0, 1))
+                qweight.append(self.q_weights[iq])
+                id += 1
+            nq = len(qlist)
+    
+            # distribute q list
+            self.dfcomm, qcomm = set_communicator(world, world.rank, world.size, kcommsize=dfcommsize)[:2]
+            nq, nq_local, q_start, q_end = parallel_partition(
+                                      nq, qcomm.rank, qcomm.size, reshape=False)
+    
+            E_q = np.zeros(nq)
+            for iq in range(q_start, q_end):
+                E_q[iq] = self.E_q(qlist[iq][1], index=iq, direction=qlist[iq][2]) * qlist[iq][3]
+            qcomm.sum(E_q)
+    
+            print >> self.txt, '(q, direction, weight), E_q, qweight'
+            for iq in range(nq):
+                print >> self.txt, qlist[iq][1:4], E_q[iq], qweight[iq]
+    
+            E = np.dot(np.array(qweight), np.array(E_q))
+
         print >> self.txt, '%s correlation energy:' % self.xc
         print >> self.txt, 'E_c = %s eV' % E
         print >> self.txt
@@ -164,6 +208,7 @@ class RPACorrelation:
                    ecut=self.ecut,
                    G_plus_q=True,
                    kcommsize=self.kcommsize,
+                   comm=self.dfcomm,
                    optical_limit=optical_limit,
                    hilbert_trans=False)
 
@@ -186,6 +231,7 @@ class RPACorrelation:
                 ecut=self.ecut,
                 G_plus_q=True,
                 kcommsize=self.kcommsize,
+                comm=self.dfcomm,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
         #df.txt = devnull
