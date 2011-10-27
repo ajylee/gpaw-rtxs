@@ -82,16 +82,16 @@ parameters = {
 'La': ('5s,6s,s,5p,6p,5d,d', 3.0, {}),
 'Ce': ('5s,6s,s,5p,6p,p,5d,d', [3.3, 2.8], {}),
 'Hf': ('5s,6s,5p,6p,5d,d', 3.1, {}),
-'Ta': ('6s,s,6p,p,5d,d', 3.0, {}),
-'W':  ('6s,s,6p,p,5d,d', 3.0, {}),
-'Re': ('6s,s,6p,p,5d,d', 3.0, {}),
-'Os': ('6s,s,6p,p,5d,d', 3.0, {}),
-'Ir': ('6s,s,6p,p,5d,d', 2.9, {}),
+'Ta': ('5s,6s,5p,6p,5d,d', 3.0, {}),
+'W':  ('5s,6s,5p,6p,5d,d', 3.0, {}),
+'Re': ('5s,6s,5p,6p,5d,d', 3.0, {}),
+'Os': ('6s,s,6p,p,5d,d', 3.5, {}),
+'Ir': ('6s,s,6p,p,5d,d', 3.4, {}),
 'Pt': ('6s,s,6p,p,5d,d', 3.3, {}),
-'Au': ('6s,s,6p,p,5d,d', 3.0, {}),
-'Hg': ('6s,s,6p,p,5d,d', 2.9, {}),
-'Tl': ('6s,s,6p,p,5d,d', 2.8, {}),
-'Pb': ('6s,s,6p,p,5d,d', 2.8, {}),
+'Au': ('6s,s,6p,p,5d,d', 3.2, {}),
+'Hg': ('6s,s,6p,p,5d,d', 3.2, {}),
+'Tl': ('6s,s,6p,p,5d,d', 3.2, {}),
+'Pb': ('6s,s,6p,p,5d,d', 3.1, {}),
 'Bi': ('6s,s,6p,p,d', 3.0, {})
 }
 
@@ -414,6 +414,7 @@ class PAWSetupGenerator:
 
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+        self.v0r_g[g0:] = 0.0
 
         self.l0 = None
         self.e0 = None
@@ -461,9 +462,7 @@ class PAWSetupGenerator:
         self.vtr_g[0] = 0.0
         self.vtr_g[1:g0] = q_g[1:g0]#e0 * r_g - t_g * r_g**(l0 + 1) / phit_g[1:g0]
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
-        #self.rgd.plot(q_g)
-        #self.rgd.plot(self.vtr_g,show=1)
-        #sdfg
+        self.v0r_g[g0:] = 0.0
 
         self.l0 = l0
         self.e0 = e0
