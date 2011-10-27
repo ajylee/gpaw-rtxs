@@ -161,6 +161,7 @@ class Channel:
                 g0 -= 1
 
             iter = 0
+            ok = False
             while True:
                 du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
                                                 scalar_relativistic)
@@ -173,20 +174,21 @@ class Channel:
                 u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
 
                 if abs(A) < 1e-5:
+                    ok = True
                     break
 
-                de = 0.5 * A * u_g[g0]**2
-                #de = -min(abs(de / e), 0.1) * e * de / abs(de)
-                e += de
-                #if e > 0:
-                #    e = e - 0.99 * 0.5 * A * u_g[g0]**2
+                e += 0.5 * A * u_g[g0]**2
+                if e > 0:
+                    break
+                
                 iter += 1
                 assert iter < 400, (n, l, e)
-                
-            self.e_n[n] = e
-            self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
-            if self.l == 0:
-                self.phi_ng[n, 0] = self.phi_ng[n, 1]
+            
+            if ok:
+                self.e_n[n] = e
+                self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
+                if self.l == 0:
+                    self.phi_ng[n, 0] = self.phi_ng[n, 1]
             
     def calculate_density(self, n=None):
         """Calculate density."""
