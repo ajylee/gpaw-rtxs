@@ -25,9 +25,9 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 parameters = {
 'H':  ('1s,s,p', 1.0, {}),
 'He': ('1s,s,p', 1.3, {}),
-'Li': ('2s,s,2p', 2.5, {}),
+'Li': ('2s,2.0s,2p', 2.6, {}),
 'Be': ('2s,s,2p', 2.0, {}),
-'B':  ('2s,s,2p,p,d', 1.4, {}),
+'B':  ('2s,s,2p,p,d', 1.4, {'gamma': 1.0, 'h': 0.0}),
 'C':  ('2s,s,2p,p,d', 1.3, {'gamma': 1.8}),
 'N':  ('2s,s,2p,p,d', 1.3, {'gamma': 1.8}),
 'O':  ('2s,s,2p,p,d', 1.5, {}),
@@ -78,11 +78,10 @@ parameters = {
 'I':  ('5s,s,5p,p,d', 2.7, {}),
 'Xe': ('5s,s,5p,p,d', 2.8, {}),
 'Cs': ('5s,6s,5p,p,d', 3.2, {}),
-'Ba': ('6s,s,5p,p,d', 3.0, {}),
+'Ba': ('5s,6s,5p,p,d', [2.5, 3.0], {}),
 'La': ('5s,6s,s,5p,6p,5d,d', 3.0, {}),
 'Ce': ('5s,6s,s,5p,6p,p,5d,d', [3.3, 2.8], {}),
-'Lu': ('6s,s,6p,p,5d,d,4f,f', 3.4, {}),
-'Hf': ('6s,s,6p,p,5d,d,4f,f', 3.1, {}),
+'Hf': ('5s,6s,5p,6p,5d,d', 3.1, {}),
 'Ta': ('6s,s,6p,p,5d,d', 3.0, {}),
 'W':  ('6s,s,6p,p,5d,d', 3.0, {}),
 'Re': ('6s,s,6p,p,5d,d', 3.0, {}),
@@ -147,7 +146,7 @@ class PAWWaves:
                     phit_ng[n1] * phit_ng[n2]) / (4 * pi)
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
-    def construct_projectors(self, vtr_g, rcfilter, Gcut):
+    def construct_projectors(self, vtr_g, rcmax, rcfilter, Gcut):
         N = len(self)
         if N == 0:
             self.pt_ng = []
@@ -155,7 +154,7 @@ class PAWWaves:
 
         rgd = self.rgd
         phit_ng = self.phit_ng
-        gcut = rgd.ceil(self.rcut)
+        gcmax = rgd.ceil(rcmax)
         r_g = rgd.r_g
         l = self.l
         P = len(self.c_np[0]) - 1
@@ -175,7 +174,7 @@ class PAWWaves:
             q_g -= 0.5 * r_g**l * (
                 (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
                 r_g * d2adg2_g * dgdr_g**2)
-            q_g[gcut:] = 0
+            q_g[gcmax:] = 0
             q_g[1:] /= r_g[1:]
             if l == 0:
                 q_g[0] = q_g[1]
@@ -266,7 +265,7 @@ class PAWSetupGenerator:
         
         self.rgd = aea.rgd
 
-        self.log('\nGenerating PAW setup for', aea.symbol)
+        self.log('\nGenerating PAW', aea.xc.name, 'setup for', aea.symbol)
 
         if isinstance(rc, float):
             radii = [rc]
@@ -482,13 +481,14 @@ class PAWSetupGenerator:
 
     def construct_projectors(self):
         for waves in self.waves_l:
-            waves.construct_projectors(self.vtr_g, self.rcfilter, self.Gcut)
+            waves.construct_projectors(self.vtr_g, self.rcmax,
+                                       self.rcfilter, self.Gcut)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
     def check(self):
-        self.log('Checking eigenvalues of pseudo atom using ' +
-                 'a Gaussian basis set:')
+        self.log(('Checking eigenvalues of %s pseudo atom using ' +
+                  'a Gaussian basis set:') % self.aea.symbol)
         self.log('                 AE [eV]        PS [eV]      error [eV]')
         basis = self.aea.channels[0].basis
         eps = basis.eps
@@ -524,11 +524,11 @@ class PAWSetupGenerator:
                 ok = False
                 continue
             
-            nbound = (e_b < 0).sum()
+            nbound = (e_b < -0.002).sum()
 
             if l < len(self.aea.channels):
                 e0_b = self.aea.channels[l].e_n
-                nbound0 = (e0_b < 0).sum()
+                nbound0 = (e0_b < -0.002).sum()
                 extra = 6
                 for n in range(1 + l, nbound0 + 1 + l + extra):
                     if n - 1 - l < len(self.aea.channels[l].f_n):
