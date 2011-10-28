@@ -21,7 +21,7 @@ Requirements
 
 6) An MPI library (required for parallel calculations).
 
-7) (Optional) HDF5 library for parallel I/O and for saving files in HDF5 format
+7) (Optional) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
 
 
 .. note::
