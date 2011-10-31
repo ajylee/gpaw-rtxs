@@ -63,7 +63,7 @@ def read(attrs, data, file, parallel):
         assert((new_val == ref_val).all)
 
 if world.size > 1:
-    comm = world
+    comm = world.get_c_object()
     parallel = True
 else:
     comm = None
