@@ -55,3 +55,5 @@
 #mpi_define_macros += []
 
 #platform_id = ''
+
+#hdf5 = True
