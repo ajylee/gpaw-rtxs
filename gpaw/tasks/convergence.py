@@ -30,32 +30,31 @@ class ConvergenceTestTask(Task):
     def calculate(self, name, atoms):
         atoms.calc.set(occupations=FermiDirac(0.1),
                        kpts=[1, 1, 1])
-        data = {}
+
+        e1 = []
         for g in self.gs:
             atoms.calc.set(gpts=(g, g, g))
-            data[g] = [atoms.get_potential_energy()]
+            e1.append(atoms.get_potential_energy())
         
         atoms += atoms
         atoms[1].position = [1.0, 1.1, 1.2]
         r = covalent_radii[atoms[0].number]
         atoms.set_distance(0, 1, 2 * r, 0)
 
+        e2 = []
         for g in self.gs:
             atoms.calc.set(gpts=(g, g, g))
-            data[g].append(atoms.get_potential_energy())
+            e2.append(atoms.get_potential_energy())
         
-        return data
+        return {'e1': e1, 'e2': e2, 'g': self.gs}
 
     def analyse(self):
         self.summary_header = [('name', '')] + [
             ('dE(h=%.2f)' % (self.L / g), 'meV') for g in self.gs]
 
         for name, data in self.data.items():
-            results = []
-            for g in self.gs:
-                ea = 2 * data[g][0] - data[g][1]
-                results.append(ea * 1000)
-            self.results[name] = results
+            ea = 2 * data['e1'] - data['e2']
+            self.results[name] = ea * 1000
             
     def add_options(self, parser):
         Task.add_options(self, parser)
