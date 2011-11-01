@@ -366,21 +366,39 @@ class PAWSetupGenerator:
                     self.nvalence += f
         
         self.ekincore -= self.rgd.integrate(self.nc_g * self.aea.vr_sg[0], -1)
-        self.nct_g = self.rgd.pseudize(self.nc_g, self.gcmax)[0]
-        self.npseudocore = self.rgd.integrate(self.nct_g)
 
         self.log('Core electrons:', self.ncore)
-        self.log('Pseudo core electrons: %.6f' % self.npseudocore)
         self.log('Valence electrons:', self.nvalence)
         
-        self.nt_g = self.nct_g.copy()
-        self.Q = -self.aea.Z + self.ncore - self.npseudocore
+        self.Q = -self.aea.Z + self.ncore
 
     def pseudize(self):
+        self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
             waves.pseudize()
             self.nt_g += waves.nt_g
             self.Q += waves.Q
+
+        self.nct_g = self.rgd.pseudize(self.nc_g, self.gcmax)[0]
+        self.nt_g += self.nct_g
+
+        # Make sure pseudo density is monotonically decreasing:
+        dntdr_g = self.rgd.derivative(self.nt_g)[:self.gcmax]
+        if dntdr_g.max() > 0.0:
+            # Constuct function that decrease smoothly from 1 to 0 at rcmax:
+            x_g = self.rgd.r_g[:self.gcmax] / self.rcmax
+            f_g = self.rgd.zeros()
+            f_g[:self.gcmax] = (1 - x_g**2 * (3 - 2 * x_g))**2
+
+            # Add enough of f to nct to make nt monotonically decreasing:
+            dfdr_g = self.rgd.derivative(f_g)
+            A = (-dntdr_g / dfdr_g[:self.gcmax]).max() * 1.5
+            self.nt_g += A * f_g
+            self.nct_g += A * f_g
+            
+        self.npseudocore = self.rgd.integrate(self.nct_g)
+        self.log('Pseudo core electrons: %.6f' % self.npseudocore)
+        self.Q -= self.npseudocore
 
         self.rhot_g = self.nt_g + self.Q * self.ghat_g
         self.vHtr_g = self.rgd.poisson(self.rhot_g)
