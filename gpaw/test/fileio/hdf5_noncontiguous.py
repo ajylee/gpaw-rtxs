@@ -8,7 +8,7 @@ data = np.arange(10, dtype=float)
 sub = data[::2]
 
 if world.size > 1:
-    comm = world
+    comm = world.get_c_object()
 else:
     comm = None
 
