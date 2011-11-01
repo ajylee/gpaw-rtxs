@@ -50,10 +50,11 @@ class ConvergenceTestTask(Task):
 
     def analyse(self):
         self.summary_header = [('name', '')] + [
-            ('dE(h=%.2f)' % (self.L / g), 'meV') for g in self.gs]
+            ('%.2f Ang' % (self.L / g), 'meV') for g in self.gs]
 
         for name, data in self.data.items():
             ea = 2 * data['e1'] - data['e2']
+            ea[:-1] -= ea[-1]
             self.results[name] = ea * 1000
             
     def add_options(self, parser):
