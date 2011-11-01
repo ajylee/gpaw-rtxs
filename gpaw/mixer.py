@@ -396,8 +396,12 @@ class BroydenBaseMixer:
 
     def reset(self):
         self.step = 0
-        self.d_nt_G = []
-        self.d_D_ap = []
+        #self.d_nt_G = []
+        #self.d_D_ap = []
+      
+        self.R_iG = []
+        self.dD_iap = []
+
         self.nt_iG = []
         self.D_iap = []
         self.c_G =  []
@@ -411,15 +415,15 @@ class BroydenBaseMixer:
     
     def mix(self, nt_G, D_ap):
         if self.step > 2:
-            del self.d_nt_G[0]
-            for d_Dp in self.d_D_ap:
+            del self.R_iG[0]
+            for d_Dp in self.dD_iap:
                 del d_Dp[0]
         if self.step > 0:
-            self.d_nt_G.append(nt_G - self.nt_iG[-1])
-            for d_Dp, D_p, D_ip in zip(self.d_D_ap, D_ap, self.D_iap):
+            self.R_iG.append(nt_G - self.nt_iG[-1])
+            for d_Dp, D_p, D_ip in zip(self.dD_iap, D_ap, self.D_iap):
                 d_Dp.append(D_p - D_ip[-1])
-            fmin_G = self.gd.integrate(self.d_nt_G[-1] * self.d_nt_G[-1])
-            self.dNt = self.gd.integrate(np.fabs(self.d_nt_G[-1]))
+            fmin_G = self.gd.integrate(self.R_iG[-1] * self.R_iG[-1])
+            self.dNt = self.gd.integrate(np.fabs(self.R_iG[-1]))
             if self.verbose:
                 print 'Mixer: broyden: fmin_G = %f fmin_D = %f'% fmin_G
         if self.step == 0:
@@ -429,7 +433,7 @@ class BroydenBaseMixer:
                 self.eta_D.append(0)
                 self.u_D.append([])
                 self.D_iap.append([])
-                self.d_D_ap.append([])
+                self.dD_iap.append([])
         else:
             if self.step >= 2:
                 del self.c_G[:]
@@ -438,7 +442,7 @@ class BroydenBaseMixer:
                     del self.v_G[0]
                     for u_D in self.u_D:
                         del u_D[0]
-                temp_nt_G = self.d_nt_G[1] - self.d_nt_G[0]
+                temp_nt_G = self.R_iG[1] - self.R_iG[0]
                 self.v_G.append(temp_nt_G / self.gd.integrate(temp_nt_G
                                                                  * temp_nt_G))
                 if len(self.v_G) < self.nmaxold:
@@ -447,9 +451,9 @@ class BroydenBaseMixer:
                     nstep = self.nmaxold 
                 for i in range(nstep):
                     self.c_G.append(self.gd.integrate(self.v_G[i] *
-                                                             self.d_nt_G[1]))
+                                                             self.R_iG[1]))
                 self.u_G.append(self.beta  * temp_nt_G + self.nt_iG[1] - self.nt_iG[0])
-                for d_Dp, u_D, D_ip in zip(self.d_D_ap, self.u_D, self.D_iap):
+                for d_Dp, u_D, D_ip in zip(self.dD_iap, self.u_D, self.D_iap):
                     temp_D_ap = d_Dp[1] - d_Dp[0]
                     u_D.append(self.beta * temp_D_ap + D_ip[1] - D_ip[0])
                 usize = len(self.u_G)
@@ -458,17 +462,17 @@ class BroydenBaseMixer:
                     axpy(-a_G, self.u_G[i], self.u_G[usize - 1])
                     for u_D in self.u_D:
                         axpy(-a_G, u_D[i], u_D[usize - 1])
-            self.eta_G = self.beta * self.d_nt_G[-1]
-            for i, d_Dp in enumerate(self.d_D_ap):
+            self.eta_G = self.beta * self.R_iG[-1]
+            for i, d_Dp in enumerate(self.dD_iap):
                 self.eta_D[i] = self.beta * d_Dp[-1]
             usize = len(self.u_G) 
             for i in range(usize):
                 axpy(-self.c_G[i], self.u_G[i], self.eta_G)
                 for eta_D, u_D in zip(self.eta_D, self.u_D):
                     axpy(-self.c_G[i], u_D[i], eta_D)
-            axpy(-1.0, self.d_nt_G[-1], nt_G)
+            axpy(-1.0, self.R_iG[-1], nt_G)
             axpy(1.0, self.eta_G, nt_G)
-            for D_p, d_Dp, eta_D in zip(D_ap, self.d_D_ap, self.eta_D):            
+            for D_p, d_Dp, eta_D in zip(D_ap, self.dD_iap, self.eta_D):            
                 axpy(-1.0, d_Dp[-1], D_p)
                 axpy(1.0, eta_D, D_p)
             if self.step >= 2:
