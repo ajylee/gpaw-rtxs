@@ -33,7 +33,7 @@ parameters = {
 'O':  ('2s,s,2p,p,d', 1.5, {}),
 'F':  ('2s,s,2p,p,d', 1.4, {'gamma': 1.7}),
 'Ne': ('2s,s,2p,p,d', 1.8, {}),
-'Na': ('3s,s,3p,p,d', 2.8, {}),
+'Na': ('3s,s,3p,p,d', 3.0, {'local': 'f'}),
 'Mg': ('3s,s,3p,p,d', 2.8, {}),
 'Al': ('3s,s,3p,p,d', 2.2, {}),
 'Si': ('3s,s,3p,p,d', 2.4, {}),
@@ -57,7 +57,7 @@ parameters = {
 'Ge': ('4s,s,4p,p,d', 2.7, {}),
 'As': ('4s,s,4p,p,d', 2.7, {}),
 'Se': ('4s,5s,4p,p,d', 2.7, {}),
-'Br': ('4s,5s,4p,p', 2.5, {'local': 'd'}),
+'Br': ('4s,5s,4p,p,d', 2.6, {}),
 'Kr': ('4s,5s,4p,p,d', 2.4, {}),
 'Rb': ('4s,5s,4p,5p,d', 2.7, {'local': 'f'}),
 'Sr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
@@ -385,7 +385,8 @@ class PAWSetupGenerator:
         # Make sure pseudo density is monotonically decreasing:
         dntdr_g = self.rgd.derivative(self.nt_g)[:self.gcmax]
         if dntdr_g.max() > 0.0:
-            # Constuct function that decrease smoothly from 1 to 0 at rcmax:
+            # Constuct function that decrease smoothly from
+            # f(0)=1 to f(rcmax)=0:
             x_g = self.rgd.r_g[:self.gcmax] / self.rcmax
             f_g = self.rgd.zeros()
             f_g[:self.gcmax] = (1 - x_g**2 * (3 - 2 * x_g))**2
