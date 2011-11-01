@@ -33,8 +33,8 @@ parameters = {
 'O':  ('2s,s,2p,p,d', 1.5, {}),
 'F':  ('2s,s,2p,p,d', 1.4, {'gamma': 1.7}),
 'Ne': ('2s,s,2p,p,d', 1.8, {}),
-'Na': ('2s,3s,2p,3p', 2.5, {'local': 'd'}),  # how about Li, K, ...
-'Mg': ('3s,s,p', 2.8, {}),
+'Na': ('3s,s,3p,p,d', 2.8, {}),
+'Mg': ('3s,s,3p,p,d', 2.8, {}),
 'Al': ('3s,s,3p,p,d', 2.2, {}),
 'Si': ('3s,s,3p,p,d', 2.4, {}),
 'P':  ('3s,s,3p,p,d', 1.9, {}),
@@ -43,17 +43,17 @@ parameters = {
 'Ar': ('3s,s,3p,p,d', 2.2, {}),
 'K':  ('3s,4s,3p,4p,d', 2.4, {}),
 'Ca': ('3s,4s,3p,4p,3d', 2.5, {}),
-'Sc': ('3s,4s,3p,4p,3d,d', 2.8, {'local': 'f'}),
-'Ti': ('3s,4s,3p,4p,3d,d', 2.7, {'local': 'f'}),
-'V':  ('3s,4s,3p,4p,3d,d', 2.7, {'local': 'f'}),
+'Sc': ('3s,4s,3p,4p,3d,d', 2.7, {'local': 'f'}),
+'Ti': ('3s,4s,3p,4p,3d,d', 2.6, {'local': 'f'}),
+'V':  ('3s,4s,3p,4p,3d,d', 2.5, {'local': 'f'}),
 'Cr': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
 'Mn': ('4s,s,4p,p,3d,d', 2.8, {}),
 'Fe': ('4s,s,4p,p,3d,d', 2.8, {}),
 'Co': ('4s,s,4p,p,3d,d', 2.7, {}),
 'Ni': ('4s,s,4p,p,3d,d', 2.7, {}),
 'Cu': ('4s,s,4p,p,3d,d', 2.5, {}),
-'Zn': ('4s,s,4p,p,3d,d', 2.8, {}),
-'Ga': ('4s,s,4p,p,3d,d', 2.6, {}),
+'Zn': ('4s,s,4p,p,3d,d', 2.4, {}),
+'Ga': ('4s,s,4p,p,3d,d', 2.4, {}),
 'Ge': ('4s,s,4p,p,d', 2.7, {}),
 'As': ('4s,s,4p,p,d', 2.7, {}),
 'Se': ('4s,5s,4p,p,d', 2.7, {}),
@@ -64,8 +64,8 @@ parameters = {
 'Y':  ('4s,5s,4p,5p,4d,d', 2.6, {'local': 'f'}),
 'Zr': ('4s,5s,4p,5p,4d,d', 2.7, {'local': 'f'}),
 'Nb': ('4s,5s,4p,5p,4d,d', 2.8, {'local': 'f'}),
-'Mo': ('4s,5s,4p,5p,4d,d', 2.9, {'local': 'f'}),
-'Tc': ('4s,5s,4p,5p,4d,d', 2.9, {'local': 'f'}),
+'Mo': ('4s,5s,4p,5p,4d,d', 2.7, {'local': 'f'}),
+'Tc': ('4s,5s,4p,5p,4d,d', 2.6, {'local': 'f'}),
 'Ru': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
 'Rh': ('5s,s,5p,p,4d,d', 3.2, {}),
 'Pd': ('5s,s,5p,p,4d,d', 3.1, {}),
@@ -370,8 +370,7 @@ class PAWSetupGenerator:
         self.npseudocore = self.rgd.integrate(self.nct_g)
 
         self.log('Core electrons:', self.ncore)
-        self.log('Pseudo core electrons: %.6f' %
-                 self.rgd.integrate(self.nct_g))
+        self.log('Pseudo core electrons: %.6f' % self.npseudocore)
         self.log('Valence electrons:', self.nvalence)
         
         self.nt_g = self.nct_g.copy()
