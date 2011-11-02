@@ -114,7 +114,7 @@ class RPACorrelation:
 
         else: # parallelzation over q points
             print >> self.txt, 'parallelization over q point ! '
-        # creast q list
+            # creast q list
             qlist = []
             qweight = []
             id = 0
@@ -177,7 +177,7 @@ class RPACorrelation:
         self.initialize_calculation(w, ecut, nbands, kcommsize, extrapolate,
                                     gauss_legendre, frequency_cut,
                                     frequency_scale)
-
+        self.dfcomm = world
         E_q = self.E_q(q, direction=direction, integrated=integrated)
         
         print >> self.txt, 'Calculation completed at:  ', ctime()

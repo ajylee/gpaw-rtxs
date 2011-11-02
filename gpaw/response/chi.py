@@ -279,7 +279,10 @@ class CHI(BASECHI):
                             gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
 
                         if self.optical_limit:
-                            rho_G[0] /= self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]
+                            if np.abs(self.enoshift_kn[ibzkpt2,m] - self.enoshift_kn[ibzkpt1,n]) < 1e-5:
+                                rho_G[0] = 0.
+                            else:
+                                rho_G[0] /= self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]
 
                         if k_pad:
                             rho_G[:] = 0.
