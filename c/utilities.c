@@ -9,6 +9,9 @@
 #include <numpy/arrayobject.h>
 #include "extensions.h"
 #include <math.h>
+#ifdef __DARWIN_UNIX03
+#include <malloc/malloc.h>
+#endif
 
 #ifdef GPAW_HPM
 void HPM_Start(char *);
@@ -264,6 +267,7 @@ PyObject* heap_mallinfo(PyObject *self)
   small = mi.usmblks;
   heap = ((double)(mmap + arena + small))/1024.0; /* convert to KB */
 #else 
+  /* Mac OS X specific hack */
   struct malloc_statistics_t mi; /* structure in bytes */
 
   malloc_zone_statistics(NULL, &mi);

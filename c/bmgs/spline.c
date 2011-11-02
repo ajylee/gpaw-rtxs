@@ -2,11 +2,7 @@
  *  Copyright (C) 2007-2008  CAMd
  *  Please see the accompanying LICENSE file for further information. */
 
-#ifdef __FreeBSD__
 #include <stdlib.h>
-#else
-#include <malloc.h>
-#endif
 #include <math.h>
 #include <assert.h>
 #include "bmgs.h"
