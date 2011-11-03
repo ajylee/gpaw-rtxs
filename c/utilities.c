@@ -9,8 +9,14 @@
 #include <numpy/arrayobject.h>
 #include "extensions.h"
 #include <math.h>
+#include <stdlib.h>
 #ifdef __DARWIN_UNIX03
+/* Allows for special MaxOS magic */
 #include <malloc/malloc.h>
+#endif
+#ifdef __OPENCC__
+/* On Open64 compilers, stdlib.h does not define mallinfo (it should!) */
+#include <malloc.h>
 #endif
 
 #ifdef GPAW_HPM
@@ -257,7 +263,7 @@ double distance(double *a, double *b)
 PyObject* heap_mallinfo(PyObject *self)
 {
   double heap;
-#if !defined(__DARWIN_UNIX03)
+#ifndef __DARWIN_UNIX03
   unsigned int mmap, arena, small;
   struct mallinfo mi; /* structure in bytes */
 
