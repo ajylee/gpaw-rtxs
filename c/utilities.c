@@ -14,8 +14,8 @@
 /* Allows for special MaxOS magic */
 #include <malloc/malloc.h>
 #endif
-#ifdef __OPENCC__
-/* On Open64 compilers, stdlib.h does not define mallinfo (it should!) */
+#ifdef __linux__
+/* stdlib.h does not define mallinfo (it should!) */
 #include <malloc.h>
 #endif
 
@@ -263,7 +263,7 @@ double distance(double *a, double *b)
 PyObject* heap_mallinfo(PyObject *self)
 {
   double heap;
-#ifndef __DARWIN_UNIX03
+#ifdef __linux__
   unsigned int mmap, arena, small;
   struct mallinfo mi; /* structure in bytes */
 
@@ -272,12 +272,14 @@ PyObject* heap_mallinfo(PyObject *self)
   arena = mi.uordblks;
   small = mi.usmblks;
   heap = ((double)(mmap + arena + small))/1024.0; /* convert to KB */
-#else 
+#elif defined(__DARWIN_UNIX03)
   /* Mac OS X specific hack */
   struct malloc_statistics_t mi; /* structure in bytes */
 
   malloc_zone_statistics(NULL, &mi);
   heap = ((double)(mi.size_in_use))/1024.0; /* convert to KB */
+#else
+  heap = -1;
 #endif
   return Py_BuildValue("d",heap);
 }
