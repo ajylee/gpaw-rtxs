@@ -7,7 +7,7 @@ import traceback
 import numpy as np
 from ase.structure import bulk, estimate_lattice_constant
 from ase.atoms import Atoms, string2symbols
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.visualize import view
 from ase.io import read, write
 from ase.constraints import FixAtoms
@@ -238,7 +238,7 @@ def main():
         #traceback.print_exc()
         sys.stderr.write("""
 An exception occurred!  Please report the issue to
-gridpaw-developer@listserv.fysik.dtu.dk - thanks!  Please also report this
+gpaw-developer@listserv.fysik.dtu.dk - thanks!  Please also report this
 if it was a user error, so that a better error message can be provided
 next time.""")
         raise

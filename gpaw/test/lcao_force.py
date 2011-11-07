@@ -4,7 +4,7 @@
 # difference check.
 
 import numpy as np
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw import GPAW
 from gpaw.atom.basis import BasisMaker
 

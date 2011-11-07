@@ -59,8 +59,8 @@ class KPointDescriptor:
         else:
             self.bzk_kc = np.array(kpts, float)
             try:
-                self.N_c, self.offset_c = get_monkhorst_pack_size_and_offset(
-                    self.bzk_kc)
+                self.N_c, self.offset_c = \
+                          get_monkhorst_pack_size_and_offset(self.bzk_kc)
             except ValueError:
                 self.N_c = None
                 self.offset_c = None
@@ -269,15 +269,19 @@ class KPointDescriptor:
             Restrict search to specified k-points.
 
         """
-        # Monkhorst-pack grid
-        N_c, offset_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)
 
-        offset = True
-        if np.abs(offset_c).sum() < 1e-8:
-            offset = False
-            N_c = self.N_c
-            dk_c = 1. / N_c
-            kmax_c = (N_c - 1) * dk_c / 2.
+        # Monkhorst-pack grid
+        if self.N_c is not None:
+            N_c, offset_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)
+
+            offset = True
+            if np.abs(offset_c).sum() < 1e-8:
+                offset = False
+                N_c = self.N_c
+                dk_c = 1. / N_c
+                kmax_c = (N_c - 1) * dk_c / 2.
+        else:
+            offset = True
             
         if kpts_k is None:
             kpts_kc = self.bzk_kc
@@ -288,8 +292,9 @@ class KPointDescriptor:
         kplusq_kc = kpts_kc + q_c
 
         # Translate back into the first BZ
-        kplusq_kc[np.where(kplusq_kc > 0.501)] -= 1.
-        kplusq_kc[np.where(kplusq_kc < -0.499)] += 1.
+        if self.N_c is not None:
+            kplusq_kc[np.where(kplusq_kc > 0.501)] -= 1.
+            kplusq_kc[np.where(kplusq_kc < -0.499)] += 1.
 
         # List of k+q indices
         kplusq_k = []
@@ -318,14 +323,14 @@ class KPointDescriptor:
         """Return the q=k1-k2. q-mesh is always Gamma-centered."""
         Nk_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)[0]
         bzq_qc = monkhorst_pack(Nk_c)
-        
+
         shift_c = []
         for Nk in Nk_c:
             if Nk % 2 == 0:
                 shift_c.append(0.5 / Nk)
             else:
                 shift_c.append(0.)
-        
+
         bzq_qc += shift_c
         return bzq_qc
 
@@ -336,7 +341,8 @@ class KPointDescriptor:
 
         ibzq_qc_tmp = []
         ibzq_qc_tmp.append(bzq_qc[-1])
-
+        weight_tmp = [0]
+        
         for i, op_cc in enumerate(op_scc):
             if np.abs(op_cc - np.eye(3)).sum() < 1e-8:
                 identity_iop = i
@@ -359,11 +365,13 @@ class KPointDescriptor:
                     raise ValueError('cant find k!')
                     
                 ibzq_q_tmp[i] = ibzk
+                weight_tmp[ibzk] += 1.
                 iop_q[i] = iop
                 timerev_q[i] = timerev
                 diff_qc[i] = diff_c                
             except ValueError:
                 ibzq_qc_tmp.append(bzq_qc[i])
+                weight_tmp.append(1.)
                 ibzq_q_tmp[i] = len(ibzq_qc_tmp) - 1
                 iop_q[i] = identity_iop
                 timerev_q[i] = False
@@ -377,7 +385,7 @@ class KPointDescriptor:
             ibzq_qc[i] = ibzq_qc_tmp[nq-i-1]
         for i in range(len(bzq_qc)):
             ibzq_q[i] = nq - ibzq_q_tmp[i] - 1
-
+        self.q_weights = np.array(weight_tmp[::-1]) / len(bzq_qc)
         return ibzq_qc, ibzq_q, iop_q, timerev_q, diff_qc
 
 
@@ -387,24 +395,20 @@ class KPointDescriptor:
         ibzkpt = 0
         iop = 0
         timerev = False
-    
-        for ioptmp, op in enumerate(symrel):
-            for i, ibzk in enumerate(ibzk_kc):
-                diff_c = bzk_c - np.dot(op, ibzk)
-                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
-                    ibzkpt = i
-                    iop = ioptmp
-                    find = True
+
+        for sign in (1, -1):
+            for ioptmp, op in enumerate(symrel):
+                for i, ibzk in enumerate(ibzk_kc):
+                    diff_c = bzk_c - sign * np.dot(op, ibzk)
+                    if (np.abs(diff_c - diff_c.round()) < 1e-8).all():
+                        ibzkpt = i
+                        iop = ioptmp
+                        find = True
+                        if sign == -1:
+                            timerev = True
+                        break
+                if find == True:
                     break
-    
-                diff_c = np.dot(op, ibzk) + bzk_c
-                if (np.abs(diff_c - diff_c.round()) < 1e-8).all():            
-                    ibzkpt = i
-                    iop = ioptmp
-                    find = True
-                    timerev = True
-                    break
-        
             if find == True:
                 break
 

@@ -56,7 +56,7 @@ class MGGA(GGA):
             self.interpolate(taut_G, taut_g)
         dedtaut_sg = np.empty_like(nt_sg)
         self.kernel.calculate(e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg,
-                                taut_sg, dedtaut_sg)
+                              taut_sg, dedtaut_sg)
         self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
         self.ekin = 0.0
         for s in range(self.wfs.nspins):

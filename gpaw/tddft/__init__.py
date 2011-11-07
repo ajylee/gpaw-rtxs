@@ -11,6 +11,7 @@ import numpy as np
 from ase.units import Bohr, Hartree
 
 import gpaw.io
+import gpaw.mpi as mpi
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import DummyMixer
 from gpaw.version import version
@@ -74,7 +75,7 @@ class TDDFT(GPAW):
     def __init__(self, ground_state_file=None, txt='-', td_potential=None,
                  propagator='SICN', solver='CSCG', tolerance=1e-8,
                  parsize=None, parsize_bands=1, parstride_bands=True,
-                 communicator=None):
+                 communicator=mpi.world):
         """Create TDDFT-object.
         
         Parameters:

@@ -223,7 +223,10 @@ class GridDescriptor(Domain):
             # Only one array:
             result = a_xg.reshape(xshape + (-1,)).sum(axis=-1) * self.dv
             if global_integral:
-                self.comm.sum(result)
+                if result.ndim == 0:
+                    result = self.comm.sum(result)
+                else:
+                    self.comm.sum(result)
             return result
 
         A_xg = a_xg.reshape((-1,) + a_xg.shape[-3:])

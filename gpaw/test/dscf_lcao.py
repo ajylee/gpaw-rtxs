@@ -1,4 +1,4 @@
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw import GPAW
 from gpaw import dscf
 from gpaw.test import equal

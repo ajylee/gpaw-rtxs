@@ -90,7 +90,7 @@ class HybridXC(XCFunctional):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
                  alpha=None, skip_gamma=False, ecut=None,
-                 logfilename='-'):
+                 logfilename='-', bands=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -101,6 +101,9 @@ class HybridXC(XCFunctional):
             Standard DFT functional with scaled down exchange.
         finegrid: boolean
             Use fine grid for energy functional evaluations?
+        bands: list or None
+            List of bands to calculate energy for.  Default is None
+            meaning do all bands.
         """
 
         if name == 'EXX':
@@ -128,6 +131,7 @@ class HybridXC(XCFunctional):
         self.ecut = ecut
         self.fd = logfilename
         self.write_timing_information = True
+        self.bands = bands
 
         XCFunctional.__init__(self, name)
 
@@ -279,16 +283,46 @@ class HybridXC(XCFunctional):
                         kpt2_q[0].wait()
                     kpt2_q.pop(0)
                     kpt2_q.append(kpt)
-            
-        self.exx = 0.0
+
+        for kpt in self.kpt_u:
+            for a, D_sp in self.density.D_asp.items():
+                setup = self.setups[a]
+                for D_p in D_sp:
+                    D_ii = unpack2(D_p)
+                    ni = len(D_ii)
+                    P_ni = kpt.P_ani[a]
+                    for i1 in range(ni):
+                        for i2 in range(ni):
+                            A = 0.0
+                            for i3 in range(ni):
+                                p13 = packed_index(i1, i3, ni)
+                                for i4 in range(ni):
+                                    p24 = packed_index(i2, i4, ni)
+                                    A += setup.M_pp[p13, p24] * D_ii[i3, i4]
+                            self.exx_skn[kpt.s, kpt.k] -= \
+                                (self.hybrid * A *
+                                 P_ni[:, i1].conj() * P_ni[:, i2]).real
+                            p12 = packed_index(i1, i2, ni)
+                            if setup.X_p is not None:
+                                self.exx_skn[kpt.s, kpt.k] -= self.hybrid * \
+                                    (P_ni[:, i1].conj() * setup.X_p[p12] *
+                                     P_ni[:, i2]).real / self.nspins
+                        
         self.world.sum(self.exx_skn)
+
+        self.exx = 0.0
         for kpt in self.kpt_u:
             self.exx += 0.5 * np.dot(kpt.f_n, self.exx_skn[kpt.s, kpt.k])
         self.exx = self.world.sum(self.exx)
+
+        for a, D_sp in self.density.D_asp.items():
+            setup = self.setups[a]
+            self.exx += self.hybrid * setup.ExxC
+            self.exx -= self.hybrid * 0.5 * np.dot(D_sp.sum(0), setup.X_p)
+
         self.world.sum(self.debug_skn)
         assert (self.debug_skn == self.kd.nbzkpts * B).all()
-        self.exx += self.calculate_exx_paw_correction()
-        
+    
     def apply(self, kpt1, kpt2, k):
         k1_c = self.kd.ibzk_kc[kpt1.k]
         k2_c = self.kd.bzk_kc[k]
@@ -342,6 +376,10 @@ class HybridXC(XCFunctional):
                 if abs(f1) < fcut and abs(f2) < fcut:
                     continue
 
+                if self.bands is not None:
+                    if not (n1 in self.bands or is_ibz2 and n2 in self.bands):
+                        continue
+
                 if self.skip_gamma and same:
                     continue
                 
@@ -363,31 +401,6 @@ class HybridXC(XCFunctional):
                              t * self.npairs / self.world.size, 'seconds')
                     self.write_timing_information = False
 
-    def calculate_exx_paw_correction(self):
-        exx = 0
-        deg = 2 // self.nspins  # spin degeneracy
-        for a, D_sp in self.density.D_asp.items():
-            setup = self.setups[a]
-            for D_p in D_sp:
-                D_ii = unpack2(D_p)
-                ni = len(D_ii)
-
-                for i1 in range(ni):
-                    for i2 in range(ni):
-                        A = 0.0
-                        for i3 in range(ni):
-                            p13 = packed_index(i1, i3, ni)
-                            for i4 in range(ni):
-                                p24 = packed_index(i2, i4, ni)
-                                A += setup.M_pp[p13, p24] * D_ii[i3, i4]
-                        p12 = packed_index(i1, i2, ni)
-                        exx -= self.hybrid / deg * D_ii[i1, i2] * A
-
-                if setup.X_p is not None:
-                    exx -= self.hybrid * np.dot(D_p, setup.X_p)
-            exx += self.hybrid * setup.ExxC
-        return exx
-    
     def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, k):
         psit2_G = self.kd.transform_wave_function(kpt2.psit_nG[n2], k)
         nt_G = kpt1.psit_nG[n1].conj() * psit2_G

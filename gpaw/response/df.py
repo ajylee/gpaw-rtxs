@@ -22,6 +22,7 @@ class DF(CHI):
                  ftol=1e-7,
                  txt=None,
                  xc='ALDA',
+                 print_xc_scf=False,
                  hilbert_trans=True,
                  full_response=False,
                  optical_limit=False,
@@ -35,6 +36,7 @@ class DF(CHI):
                      comm=comm, kcommsize=kcommsize)
 
         self.df_flag = False
+        self.print_bootstrap = print_xc_scf
         self.df1_w = None # NLF RPA
         self.df2_w = None # LF RPA
         self.df3_w = None # NLF ALDA
@@ -299,6 +301,17 @@ class DF(CHI):
             df3, df4 = self.get_dielectric_function(xc='ALDA')
         Nw = df1.shape[0]
 
+        if self.xc == 'Bootstrap':
+            from gpaw.response.fxc import Bootstrap
+            Kc_GG = np.zeros((self.npw, self.npw))
+            for iG in range(self.npw):
+                qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
+                Kc_GG[iG,iG] = 4 * pi / np.dot(qG, qG)
+
+            from gpaw.mpi import world
+            assert self.wcomm.size == world.size
+            df3 = Bootstrap(self.chi0_wGG, Nw, Kc_GG, self.printtxt, self.print_bootstrap)
+
         if rank == 0:
             f = open(filename,'w')
             for iw in range(Nw):
@@ -311,6 +324,10 @@ class DF(CHI):
                       np.real(df2[iw]), np.imag(df2[iw]), \
                       np.real(df3[iw]), np.imag(df3[iw]), \
                       np.real(df4[iw]), np.imag(df4[iw])
+                elif self.xc is 'Bootstrap':
+                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                      np.real(df2[iw]), np.imag(df2[iw]), \
+                      np.real(df3[iw]), np.imag(df3[iw])
             f.close()
 
         # Wait for I/O to finish

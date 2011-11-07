@@ -4,7 +4,9 @@ import pickle
 import traceback
 import os.path as path
 
-from ase.data.molecules import data, atoms, latex, molecule
+from ase.data.g2_1 import data
+from ase.structure import molecule
+from ase.data.molecules import latex
 from ase.atoms import string2symbols
 from ase.parallel import paropen
 from ase.parallel import rank, barrier
@@ -25,7 +27,10 @@ from gpaw.testing.atomization_data import atomization_vasp, diatomic
 dimers = diatomic.keys()
 dimers.remove('FH')
 molecules = atomization_vasp.keys()
-systems = molecules + atoms
+atoms = set()
+for m in molecules:
+    atoms.update(molecule(m).get_chemical_symbols())
+systems = molecules + list(atoms)
 
 
 def atomization_energies(E):

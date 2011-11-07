@@ -23,11 +23,14 @@ spos_ac = np.array([(0.15, 0.5, 0.95)])
 
 pd = PWDescriptor(45, gd, complex)
 
-eikr = np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
-                                  (kpts / gd.N_c).T).T)[0]
+eikr = np.ascontiguousarray(np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
+                                                         (kpts / gd.N_c).T).T)[0])
+
+from gpaw.fftw import FFTPlan
+print(FFTPlan)
 
 for l in range(3):
-    print l
+    print(l)
     s = Spline(l, rc, 2 * x**1.5 / np.pi * np.exp(-x * r**2))
 
     lfc1 = LFC(gd, [[s]], kd, dtype=complex)
@@ -46,6 +49,11 @@ for l in range(3):
 
     b3 = pd.ifft(b3[0]) * eikr
     equal(abs(b3-b1[0]).max(), 0, 0.001)
+    print(abs(b2-b3).max())
+    equal(abs(b2-b3).max(), 0, 2e-5)
+    b2 = pd.ifft(b2[0]) * eikr
+    print(abs(b2-b1[0]).max())
+    equal(abs(b2-b1[0]).max(), 0, 0.001)
     
     b1 = eikr[None]
     b2 = pd.fft(b1[0] * 0 + 1).reshape((1, -1))
@@ -57,5 +65,6 @@ for l in range(3):
         results.append(c_axi[0][0].copy())
         lfc.derivative(b, c_axiv, 0)
         results2.append(c_axiv[0][0].copy())
+    print(results, results2)
     equal(abs(np.ptp(results2, 0)).max(), 0, 1e-7)
     equal(abs(np.ptp(results, 0)).max(), 0, 3e-8)

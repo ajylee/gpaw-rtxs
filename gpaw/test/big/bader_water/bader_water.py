@@ -1,5 +1,5 @@
 import os
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.io import write
 from ase.units import Bohr
 from gpaw import GPAW

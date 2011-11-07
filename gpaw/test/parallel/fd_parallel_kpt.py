@@ -5,7 +5,7 @@ from gpaw import GPAW, FermiDirac
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import devnull, compiled_with_sl
 
-from ase.data.molecules import molecule
+from ase.structure import molecule
 
 # Calculates energy and forces for various parallelizations
 

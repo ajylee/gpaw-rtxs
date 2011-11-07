@@ -80,8 +80,7 @@ def general_diagonalize(a, w, b):
 
     w[:1] = 42
     info = _gpaw.general_diagonalize(a, w, b)
-    assert n == 0 or w[0] != 42
-    if info != 0:
+    if info != 0 or n > 0 and w[0] == 42:
         raise RuntimeError('general_diagonalize error: %d' % info)
 
 

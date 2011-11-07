@@ -622,7 +622,8 @@ class GPAW(PAW):
             M = self.occupations.magmom
             if abs(M) > 1e-7 and momsum > 1e-7:
                 magmom_av *= M / momsum
-            return magmom_av[:, 2]
+            # return a contiguous array
+            return magmom_av[:, 2].copy()
         else:
             return magmom_av            
         

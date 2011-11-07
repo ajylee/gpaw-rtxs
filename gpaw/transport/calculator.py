@@ -22,6 +22,7 @@ from gpaw.transport.surrounding import Surrounding
 from gpaw.transport.selfenergy import LeadSelfEnergy
 from gpaw.transport.analysor import Transport_Analysor, Transport_Plotter
 from gpaw.transport.io import Transport_IO
+from gpaw.utilities import pack2,unpack,unpack2
 
 import gpaw
 import numpy as np
@@ -73,7 +74,7 @@ class Transport(GPAW):
                        'lead_atoms', 'nleadlayers', 'mol_atoms', 'la_index',
                        'total_charge', 'alpha', 'beta_guess','theta',
                        'LR_leads', 'gate', 'gate_mode', 'gate_atoms', 'gate_fun',                 
-                       'recal_path', 'min_energy', 'fix_contour',
+                       'recal_path', 'min_energy', 'fix_contour', 'hubbard_parameters',
                        'use_qzk_boundary','n_bias_step', 'n_ion_step',
                        'scat_restart', 'save_file', 'restart_file','save_lead_hamiltonian',
                        'non_sc', 'fixed_boundary', 'guess_steps', 'foot_print',
@@ -168,6 +169,7 @@ class Transport(GPAW):
         self.analysis_mode = p['analysis_mode']
         self.normalize_density = p['normalize_density']
         self.extra_density = p['extra_density']
+	self.hubbard_parameters = p['hubbard_parameters']
         self.eqinttol = p['eqinttol']
         self.spinpol = p['spinpol']
         self.perturbation_steps = p['perturbation_steps']
@@ -271,7 +273,8 @@ class Transport(GPAW):
         p['perturbation_magmom'] = None
         p['perturbation_charge'] = 0
         p['perturbation_atoms'] = []
-
+        p['hubbard_parameters'] = None
+	
         p['gate'] = 0
         p['gate_mode'] = 'VG'
         p['gate_fun'] = None
@@ -584,10 +587,10 @@ class Transport(GPAW):
         kpts = kwargs['kpts']
         kpts = kpts[:2] + (1,)
         kwargs['kpts'] = kpts
-        if self.spinpol:
-            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
-        else:
+        if hasattr(self.density.mixer, 'mixers'):
             kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
+        else:
+            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
         if 'txt' in kwargs and kwargs['txt'] != '-':
             kwargs['txt'] = 'guess_' + kwargs['txt']            
         atoms.set_calculator(gpaw.GPAW(**kwargs))
@@ -610,6 +613,7 @@ class Transport(GPAW):
             density.update(wfs)
             hamiltonian.update(density)
             calc.print_iteration(iter)
+	self.copy_mixer_history(calc, 'buffer')	
         self.initialize_hamiltonian_matrix(calc)      
         del calc
         self.boundary_align_up()        
@@ -625,10 +629,10 @@ class Transport(GPAW):
         #kwargs['kpts'] = kpts
         if self.non_sc:
             kwargs['kpts'] = kpts[:2] + (self.scat_ntk,)
-        if self.spinpol:
-            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
-        else:
+        if hasattr(self.density.mixer, 'mixers'):
             kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
+        else:
+            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
         if 'txt' in kwargs and kwargs['txt'] != '-':
             kwargs['txt'] = 'guess_' + kwargs['txt']            
         atoms.set_calculator(gpaw.GPAW(**kwargs))
@@ -674,7 +678,7 @@ class Transport(GPAW):
                     density.rhot_g += self.surround.extra_rhot_g
                 hamiltonian.update(density)
                 calc.print_iteration(iter)
-        
+	    self.copy_mixer_history(calc)	
         self.initialize_hamiltonian_matrix(calc)      
         if not (self.non_sc and self.scat_restart):
             del calc
@@ -713,6 +717,55 @@ class Transport(GPAW):
                 self.hsd.reset(s, q, h_spkmm[s, q], 'H', True)
                 self.hsd.reset(s, q, np.zeros([nb, nb], dtype), 'D', True)
 
+    def copy_mixer_history(self, calc, guess_type='normal'):
+	if hasattr(self.density.mixer, 'mixers'):
+	    mixers = calc.density.mixer.mixers
+	    mixers0 = self.density.mixer.mixers
+        else:
+	    mixers = [calc.density.mixer]
+	    mixers0 = [self.density.mixer]
+
+        if guess_type == 'buffer':
+	    from gpaw.transport.tools import cut_grids_side, \
+	                       collect_and_distribute_atomic_matrices
+	    gd = calc.wfs.gd
+	    gd0 = self.wfs.gd
+	    setups = calc.density.setups
+	    setups0 = self.density.setups
+	    rank_a = calc.density.rank_a
+            keys = self.density.D_asp.keys()
+	    for mixer, mixer0 in zip(mixers, mixers0):
+	        for nt_G, R_G, D_ap, dD_ap in zip(mixer.nt_iG,
+	                                          mixer.R_iG,
+	    				      mixer.D_iap,
+	    				      mixer.dD_iap):
+                    nt_G0 = cut_grids_side(nt_G, gd, gd0)
+	      	    R_G0 = cut_grids_side(R_G, gd, gd0)
+		    lD_ap = collect_and_distribute_atomic_matrices(D_ap,
+		                                        setups, setups0,
+						       rank_a, gd.comm, keys)
+		    ldD_ap = collect_and_distribute_atomic_matrices(dD_ap,
+		                                        setups, setups0,
+						       rank_a, gd.comm, keys)
+	            mixer0.nt_iG.append(nt_G0)
+		    mixer0.R_iG.append(R_G0)
+		    mixer0.D_iap.append(lD_ap)
+		    mixer0.dD_iap.append(ldD_ap)
+		nt_G0 = cut_grids_side(mixer.nt_iG[-1], gd, gd0)    
+		lD_ap = collect_and_distribute_atomic_matrices(mixer.D_iap[-1],
+		                                    setups, setups0,
+						    rank_a, gd.comm, keys)
+		mixer0.nt_iG.append(nt_G0)
+		mixer0.D_iap.append(lD_ap)
+		mixer0.A_ii = mixer.A_ii    
+        else:
+            for mixer, mixer0 in zip(mixers, mixers0):
+                mixer0.nt_iG = mixer.nt_iG[:]
+	        mixer0.R_iG = mixer.R_iG[:]
+	        mixer0.D_iap = mixer.D_iap[:]
+	        mixer0.dD_iap = mixer.dD_iap[:]
+		mixer0.A_ii = mixer.A_ii
+       
     def scale_and_combine_hamiltonian(self):
  	#assert self.cell_ham_file is not None
         #fd = file(self.cell_ham_file, 'r')
@@ -1145,7 +1198,7 @@ class Transport(GPAW):
         level_in_scat = self.hsd.H[0][0].recover()[ind, ind]
         overlap_on_site = self.hsd.S[0].recover()[ind, ind]
         shift = (level_in_scat - level_in_lead) / overlap_on_site
-        if not self.buffer_guess and abs(shift) > tol:
+        if abs(shift) > tol:
             for s in range(self.my_nspins):
                 for pk in range(self.my_npk):
                     self.hsd.H[s][pk].reset_from_others(self.hsd.H[s][pk],
@@ -2025,6 +2078,7 @@ class Transport(GPAW):
             ham.vt_sg[1] = vt_g
        
         Exc = ham.xc.calculate(ham.finegd, nt_sg, ham.vt_sg)
+	Exc /= ham.gd.comm.size
 
         self.timer.start('Poisson')
 
@@ -2093,21 +2147,42 @@ class Transport(GPAW):
             Ebar += setup.MB + np.dot(setup.MB_p, D_p)
             Epot += setup.M + np.dot(D_p, (setup.M_p + np.dot(setup.M_pp, D_p)))
 
+            ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
+            Exc += ham.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
+
             if setup.HubU is not None:
-                nspins = len(ham.D_sp)
-                i0 = setup.Hubi
-                i1 = i0 + 2 * setup.Hubl + 1
-                for D_p, H_p in zip(ham.D_sp, ham.H_sp): # XXX ham.H_sp ??
-                    N_mm = unpack2(D_p)[i0:i1, i0:i1] / 2 * nspins 
-                    Eorb = setup.HubU/2. * (N_mm - np.dot(N_mm,N_mm)).trace()
-                    Vorb = setup.HubU * (0.5 * np.eye(i1-i0) - N_mm)
-                    Exc += Eorb                    
+                nspins = len(D_sp)
+                
+                l_j = setup.l_j
+                l   = setup.Hubl
+                nl  = np.where(np.equal(l_j,l))[0]
+                nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
+                
+                for D_p, H_p in zip(D_sp, ham.dH_asp[a]):
+                    [N_mm,V] = ham.aoom(unpack2(D_p),a,l)
+                    N_mm = N_mm / 2 * nspins
+                     
+                    Eorb = setup.HubU / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
+                    Vorb = setup.HubU * (0.5 * np.eye(2*l+1) - N_mm)
+                    Exc += Eorb
+                    if nspins == 1:
+                        # add contribution of other spin manyfold
+                        Exc += Eorb
+                    
+                    if len(nl)==2:
+                        mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
+                        
+                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                        V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
+                        V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
+                        V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
+                    else:
+                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                    
                     Htemp = unpack(H_p)
-                    Htemp[i0:i1,i0:i1] += Vorb
+                    Htemp += V
                     H_p[:] = pack2(Htemp)
 
-            ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-            Exc += ham.xc.calculate_paw_correction(setup, D_sp, dH_sp)
 	    dH_sp += dH_p
             Ekin -= (D_sp * dH_sp).sum()
 
@@ -2345,7 +2420,7 @@ class Transport(GPAW):
                     N_c[2] += self.bnc[i]
                 p['gpts'] = N_c
             if 'mixer' in p:
-                if not self.spinpol:
+                if hasattr(self.density.mixer, 'mixers'):
                     p['mixer'] = Mixer(self.density.mixer.beta, 5, weight=100.0)
                 else:
                     p['mixer'] = MixerDif(self.density.mixer.beta, 5, weight=100.0)
@@ -2373,6 +2448,11 @@ class Transport(GPAW):
     def get_inner_setups(self):
         spos_ac0 = self.atoms.get_scaled_positions() % 1.0
         self.wfs.set_positions(spos_ac0)
+	if self.hubbard_parameters is not None:
+	    element, U_ev, scale, store = self.hubbard_parameters
+	    for i, atom in enumerate(self.atoms):
+	        if atom.symbol == element:
+                    self.hamiltonian.setups[i].set_hubbard_u(U_ev/Hartree,2,scale,store)
         self.inner_setups = self.wfs.setups
         self.inner_atom_indices = self.wfs.basis_functions.atom_indices
         self.inner_my_atom_indices = self.wfs.basis_functions.my_atom_indices

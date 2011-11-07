@@ -9,7 +9,9 @@ And on the webpage plot them (implementation pending)
 """
 
 from gpaw import GPAW, ConvergenceError
-from ase.data.molecules import g1, atoms, molecule
+from ase.structure import molecule
+from ase.data.g2_1 import atom_names as atoms
+from ase.data.g2_1 import molecule_names as g1
 from ase.utils.molecule_test import MoleculeTest, EnergyTest, BondLengthTest,\
      BatchTest
 

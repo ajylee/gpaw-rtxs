@@ -3,7 +3,35 @@ from math import pi
 import numpy as np
 
 from gpaw.spline import Spline
-from gpaw.utilities import hartree, divrl
+from gpaw.utilities import hartree, divrl, _fact as fac
+
+
+def fsbt(l, f_g, r_g, G_k):
+    """Fast spherical Bessel transform.
+
+    Returns::
+       
+          oo
+         / 2
+         |r dr j (Gr) f(r),
+         /      l
+          0
+
+    using l+1 fft's."""
+
+    N = (len(G_k) - 1) * 2
+    f_k = 0.0
+    F_g = f_g * r_g
+    for n in range(l + 1):
+        f_k += (r_g[1] * (1j)**(l + 1 - n) *
+                fac[l + n] / fac[l - n] / fac[n] / 2**n *
+                np.fft.rfft(F_g, N)).real * G_k**(l - n)
+        F_g[1:] /= r_g[1:]
+
+    f_k[1:] /= G_k[1:]**(l + 1)
+    if l == 0:
+        f_k[0] = np.dot(r_g, f_g * r_g) * r_g[1]
+    return f_k
 
 
 class RadialGridDescriptor:
@@ -33,12 +61,15 @@ class RadialGridDescriptor:
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
 
-    def derivative(self, n_g, dndr_g):
+    def derivative(self, n_g, dndr_g=None):
         """Finite-difference derivative of radial function."""
+        if dndr_g is None:
+            dndr_g = self.empty()
         dndr_g[0] = n_g[1] - n_g[0]
         dndr_g[1:-1] = 0.5 * (n_g[2:] - n_g[:-2])
         dndr_g[-1] = n_g[-1] - n_g[-2]
         dndr_g /= self.dr_g
+        return dndr_g
 
     def derivative2(self, a_g, b_g):
         """Finite-difference derivative of radial function.
@@ -52,6 +83,78 @@ class RadialGridDescriptor:
         b_g[1:-1] = 0.5 * (c_g[2:] - c_g[:-2])
         b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
         b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
+
+    def interpolate(self, f_g, r_x):
+        from scipy.interpolate import InterpolatedUnivariateSpline
+        return InterpolatedUnivariateSpline(self.r_g, f_g)(r_x)
+        
+    def fft(self, fr_g, l=0, N=None):
+        """Fourier transform.
+
+        Returns G and f(G) arrays::
+           
+                                          _ _
+               l    ^    / _         ^   iG.r
+          f(G)i Y  (G) = |dr f(r)Y  (r) e    .
+                 lm      /        lm
+        """
+
+        if N is None:
+            N = 2**13
+
+        assert N % 2 == 0
+
+        r_x = np.linspace(0, self.r_g[-1], N)
+        f_x = self.interpolate(fr_g, r_x)
+        f_x[1:] /= r_x[1:]
+        f_x[0] = f_x[1]
+        G_k = np.linspace(0, pi / r_x[1], N // 2 + 1)
+        f_k = 4 * pi * fsbt(l, f_x, r_x, G_k)
+        return G_k, f_k
+
+    def filter(self, f_g, rcut, Gcut, l=0):
+        Rcut = 100.0
+        N = 1024 * 8
+        r_x = np.linspace(0, Rcut, N, endpoint=False)
+        h = Rcut / N
+
+        alpha = 4.0 / rcut**2
+        mcut = np.exp(-alpha * rcut**2)
+        r2_x = r_x**2
+        m_x = np.exp(-alpha * r2_x)
+        for n in range(2):
+            m_x -= (alpha * (rcut**2 - r2_x))**n * (mcut / fac[n])
+        xcut = int(np.ceil(rcut / r_x[1]))
+        m_x[xcut:] = 0.0
+
+        G_k = np.linspace(0, pi / h, N // 2 + 1)
+
+        from scipy.interpolate import InterpolatedUnivariateSpline
+        if l < 2:
+            f_x = InterpolatedUnivariateSpline(self.r_g, f_g)(r_x)
+        else:
+            a_g = f_g.copy()
+            a_g[1:] /= self.r_g[1:]**(l - 1)
+            f_x = InterpolatedUnivariateSpline(
+                self.r_g, a_g)(r_x) * r_x**(l - 1)
+
+        f_x[:xcut] /= m_x[:xcut]
+        f_k = fsbt(l, f_x, r_x, G_k)
+        kcut = int(Gcut / G_k[1])
+        f_k[kcut:] = 0.0
+        ff_x = fsbt(l, f_k, G_k, r_x[:N // 2 + 1]) / pi * 2
+        ff_x *= m_x[:N // 2 + 1]
+
+        if l < 2:
+            f_g = InterpolatedUnivariateSpline(
+                r_x[:xcut + 1], ff_x[:xcut + 1])(self.r_g)
+        else:
+            ff_x[1:xcut + 1] /= r_x[1:xcut + 1]**(l - 1)
+            f_g = InterpolatedUnivariateSpline(
+                r_x[:xcut + 1], ff_x[:xcut + 1])(self.r_g) * self.r_g**(l - 1)
+        f_g[self.ceil(rcut):] = 0.0
+
+        return f_g
 
     def purepythonpoisson(self, n_g, l=0):
         r_g = self.r_g
@@ -94,9 +197,9 @@ class RadialGridDescriptor:
         assert isinstance(gc, int) and gc > 10
         
         r_g = self.r_g
-        g = [0] + range(gc, gc + points)
-        c_p = np.polyfit(r_g[g]**2,
-                         a_g[g] * r_g[g]**(2 - l), points)[:-1]
+        i = range(gc, gc + points)
+        r_i = r_g[i]
+        c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, points - 1)
         b_g = a_g.copy()
         b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
         return b_g, c_p
@@ -110,16 +213,18 @@ class RadialGridDescriptor:
             | dr b(r) = | dr a(r)
             /           /
         """
-        b_g, c_x = self.pseudize(a_g, gc, l, points + 1)
+
+        b_g = self.pseudize(a_g, gc, l, points)[0]
+        c_x = np.empty(points + 1)
         gc0 = gc // 2
         x0 = b_g[gc0]
         r_g = self.r_g
-        g = [0, gc0] + range(gc, gc + points)
+        i = [gc0] + range(gc, gc + points)
+        r_i = r_g[i]
         norm = self.integrate(a_g**2)
         def f(x):
             b_g[gc0] = x
-            c_x[:] = np.polyfit(r_g[g]**2,
-                                b_g[g] * r_g[g]**(2 - l), points + 1)[:-1]
+            c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
             b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
             return self.integrate(b_g**2) - norm
         from scipy.optimize import fsolve

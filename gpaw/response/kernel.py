@@ -164,7 +164,6 @@ def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
             nt_sLg[:, 0] += sqrt(4 * pi) / nspins * nct_g
             
             coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-        
             for n, Y_L in enumerate(Y_nL):
                 w = weight_n[n]
                 f_sg[:] = 0.0
@@ -174,10 +173,12 @@ def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                 ft_sg[:] = 0.0
                 nt_sg = np.dot(Y_L, nt_sLg)
                 xc.calculate_fxc(rgd, nt_sg, ft_sg)
-        
-                coef_GGg = np.exp(-1j * np.outer(np.inner(dG_GGv, R_nv[n]),
-                                                 rgd.r_g)).reshape(npw,npw,rgd.N)
-                KxcPAW_GG += w * np.dot(coef_GGg, (f_sg[0]-ft_sg[0]) * dv_g) * coefatoms_GG
+                # The following loop saves memory compared to the direct calculation below
+                for i in range(len(rgd.r_g)):
+                    coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n]) * rgd.r_g[i])
+                    KxcPAW_GG += w * np.dot(coef_GG, (f_sg[0,i]-ft_sg[0,i]) * dv_g[i]) * coefatoms_GG
+                #coef_GGg = np.exp(-1j * np.outer(np.inner(dG_GGv, R_nv[n]), rgd.r_g)).reshape(npw,npw,rgd.N)
+                #KxcPAW_GG += w * np.dot(coef_GGg, (f_sg[0]-ft_sg[0]) * dv_g) * coefatoms_GG
     world.sum(KxcPAW_GG)
     Kxc_GG += KxcPAW_GG
     

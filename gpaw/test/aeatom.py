@@ -2,7 +2,7 @@ from gpaw.atom.aeatom import AllElectronAtom, c
 from gpaw.test import equal
 
 Z = 79  # gold atom
-kwargs = dict(alpha2=150 * Z**2, ngauss=100)
+kwargs = dict(ngpts=5000, alpha2=1000 * Z**2, ngauss=200)
 
 # Test Schroedinger equation:
 aea = AllElectronAtom(Z, log=None)
@@ -15,6 +15,7 @@ for channel in aea.channels:
         e = channel.e_n[n]
         e0 = -0.5 * Z**2 / (n + channel.l + 1)**2
         errors.append(abs(e / e0 - 1))
+print max(errors)
 equal(max(errors), 0, 2.0e-5)
 
 # Test Dirac equation:
@@ -33,4 +34,5 @@ for channel in aea.channels:
               ((channel.k**2 - (Z / c)**2)**0.5 + n)**2)**-0.5 - 1
         e0 *= c**2
         errors.append(abs(e / e0 - 1))
+print max(errors)
 equal(max(errors), 0, 4.0e-5)

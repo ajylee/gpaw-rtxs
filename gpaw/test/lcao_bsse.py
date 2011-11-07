@@ -1,4 +1,4 @@
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw import GPAW
 from gpaw.poisson import PoissonSolver
 from gpaw.atom.basis import BasisMaker

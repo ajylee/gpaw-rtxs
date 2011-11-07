@@ -1,7 +1,7 @@
 from gpaw import GPAW
 from gpaw.dipole_correction import DipoleCorrection
 from gpaw.poisson import PoissonSolver
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw.mpi import rank
 from gpaw.utilities import h2gpts
 

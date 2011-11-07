@@ -36,6 +36,12 @@ def fermidistribution(energy, kt):
     #fermi level is fixed to zero
     return 1.0 / (1.0 + np.exp(energy / kt))
 
+def zeroTFermi(energy):
+    if np.real(energy) > 0:
+        return 0.
+    else:
+        return 1.
+
 def get_tri_type(mat):
     #mat is lower triangular or upper triangular matrix
     tol = 1e-10
@@ -90,7 +96,7 @@ def aa2d(a, d=0):
     b = np.sum(a, axis=d) / a.shape[d]
     return b
 
-def k2r_hs(h_skmm, s_kmm, ibzk_kc, weight_k, R_c=(0,0,0)):
+def k2r_hs(h_skmm, s_kmm, ibzk_kc, weight_k, R_c=(0,0,0), magnet=None):
     phase_k = np.dot(2 * np.pi * ibzk_kc, R_c)
     c_k = np.exp(1.0j * phase_k) * weight_k
     c_k.shape = (len(ibzk_kc),1,1)
@@ -105,6 +111,15 @@ def k2r_hs(h_skmm, s_kmm, ibzk_kc, weight_k, R_c=(0,0,0)):
         nbf = s_kmm.shape[-1]
         s_mm = np.empty((nbf, nbf),complex)
         s_mm[:] = np.sum((s_kmm * c_k), axis=0)     
+    #if magnet is not None:
+    #    MM = magnet.trans_matrix(diag=True)
+    #    assert np.sum(R_c) == R_c[2]
+    #    MM = MM ** R_c[2]
+    #    if h_skmm != None:
+    #        for s in range(nspins):
+    #            h_smm[s] *= MM
+    #    if s_kmm != None:	
+    #        s_mm *= MM    
     if h_skmm != None and s_kmm != None:
         return h_smm, s_mm
     elif h_skmm == None:
@@ -112,7 +127,7 @@ def k2r_hs(h_skmm, s_kmm, ibzk_kc, weight_k, R_c=(0,0,0)):
     elif s_kmm == None:
         return h_smm
 
-def r2k_hs(h_srmm, s_rmm, R_vector, kvector=(0,0,0)):
+def r2k_hs(h_srmm, s_rmm, R_vector, kvector=(0,0,0), magnet=None):
     phase_k = np.dot(2 * np.pi * R_vector, kvector)
     c_k = np.exp(-1.0j * phase_k)
     c_k.shape = (len(R_vector), 1, 1)
@@ -127,6 +142,15 @@ def r2k_hs(h_srmm, s_rmm, R_vector, kvector=(0,0,0)):
         nbf = s_rmm.shape[-1]
         s_mm = np.empty((nbf, nbf), complex)
         s_mm[:] = np.sum((s_rmm * c_k), axis=0)
+#    if magnet is not None:
+#        MM = magnet.trans_matrix(diag=True)
+#	assert np.sum(R_vector) == R_vector[2]
+#        MM = MM ** (-R_vector[2])
+#	if h_srmm != None:
+#            for s in range(nspins):
+#	        h_smm[s] *= MM
+#	if s_mm != None:	
+#	    s_mm *= MM    
     if h_srmm != None and s_rmm != None:   
         return h_smm, s_mm
     elif h_srmm == None:
@@ -171,7 +195,7 @@ def get_hs(atoms):
     wfs.gd.comm.broadcast(H_sqMM, 0)        
     return H_sqMM, S_qMM
 
-def substract_pk(d, npk, ntk, kpts, k_mm, hors='s', position=[0, 0, 0]):
+def substract_pk(d, npk, ntk, kpts, k_mm, hors='s', position=[0, 0, 0], magnet=None):
     weight = np.array([1.0 / ntk] * ntk )
     if hors not in 'hs':
         raise KeyError('hors should be h or s!')
@@ -197,9 +221,9 @@ def substract_pk(d, npk, ntk, kpts, k_mm, hors='s', position=[0, 0, 0]):
             elif hors == 's':
                 tk_mm[j] = np.copy(k_mm[n + j])
         if hors == 'h':
-            pk_mm[:, i] = k2r_hs(tk_mm, None, tkpts, weight, position)
+            pk_mm[:, i] = k2r_hs(tk_mm, None, tkpts, weight, position, magnet)
         elif hors == 's':
-            pk_mm[i] = k2r_hs(None, tk_mm, tkpts, weight, position)
+            pk_mm[i] = k2r_hs(None, tk_mm, tkpts, weight, position, magnet)
     return pk_mm   
 
 def pick_out_tkpts(d, npk, ntk, kpts):
@@ -314,25 +338,25 @@ def diag_cell(cell):
     return cell
     
 def get_pk_hsd(d, ntk, kpts, hl_skmm, sl_kmm, dl_skmm, txt=None,
-                                                  dtype=complex, direction=0):
+                                                  dtype=complex, direction=0, magnet=None):
     npk = len(kpts) // ntk
     position = [0, 0, 0]
-    hl_spkmm = substract_pk(d, npk, ntk, kpts, hl_skmm, hors='h')
-    dl_spkmm = substract_pk(d, npk, ntk, kpts, dl_skmm, hors='h')
-    sl_pkmm = substract_pk(d, npk, ntk, kpts, sl_kmm, hors='s')
+    hl_spkmm = substract_pk(d, npk, ntk, kpts, hl_skmm, hors='h', magnet=magnet)
+    dl_spkmm = substract_pk(d, npk, ntk, kpts, dl_skmm, hors='h', magnet=magnet)
+    sl_pkmm = substract_pk(d, npk, ntk, kpts, sl_kmm, hors='s', magnet=magnet)
     
     if direction==0:
-        position[d] = 1.0
+        position[d] = 1
     else:
-        position[d] = -1.0
+        position[d] = -1
     
-    hl_spkcmm = substract_pk(d, npk, ntk, kpts, hl_skmm, 'h', position)
-    dl_spkcmm = substract_pk(d, npk, ntk, kpts, dl_skmm, 'h', position)
-    sl_pkcmm = substract_pk(d, npk, ntk, kpts, sl_kmm, 's', position)
+    hl_spkcmm = substract_pk(d, npk, ntk, kpts, hl_skmm, 'h', position, magnet=magnet)
+    dl_spkcmm = substract_pk(d, npk, ntk, kpts, dl_skmm, 'h', position, magnet=magnet)
+    sl_pkcmm = substract_pk(d, npk, ntk, kpts, sl_kmm, 's', position, magnet=magnet)
     
     tol = 1e-6
     position[d] = 2.0
-    s_test = substract_pk(d, npk, ntk, kpts, sl_kmm, 's', position)
+    s_test = substract_pk(d, npk, ntk, kpts, sl_kmm, 's', position, magnet=magnet)
     
     matmax = np.max(abs(s_test))
     if matmax > tol:
@@ -384,6 +408,23 @@ def distribute_atomic_matrices(all_asp, asp, setups):
     for a in range(len(setups)):
         if asp.get(a) is not None:
             asp[a] = all_asp[a]    
+
+def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, rank_a, comm, keys):
+    gD_ap = []
+    D_ap0 = [None] * len(keys)
+    for a, setup in enumerate(setups):
+	if a not in keys:
+	    ni = setup.ni
+	    sp = np.empty((ni * (ni + 1) // 2))
+	else:
+	    sp = D_ap[keys.index(a)]
+	if comm.size > 1:
+	    comm.broadcast(sp, rank_a[a])
+        gD_ap.append(sp)
+    for a in range(len(setups0)):
+        if a in keys:
+	    D_ap0[keys.index(a)] = gD_ap[a]
+    return D_ap0	    
 
 def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
                                  bias=[-3,3], depth=3, comm=None):
@@ -870,9 +911,127 @@ def eig_states_norm(orbital, s_mm):
         print 'Warning! Normalization error %f' % error
     return orbital
 
-def find(condition):
-    return np.nonzero(condition)[0]
-    
+def shtm(l):
+    #Spherical Harmonics transformation matrix, from the complex to real
+    #The harmonics should be arranged in sequence -m, -m+1 ... m-1, m
+    n = 2 * l + 1
+    mtx = np.zeros([n,n], complex)
+    for i in range(n):
+        if i < l:
+	    #mtx[i, i] = 1.j*(-1.)**(l - i) / np.sqrt(2)
+	    #mtx[i, i + 2*(l-i)] = -1.j / np.sqrt(2)
+	    # The change is due to Condon-Shortley phase
+	    mtx[i, i] = 1.j / np.sqrt(2)
+	    mtx[i, i + 2*(l-i)] = -1.j*(-1.)**(l - i) / np.sqrt(2)
+	elif i == l:
+	    mtx[i, i] = 1.
+	else:
+	    #mtx[i, i] = 1./np.sqrt(2)
+	    #mtx[i, i + 2*(l-i)] = (-1.)**(i - l) / np.sqrt(2)
+	    mtx[i, i] = (-1.)**(i - l) /np.sqrt(2)
+	    mtx[i, i + 2*(l-i)] = 1. / np.sqrt(2)
+    return mtx.T	    
+
+def construct_spherical_transformation_matrix(l_list):
+    #construct a transformation matrix from complex harmonics to real for
+    #lcao basis
+    nao = np.sum([2 * l + 1 for l in l_list])
+    mtx = np.zeros([nao, nao], complex)
+    start = 0
+    for l in l_list:
+        n = 2 * l + 1
+	mtx[start:start+n, start:start+n] = shtm(l)
+	start += n
+    return mtx
+
+def aml(ss, l, direction):
+    #calculat angular momentum matrix(complex spherical harmonics)
+    #elements based on the overlap 
+    amss = np.zeros(ss.shape, complex)
+    n = 2 * l + 1
+    for i in range(n):
+        m = i - l
+        # x direction=0, lx=(l+ + l-) /2
+	if direction == 0:
+	    a1 = 0.5 * np.sqrt(l*(l+1.)-m*(m+1.))
+	    a2 = 0.5 * np.sqrt(l*(l+1.)-m*(m-1.))
+        # y direction=1, ly=(l+ - l-) /2i
+	if direction == 1:    
+	    a1 = -0.5 * 1.j * np.sqrt(l*(l+1.)-m*(m+1.))
+	    a2 = 0.5 * 1.j * np.sqrt(l*(l+1.)-m*(m-1.))
+        if direction == 0 or direction == 1:  
+	    if m + 1 <= l:
+	        amss[i] += a1 * ss[i + 1]
+	    if m - 1 >= -l:
+	        amss[i] += a2 * ss[i - 1]
+	elif direction == 2: #z direction=2
+	    amss[i] = m * ss[i]
+	else: 
+	    raise RuntimeError('unknown direction %d' % direction)
+    return amss
+
+def angular_momentum_slice(overlap_slice, l, direction):
+    #given a overlap matrix slice <l m| l_i,m> for a fixed l_i
+    #return the angular momentum matrix slice <l m| l |l_i, m>
+    #the slice has a shape (nao, 2*l_i + 1)
+    #the magnetic number m is in the increasing sequence
+    nao, n = overlap_slice.shape
+    am_slice = np.zeros([nao, n], complex)
+    for i in range(nao):
+        ss = overlap_slice[i]
+        am_slice[i] = aml(ss, l, direction)
+    return am_slice	
+
+def cut_grids_side(array, gd, gd0):
+    #abstract the grid value from a including-buffer-layer calculation
+    #the vaccum buffer layer is fixed on the right side
+    #Assume the buffer system has the same domain spliting with the original one
+    from scipy import interpolate
+    global_array = gd.collect(array)
+    nx, ny, nz = gd.N_c
+    if gd.comm.rank == 0:
+        global_array.shape = (nx * ny, nz)
+    new_array = gd0.zeros()
+    global_new_array = gd0.collect(new_array)
+    x = np.arange(gd.N_c[2]) * gd.h_cv[2, 2]
+    xnew = np.arange(gd0.N_c[2]) * gd0.h_cv[2, 2]
+    nz0 = gd0.N_c[2]
+    if gd0.comm.rank == 0:
+        global_new_array.shape = (nx * ny, nz0)
+        for i, line in enumerate(global_array):
+            tck = interpolate.splrep(x, line, s=0)
+            global_new_array[i] = interpolate.splev(xnew, tck, der=0)
+        global_new_array.shape = (nx, ny, nz0)
+    gd0.distribute(global_new_array, new_array)
+    return new_array
+
+def save_bias_data_file(Lead1, Lead2, Device):
+    import pickle
+    ham = Device.calc.hamiltonian
+    density = Device.calc.density
+    hamL = Lead1.calc.hamiltonian
+    hamR = Lead2.calc.hamiltonian
+    Ef = Device.calc.get_fermi_level()
+    Ef_L = Lead1.calc.get_fermi_level()
+    Ef_R = Lead2.calc.get_fermi_level()
+    vt_sG = ham.gd.collect(ham.vt_sG) 
+    vt_sG_L = hamL.gd.collect(hamL.vt_sG)
+    vt_sG_R = hamR.gd.collect(hamR.vt_sG)
+    vt_sG += (Ef_L - Ef) / Hartree
+    vt_sG_R += (Ef_L - Ef_R) / Hartree
+    vt_sG=np.append(vt_sG_L, vt_sG,axis=3)
+    vt_sG=np.append(vt_sG,vt_sG_R,axis=3)
+    dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
+                                     ham.nspins, ham.gd.comm,
+                                     density.rank_a)
+    pickle.dump(([0.0,0,0], vt_sG, dH_asp), file('bias_data1','wb'),2)
+
+def find(condition, flag=0):
+    if flag == 1: # return an int
+        return np.int(np.nonzero(condition)[0])
+    else: # return an array	
+        return np.nonzero(condition)[0]
+   
 def gather_ndarray_list(data, comm):
     #data is a numpy array, maybe has different shape in different cpus
     #this function gather them to the all_data in master, all_data is

@@ -52,6 +52,9 @@ def XC(kernel, parameters=None):
         elif name.startswith('old'): 
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name[3:])
+        elif name == 'PPLDA':
+            from gpaw.xc.lda import PurePythonLDAKernel
+            kernel = PurePythonLDAKernel()
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':

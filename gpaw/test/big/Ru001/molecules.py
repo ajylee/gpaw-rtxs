@@ -1,4 +1,4 @@
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from ase.optimize import QuasiNewton
 from gpaw import GPAW
 

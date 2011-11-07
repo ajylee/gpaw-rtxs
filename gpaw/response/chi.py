@@ -169,8 +169,8 @@ class CHI(BASECHI):
                                         calc.density.D_asp)
 
             self.printtxt('Finished ALDA kernel ! ')
-        else:
-            raise ValueError('%s Not implemented !' %(self.xc))
+#        else:
+#            raise ValueError('%s Not implemented !' %(self.xc))
         
         return
 
@@ -221,7 +221,7 @@ class CHI(BASECHI):
                 ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
             
             for n in range(self.nstart, self.nend):
-#                print >> self.txt, k, n, t_get_wfs, time() - t0
+#                print >> self.txt, k, n, time() - t0
                 t1 = time()
                 psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
                 t_get_wfs += time() - t1
@@ -238,7 +238,8 @@ class CHI(BASECHI):
                 psit1_g = psit1new_g.conj() * self.expqr_g
 
                 for m in range(self.nbands):
-
+#                    if m % 100 == 0:
+#                        print >> self.txt, '    ', k, n, m, time() - t0
 		    if self.hilbert_trans:
 			check_focc = (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) > self.ftol
                     else:
@@ -278,7 +279,10 @@ class CHI(BASECHI):
                             gemv(1.0, self.phi_aGp[a], P_p, 1.0, rho_G)
 
                         if self.optical_limit:
-                            rho_G[0] /= self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]
+                            if np.abs(self.enoshift_kn[ibzkpt2,m] - self.enoshift_kn[ibzkpt1,n]) < 1e-5:
+                                rho_G[0] = 0.
+                            else:
+                                rho_G[0] /= self.enoshift_kn[ibzkpt2, m] - self.enoshift_kn[ibzkpt1, n]
 
                         if k_pad:
                             rho_G[:] = 0.
@@ -451,7 +455,7 @@ class CHI(BASECHI):
                                self.Nw, self.wcomm.rank, self.wcomm.size, reshape=True)
         else:
             if self.Nw > 1:
-                assert self.Nw % (size / self.kcomm.size) == 0
+#                assert self.Nw % (self.comm.size / self.kcomm.size) == 0
                 self.wcomm = self.wScomm
                 self.Nw, self.Nw_local, self.wstart, self.wend =  parallel_partition(
                                self.Nw, self.wcomm.rank, self.wcomm.size, reshape=False)

@@ -1,16 +1,17 @@
-import numpy as np
+import sys
 from time import ctime
+import numpy as np
+from ase.parallel import paropen
 from gpaw import GPAW
 from gpaw.response.df import DF
 from gpaw.utilities import devnull
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.mpi import rank
-from ase.parallel import paropen
-import sys
+from gpaw.mpi import rank, size, world
+from gpaw.response.parallel import parallel_partition, set_communicator
 
 class RPACorrelation:
 
-    def __init__(self, calc, txt=None, qsym=True):
+    def __init__(self, calc, txt=None, qsym=True, xc=None):
         
         self.calc = calc
         
@@ -31,13 +32,28 @@ class RPACorrelation:
         self.bz_k_points = calc.wfs.bzk_kc
         self.atoms = calc.get_atoms()
         self.setups = calc.wfs.setups
-        self.ibz_q_points, self.q_weights = self.get_ibz_q_points(self.bz_k_points, qsym) 
+        self.bz_q_points = calc.wfs.kd.get_bz_q_points()
+        if qsym == False:
+            self.ibz_q_points = self.bz_q_points
+            self.q_weights = (np.ones(len(self.bz_q_points))
+                              / len(self.bz_q_points))
+        else:
+            op_scc = calc.wfs.kd.symmetry.op_scc
+            self.ibz_q_points = calc.wfs.kd.get_ibz_q_points(self.bz_q_points,
+                                                             op_scc)[0]
+            self.q_weights = calc.wfs.kd.q_weights
+        
+        if xc == None:
+            self.xc = 'RPA'
+        else:
+            self.xc = xc
+
         self.print_initialization()
         self.initialized = 0
-        
-
+   
     def get_rpa_correlation_energy(self,
                                    kcommsize=1,
+                                   dfcommsize=world.size,
                                    directions=None,
                                    skip_gamma=False,
                                    ecut=10,
@@ -49,45 +65,93 @@ class RPACorrelation:
                                    extrapolate=False,
                                    restart=None):
             
-        self.initialize_calculation(w, ecut, nbands, kcommsize, extrapolate,
-                                    gauss_legendre, frequency_cut, frequency_scale)
-        
-        E_q = []
-        if restart is not None:
-            assert type(restart) is str
-            try:
-                f = paropen(restart, 'r')
-                lines = f.readlines()
-                for line in lines:
-                    E_q.append(eval(line))
-                f.close()
-                print >> self.txt, 'Correlation energy from %s Q-points obtained from restart file: ' % len(E_q), restart
-                print >> self.txt
-            except:
-                IOError
+        self.initialize_calculation(w,
+                                    ecut,
+                                    nbands,
+                                    kcommsize,
+                                    extrapolate,
+                                    gauss_legendre,
+                                    frequency_cut,
+                                    frequency_scale)
 
-        for index, q in enumerate(self.ibz_q_points[len(E_q):]):
-            if abs(q[0]) < 0.001 and abs(q[1]) < 0.001 and abs(q[2]) < 0.001:
-                E_q0 = 0.
-                if skip_gamma:
-                    print >> self.txt, 'Not calculating q at the Gamma point'
-                    print >> self.txt
-                else:
-                    if directions is None:
-                        directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
-                    for d in directions:                                   
-                        E_q0 += self.E_q(q, index=index, direction=d[0]) * d[1]
-                E_q.append(E_q0)
-            else:
-                E_q.append(self.E_q(q, index=index))
-                
+        if dfcommsize == world.size:
+            self.dfcomm = world
+            E_q = []
             if restart is not None:
-                f = paropen(restart, 'a')
-                print >> f, E_q[-1]
-                f.close()
+                assert type(restart) is str
+                try:
+                    f = paropen(restart, 'r')
+                    lines = f.readlines()
+                    for line in lines:
+                        E_q.append(eval(line))
+                    f.close()
+                    print >> self.txt, 'Correlation energy from %s q-points obtained from restart file: ' % len(E_q), restart
+                    print >> self.txt
+                except:
+                    IOError
+    
+            for index, q in enumerate(self.ibz_q_points[len(E_q):]):
+                if abs(q[0]) < 0.001 and abs(q[1]) < 0.001 and abs(q[2]) < 0.001:
+                    E_q0 = 0.
+                    if skip_gamma:
+                        print >> self.txt, 'Not calculating q at the Gamma point'
+                        print >> self.txt
+                    else:
+                        if directions is None:
+                            directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
+                        for d in directions:                                   
+                            E_q0 += self.E_q(q, index=index, direction=d[0]) * d[1]
+                    E_q.append(E_q0)
+                else:
+                    E_q.append(self.E_q(q, index=index))
+                    
+                if restart is not None:
+                    f = paropen(restart, 'a')
+                    print >> f, E_q[-1]
+                    f.close()
+    
+            E = np.dot(np.array(self.q_weights), np.array(E_q).real)
 
-        E = np.dot(np.array(self.q_weights), np.array(E_q).real)
-        print >> self.txt, 'RPA correlation energy:'
+        else: # parallelzation over q points
+            print >> self.txt, 'parallelization over q point ! '
+            # creast q list
+            qlist = []
+            qweight = []
+            id = 0
+            for iq, q in enumerate(self.ibz_q_points):
+                if abs(q[0]) < 0.001 and abs(q[1]) < 0.001 and abs(q[2]) < 0.001:
+                    if skip_gamma:
+                        continue
+                    else:
+                        if directions is None:
+                            directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
+                        for d in directions:
+                            qlist.append((id, q, d[0], d[1]))
+                            qweight.append(self.q_weights[iq])
+                            id += 1
+                        continue
+                qlist.append((id, q, 0, 1))
+                qweight.append(self.q_weights[iq])
+                id += 1
+            nq = len(qlist)
+    
+            # distribute q list
+            self.dfcomm, qcomm = set_communicator(world, world.rank, world.size, kcommsize=dfcommsize)[:2]
+            nq, nq_local, q_start, q_end = parallel_partition(
+                                      nq, qcomm.rank, qcomm.size, reshape=False)
+    
+            E_q = np.zeros(nq)
+            for iq in range(q_start, q_end):
+                E_q[iq] = self.E_q(qlist[iq][1], index=iq, direction=qlist[iq][2]) * qlist[iq][3]
+            qcomm.sum(E_q)
+    
+            print >> self.txt, '(q, direction, weight), E_q, qweight'
+            for iq in range(nq):
+                print >> self.txt, qlist[iq][1:4], E_q[iq], qweight[iq]
+    
+            E = np.dot(np.array(qweight), np.array(E_q))
+
+        print >> self.txt, '%s correlation energy:' % self.xc
         print >> self.txt, 'E_c = %s eV' % E
         print >> self.txt
         print >> self.txt, 'Calculation completed at:  ', ctime()
@@ -113,7 +177,7 @@ class RPACorrelation:
         self.initialize_calculation(w, ecut, nbands, kcommsize, extrapolate,
                                     gauss_legendre, frequency_cut,
                                     frequency_scale)
-
+        self.dfcomm = world
         E_q = self.E_q(q, direction=direction, integrated=integrated)
         
         print >> self.txt, 'Calculation completed at:  ', ctime()
@@ -137,13 +201,14 @@ class RPACorrelation:
             optical_limit = False
 
         dummy = DF(calc=self.calc,
-                   xc='RPA',
+                   xc=self.xc,
                    eta=0.0,
                    q=q,
                    w=self.w * 1j,
                    ecut=self.ecut,
                    G_plus_q=True,
                    kcommsize=self.kcommsize,
+                   comm=self.dfcomm,
                    optical_limit=optical_limit,
                    hilbert_trans=False)
 
@@ -157,7 +222,7 @@ class RPACorrelation:
             nbands = self.nbands
 
         df = DF(calc=self.calc,
-                xc='RPA',
+                xc=self.xc,
                 nbands=nbands,
                 eta=0.0,
                 q=q,
@@ -166,34 +231,57 @@ class RPACorrelation:
                 ecut=self.ecut,
                 G_plus_q=True,
                 kcommsize=self.kcommsize,
+                comm=self.dfcomm,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
         #df.txt = devnull
         
         if index is None:
-            print >> self.txt, 'Calculating RPA dielectric matrix at:'
+            print >> self.txt, 'Calculating KS response function at:'
         else:
-            print >> self.txt, '#', index, '- Calculating RPA dielectric matrix at:'
+            print >> self.txt, '#', index, '- Calculating KS response function at:'
         
         if optical_limit:
             print >> self.txt, 'q = [0 0 0] -', 'Polarization: ', direction
         else:
-            print >> self.txt, 'q = %s -' % q, '%s planewaves' % npw
-            
-        e_wGG = df.get_dielectric_matrix(xc='RPA')
-        Nw_local = len(e_wGG)
-        local_E_q_w = np.zeros(Nw_local, dtype=complex)
-        
-        E_q_w = np.empty(len(self.w), complex)
-        for i in range(Nw_local):
-            local_E_q_w[i] = (np.log(np.linalg.det(e_wGG[i]))
-                              + len(e_wGG[0]) - np.trace(e_wGG[i]))
-            #local_E_q_w[i] = (np.sum(np.log(np.linalg.eigvals(e_wGG[i])))
-            #                  + len(e_wGG[0]) - np.trace(e_wGG[i]))
-        df.wcomm.all_gather(local_E_q_w, E_q_w)
-        del df
-        del e_wGG
+            print >> self.txt, 'q = [%1.4f %1.4f %1.4f] -' % (q[0],q[1],q[2]), '%s planewaves' % npw
 
+        if self.xc == 'RPA':
+            e_wGG = df.get_dielectric_matrix(xc=self.xc)
+            Nw_local = len(e_wGG)
+            local_E_q_w = np.zeros(Nw_local, dtype=complex)
+            E_q_w = np.empty(len(self.w), complex)
+            for i in range(Nw_local):
+                local_E_q_w[i] = (np.log(np.linalg.det(e_wGG[i]))
+                                  + len(e_wGG[0]) - np.trace(e_wGG[i]))
+                #local_E_q_w[i] = (np.sum(np.log(np.linalg.eigvals(e_wGG[i])))
+                #                  + len(e_wGG[0]) - np.trace(e_wGG[i]))
+            df.wcomm.all_gather(local_E_q_w, E_q_w)
+            del e_wGG
+        else:
+            df.initialize()
+            df.calculate()
+            Kc_GG = np.zeros((df.npw, df.npw), dtype=complex)
+            for iG in range(df.npw):
+                qG = np.dot(df.q_c + df.Gvec_Gc[iG], df.bcell_cv)
+                Kc_GG[iG,iG] = 4 * np.pi / np.dot(qG, qG)
+            fhxc_GG = Kc_GG + df.Kxc_GG
+            Nw_local = len(df.chi0_wGG)
+            local_E_q_w = np.zeros(Nw_local, dtype=complex)
+            E_q_w = np.empty(len(self.w), complex)
+            for i in range(Nw_local):
+                eigenvalues, P = np.linalg.eig(np.eye(df.npw, df.npw)
+                                               - np.dot(df.chi0_wGG[i], fhxc_GG))
+                chi0_v = np.dot(df.chi0_wGG[i], Kc_GG)
+                chi0_fhxc = np.dot(df.chi0_wGG[i], fhxc_GG)
+                A = np.dot(chi0_v, np.linalg.inv(chi0_fhxc))
+                B = np.dot(np.linalg.inv(P), A)
+                C = np.dot(B, P)
+                local_E_q_w[i] = (np.dot(np.diag(C), np.log(eigenvalues))
+                                  + np.trace(chi0_v))
+            df.wcomm.all_gather(local_E_q_w, E_q_w)
+        del df
+            
         if self.gauss_legendre is not None:
             E_q = np.sum(E_q_w * self.gauss_weights * self.transform) / (4*np.pi)
         else:   
@@ -221,67 +309,21 @@ class RPACorrelation:
                                  + np.log((w1-B-abs(C)**0.5)/(w1-B+abs(C)**0.5))
                                  /(4*C*abs(C)**0.5)) / (2*np.pi)
 
-        print >> self.txt, 'E_c(Q) = %s eV' % E_q.real
+        print >> self.txt, 'E_c(q) = %s eV' % E_q.real
         print >> self.txt
 
         if integrated:
             return E_q.real
         else:
-            return E_q_w.real
-       
-    def get_ibz_q_points(self, bz_k_points, qsym=True):
-
-        # Check k-point sampling includes gamma point
-        bzk_gamma = False
-            
-        # Get all q-points
-        all_qs = []
-        for k1 in bz_k_points:
-            if abs(k1[0]) < 0.001 and abs(k1[1]) < 0.001 and abs(k1[2]) < 0.001:
-                bzk_gamma = True
-            for k2 in bz_k_points:
-                all_qs.append(k1-k2)
-        all_qs = np.array(all_qs)
-
-        if qsym and not bzk_gamma:
-            print >> self.txt, 'WARNING----------WARNING----------WARNING----------WARNING----------WARNING----------'
-            print >> self.txt, 'k-point sampling does not include gamma point. q-point reduction may not be right'
-            print >> self.txt, 'Please use gamma centered k-point grid or qsym=False'
-            print >> self.txt, 'WARNING----------WARNING----------WARNING----------WARNING----------WARNING----------'
-            
-        # Fold q-points into Brillouin zone
-        all_qs[np.where(all_qs > 0.501)] -= 1.
-        all_qs[np.where(all_qs < -0.499)] += 1.
-
-        # Make list of non-identical q-points in full BZ
-        bz_qs = [all_qs[0]]
-        for q_a in all_qs:
-            q_in_list = False
-            for q_b in bz_qs:
-                if (abs(q_a[0]-q_b[0]) < 0.01 and
-                    abs(q_a[1]-q_b[1]) < 0.01 and
-                    abs(q_a[2]-q_b[2]) < 0.01):
-                    q_in_list = True
-                    break
-            if q_in_list == False:
-                bz_qs.append(q_a)
-        self.bz_q_points = bz_qs
-
-        if not qsym:
-            return self.bz_q_points, np.ones(len(self.bz_q_points)) / len(self.bz_q_points)
-        
-        # Obtain q-points and weights in the irreducible part of the BZ
-        kpt_descriptor = KPointDescriptor(bz_qs, self.nspins)
-        kpt_descriptor.set_symmetry(self.atoms, self.setups, usesymm=True)
-        ibz_q_points = kpt_descriptor.ibzk_kc
-        q_weights = kpt_descriptor.weight_k
-        return ibz_q_points, q_weights
-
+            return E_q_w.real       
 
     def print_initialization(self):
         
         print >> self.txt, '------------------------------------------------------'
-        print >> self.txt, 'Non-self-consistent RPA correlation energy'
+        if self.xc == 'RPA':
+            print >> self.txt, 'Non-self-consistent RPA correlation energy'
+        else:
+            print >> self.txt, 'Non-self-consistent %s correlation energy' % self.xc
         print >> self.txt, '------------------------------------------------------'
         print >> self.txt, 'Started at:  ', ctime()
         print >> self.txt
@@ -310,7 +352,6 @@ class RPACorrelation:
 
     def initialize_calculation(self, w, ecut, nbands, kcommsize, extrapolate,
                                gauss_legendre, frequency_cut, frequency_scale):
-        
         if w is not None:
             assert (gauss_legendre is None and
                     frequency_cut is None and
@@ -332,7 +373,7 @@ class RPACorrelation:
             self.transform = transform
 
         dummy = DF(calc=self.calc,
-                   xc='RPA',
+                   xc=self.xc,
                    eta=0.0,
                    w=w * 1j,
                    q=[0.,0.,0.0001],

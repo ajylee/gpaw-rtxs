@@ -80,7 +80,7 @@ for n in range(LMAX):
 def fbt(l, f, r, k):
     """Fast Bessel transform.
 
-    The following integral is calculated using 2l+1 FFTs::
+    The following integral is calculated using l+1 FFTs::
 
                     oo
                    /

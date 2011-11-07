@@ -7,11 +7,11 @@ from gpaw.test import equal
 
 ##endings = ['nc']
 endings = ['gpw']
-## try:
-##     import Scientific.IO.NetCDF
-##     endings.append('nc')
-## except ImportError:
-##     pass
+try:
+    import _hdf5
+    endings.append('hdf5')
+except ImportError:
+    pass
 
 for ending in endings:
     restart_wf = 'gpaw-restart-wf.' + ending

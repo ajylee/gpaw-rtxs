@@ -25,7 +25,7 @@ c = GPAW(xc='LDA', nbands=-3,
 c.calculate(s)
 equal(c.density.get_spin_contamination(s, 1), 0., 0.01) 
 
-# setup H2 at large distance with differnt spins for the atoms
+# setup H2 at large distance with different spins for the atoms
 s = Cluster([Atom('H'), Atom('H',[0,0,3.0])])
 s.minimal_box(box, h=h)
 s.set_initial_magnetic_moments([-1,1])

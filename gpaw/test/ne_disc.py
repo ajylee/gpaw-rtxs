@@ -24,7 +24,7 @@ for xcname in ['GLLB','GLLBSC']:
     Ne = Atoms([Atom(atom, (0, 0, 0))],
                cell=(a, a, a), pbc=False)
     Ne.center()
-    calc = GPAW(nbands=10, h=0.2, xc=xcname)
+    calc = GPAW(nbands=10, h=0.21, xc=xcname)
     Ne.set_calculator(calc)
     e = Ne.get_potential_energy()
     response = calc.hamiltonian.xc.xcs['RESPONSE']
