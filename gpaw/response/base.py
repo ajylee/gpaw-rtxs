@@ -156,7 +156,7 @@ class BASECHI:
         setups = calc.wfs.setups
         pt = LFC(gd, [setup.pt_j for setup in setups],
                  KPointDescriptor(self.bzk_kc),
-                 dtype=calc.wfs.dtype, forces=True)
+                 dtype=complex, forces=True)
         spos_ac = calc.atoms.get_scaled_positions()
         pt.set_positions(spos_ac)
         self.pt = pt
