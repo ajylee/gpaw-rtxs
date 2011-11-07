@@ -586,7 +586,6 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 if len(sphere.ranks) > 0:
                     c_xi[:] = c_xM[..., M1:M2] + c_arxi[a].sum(axis=0)
                 else:
-                    assert c_xM.dtype == float or c_xi.dtype == complex
                     c_xi[:] = c_xM[..., M1:M2]
             M1 = M2
 
