@@ -236,6 +236,7 @@ class GridDescriptor(Domain):
             result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
         else:
             result_yx = _transposed_result
+            global_integral = False
 
         if a_xg is b_yg:
             rk(self.dv, A_xg, 0.0, result_yx)
