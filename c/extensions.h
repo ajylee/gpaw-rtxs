@@ -11,11 +11,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
-#ifdef __FreeBSD__
 #include <stdlib.h>
-#else
-#include <malloc.h>
-#endif
 
 /* If strict ANSI, then some useful macros are not defined */
 #if defined(__STRICT_ANSI__) && !defined(__DARWIN_UNIX03)
@@ -34,7 +30,7 @@
 
 #define INLINE inline
 
-static INLINE void* gpaw_malloc(int n)
+static INLINE void* gpaw_malloc(size_t n)
 {
   void* p = malloc(n);
   assert(p != NULL);

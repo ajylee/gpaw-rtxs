@@ -54,6 +54,8 @@ flags_list = {1: "-g -O3 -qlanglvl=extc99 -qflag=w:w -qpic",
               }
 
 flags = flags_list[opt]  
+# make sure this matches the version of the XL compiler in bgp_xlc_linker.py
+# as well as the libraries in customize_surveyor_xlc.py
 cmd = "mpixlc_r %s %s"%(flags, cmd)
 
 print "\nexecmd: %s\n"%cmd

@@ -2,11 +2,7 @@
  *  Copyright (C) 2005       CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
-#ifdef __FreeBSD__
 #include <stdlib.h>
-#else
-#include <malloc.h>
-#endif
 #include "bmgs.h"
 
 

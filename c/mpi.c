@@ -62,40 +62,44 @@ static void mpi_dealloc(MPIObject *obj)
   PyObject_DEL(obj);
 }
 
-static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args, PyObject *kwargs)
+static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
+				  PyObject *kwargs)
 {
-  PyObject* a;
-  PyObject* b;
-  int dest, src;
-  int sendtag = 123;
-  int recvtag = 123;
-  int ret; 
-  static char *kwlist[] = {"a", "dest", "sendtag", "b", "src", "recvtag", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OiOi|ii:sendreceive", kwlist,
-				   &a, &dest, &b, &src, &sendtag, &recvtag))
-    return NULL;
-  CHK_ARRAY(a);
-  CHK_OTHER_PROC(dest);
-  CHK_ARRAY(b);
-  CHK_OTHER_PROC(src);
-  int nsend = PyArray_DESCR(a)->elsize;
-  for (int d = 0; d < PyArray_NDIM(a); d++)
-    nsend *= PyArray_DIM(a,d);
-  int nrecv = PyArray_DESCR(b)->elsize;
-  for (int d = 0; d < PyArray_NDIM(b); d++)
-    nrecv *= PyArray_DIM(b,d);
-  ret = MPI_Sendrecv(PyArray_BYTES(a), nsend, MPI_BYTE, dest, sendtag, 
-		     PyArray_BYTES(b), nrecv, MPI_BYTE, src, recvtag, 
-		     self->comm, MPI_STATUS_IGNORE);
+    PyObject* a;
+    PyObject* b;
+    int dest, src;
+    int sendtag = 123;
+    int recvtag = 123;
+    static char *kwlist[] = {"a", "dest", "sendtag", "b", "src", "recvtag",
+			     NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OiOi|ii:sendreceive",
+				     kwlist,
+				     &a, &dest, &b, &src, &sendtag, &recvtag))
+        return NULL;
+    CHK_ARRAY(a);
+    CHK_OTHER_PROC(dest);
+    CHK_ARRAY(b);
+    CHK_OTHER_PROC(src);
+    int nsend = PyArray_DESCR(a)->elsize;
+    for (int d = 0; d < PyArray_NDIM(a); d++)
+        nsend *= PyArray_DIM(a,d);
+    int nrecv = PyArray_DESCR(b)->elsize;
+    for (int d = 0; d < PyArray_NDIM(b); d++)
+        nrecv *= PyArray_DIM(b,d);
 #ifdef GPAW_MPI_DEBUG
-      if (ret != MPI_SUCCESS)
-	{
-	  PyErr_SetString(PyExc_RuntimeError, "MPI_Sendrecv error occured.");
-	  return NULL;
-	}
+    int ret = 
 #endif
-      Py_RETURN_NONE;
+      MPI_Sendrecv(PyArray_BYTES(a), nsend, MPI_BYTE, dest, sendtag, 
+		   PyArray_BYTES(b), nrecv, MPI_BYTE, src, recvtag, 
+		   self->comm, MPI_STATUS_IGNORE);
+#ifdef GPAW_MPI_DEBUG
+    if (ret != MPI_SUCCESS) {
+        PyErr_SetString(PyExc_RuntimeError, "MPI_Sendrecv error occured.");
+	return NULL;
     }
+#endif
+    Py_RETURN_NONE;
+}
 
 
 static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)

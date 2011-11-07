@@ -223,10 +223,14 @@ For example, "the" (most common) LDA approximation in chemistry
 corresponds to ``'LDA_X+LDA_C_VWN'``.
 
 Hybrid functionals (the feature is described at :ref:`exx`)
-require the setups containing exx information to be generated
-for any missing elements::
+require the setups containing exx information to be generated.
+Check available setups for the presence of exx information, for example::
 
-     [~]$ gpaw-setup --exact-exchange -f PBE H O
+     [~]$ zcat $GPAW_SETUP_PATH/O.PBE.gz | grep "<exact_exchange_"
+
+and generate setups with missing exx information::
+
+     [~]$ gpaw-setup --exact-exchange -f PBE H C
 
 Currently all the hybrid functionals use the PBE setup as a *base* setup.
 

@@ -4,26 +4,33 @@
 Installation guide
 ==================
 
+
 Requirements
 ============
 
-1) Python 2.3 or later.  Python is available from http://www.python.org.
+1) Python 2.4 - 2.7.  Python is available from http://www.python.org.
 
-2) NumPy_.
+2) NumPy_ 1.1 - 1.5.
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
 4) C compiler - preferably gcc.
 
-5) BLAS and LAPACK libraries. Start with your system provided defaults or e.g. http://www.amd.com/acml.
+5) BLAS and LAPACK libraries. Start with your system provided defaults or
+   e.g. http://www.amd.com/acml.
 
-6) An MPI library required for parallel calculations.
+6) An MPI library (required for parallel calculations).
+
+7) (Optional) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+
 
 .. note::
 
-   In order to use the code, you need also the setups for all your atoms (:ref:`setups`).
+   In order to use the code, you need also the setups for all your
+   atoms (:ref:`setups`).
 
 .. _NumPy: http://numpy.scipy.org/
+
 
 Installation
 ============
@@ -33,7 +40,9 @@ are described, in order of preference.
 
 .. note::
 
-   **CAMd users** installing on ``Niflheim``: please follow instructions for :ref:`Niflheim`.
+   **CAMd users** installing on ``Niflheim``: please follow instructions
+   for :ref:`Niflheim`.
+
 
 .. _installationguide_package:
 
@@ -45,19 +54,19 @@ This procedure requires root access.
 
 .. note::
 
-   Most of the fys packages are relocatable, therefore also suitable for installing on a cluster.
+   Most of the fys packages are relocatable, therefore also suitable for
+   installing on a cluster.
 
 The packages are provided for the following RPMS-based systems:
 
-- Fedora: :ref:`Fedora`,
+* Fedora: :ref:`Fedora`
+* openSUSE: :ref:`openSUSE`
+* RedHat Enterprise Linux (or CentOS): :ref:`CentOS`
 
-- openSUSE: :ref:`openSUSE`,
-
-- RedHat Enterprise Linux (or CentOS): :ref:`CentOS`,
-
-- Ubuntu 9.10 or newer: :ref:`Ubuntupackage`.
+Ubuntu 9.10 or newer: :ref:`Ubuntupackage`.
 
 If you prefer to install manually proceed to the next section.
+
 
 .. _installationguide_developer:
 
@@ -83,6 +92,7 @@ It offers the following advantages:
 2) Perform :ref:`installationguide_setup_files`.
 
 3) :ref:`running_tests`.
+
 
 .. _installationguide_standard:
 
@@ -132,6 +142,7 @@ the :ref:`installationguide_developer`.
 
 4) :ref:`running_tests`.
 
+
 Installation tricks
 -------------------
 
@@ -158,6 +169,18 @@ After editing :svn:`customize.py`, follow the instructions for the
 :ref:`installationguide_developer`.
 
 .. _parallel_installation:
+
+
+Installation with HDF5 support
+++++++++++++++++++++++++++++++
+
+HDF5 support can be enabled by setting in :file:`customize.py`::
+
+ hdf5 = True
+
+and, in this case, provide HDF5 `include_dirs`, `libraries`, and `library_dirs`
+as described in :ref:`install_custom_installation`.
+
 
 Parallel installation
 +++++++++++++++++++++
@@ -191,8 +214,8 @@ See :ref:`PGO_gcc_EL5` for an example how use PGO to compile GPAW on CentOS.
 Installation of setup files
 ---------------------------
 
-1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz` from the 
-   :ref:`setups` page
+1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
+   of the <version> of setups from the :ref:`setups` page
    and unpack it somewhere, preferably in :envvar:`HOME`
    (``cd; tar zxf gpaw-setups-<version>.tar.gz``) - it could
    also be somewhere global where
@@ -265,4 +288,3 @@ If you enabled ScaLAPACK, do::
 
 This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
 with the block size of 2.
-

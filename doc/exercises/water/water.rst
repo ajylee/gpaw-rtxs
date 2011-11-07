@@ -21,7 +21,7 @@ Read the script and try to understand what it does.  A few notes:
    Thus, *indentation determines control flow*.
 
  * In this case we conveniently load the geometry from the G2 database
-   of small molecules, using the :meth:`~ase.data.molecules.molecule`
+   of small molecules, using the :meth:`~ase.structure.molecule`
    function from ASE.
 
  * By setting the ``txt`` parameter, we specify a file where GPAW will save

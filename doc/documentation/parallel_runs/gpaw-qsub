@@ -69,11 +69,12 @@ else:
 # Start script:
 qsub += """
 path = get_gpaw_python_path()
-retcode = os.system('%s %s/gpaw-python JOB' % (mpiexec, path))
+retcode = os.system('''%s %s/gpaw-python JOB''' % (mpiexec, path))
 if (retcode & 0xff) == 0:
     sys.exit(retcode >> 8)  # No signal, return the status only.
 else:
     sys.exit(retcode)  # Return everything, signalling failure.
-""".replace('JOB', job)
+""".replace('JOB',
+            job.replace('(', '\\(').replace(')', '\\)').replace("'", "\\'"))
 
 os.popen('qsub ' + options, 'w').write(qsub)

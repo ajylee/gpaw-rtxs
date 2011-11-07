@@ -1298,22 +1298,6 @@ lxcXCFunctional_XCEnergy(lxcXCFunctionalObject *self, PyObject *args)
 
   double n = na + nb;
 
-  double dExdna = 0.0;
-  double dExdsigma0 = 0.0;
-  double dExdnb = 0.0;
-  double dExdsigma2 = 0.0;
-  double dExdsigma1 = 0.0;
-  double dExdtaua = 0.0 ; /* dex/dtaua */
-  double dExdtaub= 0.0 ;  /* dex/dtaub */
-
-  double dEcdna = 0.0;
-  double dEcdsigma0 = 0.0;
-  double dEcdnb = 0.0;
-  double dEcdsigma2 = 0.0;
-  double dEcdsigma1 = 0.0;
-  double dEcdtaua = 0.0; /* de_corr/dtau */
-  double dEcdtaub = 0.0; /* de_corr/dtau */
-
   double point[7]; /* generalized point */
   // from http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:manual
   // rhoa rhob sigmaaa sigmaab sigmabb taua taub
@@ -1343,13 +1327,13 @@ lxcXCFunctional_XCEnergy(lxcXCFunctionalObject *self, PyObject *args)
   /* calculate exchange */
   if (self->x_functional.family != XC_FAMILY_UNKNOWN) {
     self->get_vxc_x(&(self->x_functional), point, &ex, derivative_x);
-    dExdna = derivative_x[0];
-    dExdnb = derivative_x[1];
-    dExdsigma0 = derivative_x[2];
-    dExdsigma1 = derivative_x[3];
-    dExdsigma2 = derivative_x[4];
-    dExdtaua   = derivative_x[5];
-    dExdtaub   = derivative_x[6];
+    /* dExdna = derivative_x[0];
+       dExdnb = derivative_x[1];
+       dExdsigma0 = derivative_x[2];
+       dExdsigma1 = derivative_x[3];
+       dExdsigma2 = derivative_x[4];
+       dExdtaua   = derivative_x[5];
+       dExdtaub   = derivative_x[6]; */
     if (self->c_functional.family == XC_FAMILY_HYB_GGA)
       {
         // MDTMP - a hack: HYB_GGA handle h1 internally in c_functional
@@ -1365,13 +1349,13 @@ lxcXCFunctional_XCEnergy(lxcXCFunctionalObject *self, PyObject *args)
   /* calculate correlation */
   if (self->c_functional.family != XC_FAMILY_UNKNOWN) {
     self->get_vxc_c(&(self->c_functional), point, &ec, derivative_c);
-    dEcdna = derivative_c[0];
-    dEcdnb = derivative_c[1];
-    dEcdsigma0 = derivative_c[2];
-    dEcdsigma1 = derivative_c[3];
-    dEcdsigma2 = derivative_c[4];
-    dEcdtaua   = derivative_c[5];
-    dEcdtaub   = derivative_c[6];
+    /* dEcdna = derivative_c[0];
+       dEcdnb = derivative_c[1];
+       dEcdsigma0 = derivative_c[2];
+       dEcdsigma1 = derivative_c[3];
+       dEcdsigma2 = derivative_c[4];
+       dEcdtaua   = derivative_c[5];
+       dEcdtaub   = derivative_c[6]; */
   }
 
   // MDTMP: temporary for xc functional

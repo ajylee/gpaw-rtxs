@@ -1,7 +1,7 @@
 from ase import Atoms
 from ase.io import write
 from gpaw import GPAW, Mixer
-from ase.data.molecules import molecule
+from ase.structure import molecule
 
 CO = molecule('CO')
 CO.set_cell((6., 6., 6.))

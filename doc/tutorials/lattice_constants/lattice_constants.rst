@@ -14,6 +14,7 @@ Finding lattice constants
    * `ASE equation of state module
      <https://wiki.fysik.dtu.dk/ase/ase/utils.html#equation-of-state>`_
 
+
 BCC iron
 ========
 
@@ -24,15 +25,15 @@ use the command-line tool simply called :program:`gpaw`:
 
 ::
 
-  $ gpaw Fe -x bcc --cubic -a 2.84 -M 2.3 --xc=PBE --kpts=8,8,8 --h=0.18 --fit
+  $ gpaw bulk Fe -C -a 2.84 -M 2.3 -k 8,8,8 -p h=0.18,xc=PBE -F 5,2
 
 This will start a GPAW calculation with:
 
 * 2 Fe atoms
 * in the BCC crystal structure
-* in an cubic unit cell with two atoms
+* in a cubic unit cell with two atoms
 * a lattice constant of 2.84 Å
-* a magnetic moment of 2.3 per atom
+* a magnetic moment of 2.3 Bohr magneton per atom
 * with the PBE XC-functional
 * 8x8x8 **k**-points
 * and a grid-spacing of approximately 0.18 Å.

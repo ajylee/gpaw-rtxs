@@ -7,6 +7,10 @@
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
 
+#ifdef GPAW_WITH_HDF5 
+PyMODINIT_FUNC init_hdf5(void); 
+#endif 
+
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
@@ -47,6 +51,7 @@ PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
 PyObject* pc_potential_value(PyObject *self, PyObject *args);
+PyObject* heap_mallinfo(PyObject *self);
 PyObject* elementwise_multiply_add(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
 PyObject* utilities_vdot(PyObject *self, PyObject *args);
@@ -96,13 +101,6 @@ PyObject* pblas_rk(PyObject *self, PyObject *args);
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
-// Parallel HDF5
-#ifdef HDF5
-void init_h5py();
-PyObject* set_fapl_mpio(PyObject *self, PyObject *args);
-PyObject* set_dxpl_mpio(PyObject *self, PyObject *args);
-#endif
-
 // IO wrappers
 #ifdef IO_WRAPPERS
 void init_io_wrappers();
@@ -137,6 +135,7 @@ static PyMethodDef functions[] = {
   {"Operator", NewOperatorObject, METH_VARARGS, 0},
   {"Spline", NewSplineObject, METH_VARARGS, 0},
   {"Transformer", NewTransformerObject, METH_VARARGS, 0},
+  {"heap_mallinfo", (PyCFunction) heap_mallinfo, METH_NOARGS, 0},
   {"elementwise_multiply_add", elementwise_multiply_add, METH_VARARGS, 0},
   {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
   {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
@@ -202,10 +201,6 @@ static PyMethodDef functions[] = {
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
-#ifdef HDF5
-  {"h5_set_fapl_mpio", set_fapl_mpio, METH_VARARGS, 0}, 
-  {"h5_set_dxpl_mpio", set_dxpl_mpio, METH_VARARGS, 0}, 
-#endif // HDF5
   {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
   {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},
   {0, 0, 0, 0}
@@ -308,10 +303,6 @@ main(int argc, char **argv)
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 #endif
 
-#ifdef HDF5
-  init_h5py();
-#endif
-
   Py_Initialize();
 
 #ifdef NO_SOCKET
@@ -328,6 +319,9 @@ main(int argc, char **argv)
 
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
+#ifdef GPAW_WITH_HDF5 
+  init_hdf5(); 
+#endif 
   import_array1(-1);
   MPI_Barrier(MPI_COMM_WORLD);
 #ifdef GPAW_CRAYPAT

@@ -59,11 +59,13 @@ packages = ['gpaw',
             'gpaw.pes',
             'gpaw.response',
             'gpaw.sphere',
+            'gpaw.tasks',
             'gpaw.tddft',
             'gpaw.test',
             'gpaw.test.big',
             'gpaw.test.noncollinear',
             'gpaw.test.parallel',
+            'gpaw.test.fileio',
             'gpaw.test.pw',
             'gpaw.test.vdw',
             'gpaw.testing',
@@ -112,6 +114,7 @@ mpilinker = mpicompiler
 compiler = None
 
 scalapack = False
+hdf5 = False
 #User provided customizations
 if os.path.isfile(customize):
     execfile(customize)
@@ -196,6 +199,26 @@ extension = Extension('_gpaw',
                       runtime_library_dirs=runtime_library_dirs,
                       extra_objects=extra_objects)
 
+extensions = [extension,]
+
+if hdf5:
+    hdf5_sources = ['c/hdf5.c']
+    get_hdf5_config(define_macros)
+    msg.append('* Compiling with HDF5')
+
+    hdf5_extension = Extension('_hdf5',
+                               hdf5_sources,
+                               libraries=libraries,
+                               library_dirs=library_dirs,
+                               include_dirs=include_dirs,
+                               define_macros=define_macros,
+                               undef_macros=undef_macros,
+                               extra_link_args=extra_link_args,
+                               extra_compile_args=extra_compile_args,
+                               runtime_library_dirs=runtime_library_dirs,
+                               extra_objects=extra_objects)
+    extensions.append(hdf5_extension)
+
 scripts = [join('tools', script)
            for script in ('gpaw', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
                           'gpaw-mpisim')]
@@ -215,7 +238,7 @@ setup(name = 'gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=packages,
-      ext_modules=[extension],
+      ext_modules=extensions,
       scripts=scripts,
       long_description=long_description,
       )

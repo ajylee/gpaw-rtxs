@@ -5,7 +5,7 @@ Development
 ===========
 
 GPAW development can be done by anyone! Just take a look at the
-:ref:`todo` list and find something that suits your talents!
+:ref:`todolist` list and find something that suits your talents!
 
 The primary source of information is still the :ref:`manual` and
 :ref:`documentation`, but as a developer you might need additional

@@ -1,4 +1,4 @@
-from ase.data.molecules import molecule
+from ase.structure import molecule
 from gpaw import GPAW
 
 a = 8.0
@@ -16,9 +16,9 @@ for name in ['H2O', 'H', 'O']:
                 txt='gpaw-%s-%.2f.txt' % (name, h))
     if name == 'H' or name == 'O':
         calc.set(hund=True)
-    
+
     system.set_calculator(calc)
-    
+
     energy = system.get_potential_energy()
     energies[name] = energy
     print >> resultfile, name, energy

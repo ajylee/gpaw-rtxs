@@ -10,7 +10,7 @@ import numpy as np
 from ase.data import atomic_numbers, atomic_names
 from ase.atoms import string2symbols
 from ase.data.molecules import rest
-from ase.data.molecules import data as molecule_data
+from ase.data.g2_1 import data as molecule_data
 
 from gpaw.testing.atomization_data import atomization_vasp
 from gpaw.atom.configurations import parameters
