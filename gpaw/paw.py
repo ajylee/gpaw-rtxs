@@ -482,7 +482,6 @@ class PAW(PAWTextOutput):
             
         if isinstance(mode, PW):
             pbc_c = np.ones(3, bool)
-            #dtype = complex
 
         if not self.wfs:
             if parsize == 'domain only':  # XXX this was silly!
