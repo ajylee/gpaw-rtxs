@@ -91,8 +91,8 @@ class KPoint:
 class HybridXC(XCFunctional):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
-                 alpha=None, skip_gamma=False, acdf=True, atoms=None,
-                 qsym=True, txt=None):
+                 alpha=None, skip_gamma=False, acdf=True,
+                 qsym=True, txt=None, ecut=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -129,6 +129,7 @@ class HybridXC(XCFunctional):
         self.skip_gamma = skip_gamma
         self.acdf = acdf
         self.exx = None
+        self.ecut = ecut
         if txt is None:
             if rank == 0:
                 #self.txt = devnull
@@ -141,8 +142,6 @@ class HybridXC(XCFunctional):
             from ase.parallel import paropen
             self.txt = paropen(txt, 'w')
 
-        if atoms is not None:
-            self.atoms=atoms
         XCFunctional.__init__(self, name)
         
     def get_setup_name(self):
@@ -165,9 +164,11 @@ class HybridXC(XCFunctional):
         self.setups = wfs.setups
         self.density = density
         self.kpt_u = wfs.kpt_u
+        
         self.gd = density.gd
         self.kd = wfs.kd
         self.bd = wfs.bd
+
         N_c = self.gd.N_c
         N = self.gd.N_c.prod()
         vol = self.gd.dv * N
@@ -178,34 +179,51 @@ class HybridXC(XCFunctional):
             
         self.gamma = (vol / (2 * pi)**2 * sqrt(pi / self.alpha) *
                       self.kd.nbzkpts)
-        self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
-        self.bzq_kc = self.kd.get_bz_q_points()
+        if self.ecut is None:
+            self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+
+        assert self.kd.N_c is not None
+        n = self.kd.N_c * 2 - 1
+        bzk_kc = np.indices(n).transpose((1, 2, 3, 0))
+        bzk_kc.shape = (-1, 3)
+        bzk_kc -= self.kd.N_c - 1
+        self.bzk_kc = bzk_kc.astype(float) / self.kd.N_c
+
+        self.bzq_qc = self.kd.get_bz_q_points()
         if self.qsym:
             op_scc = self.kd.symmetry.op_scc
-            self.ibzq_kc = self.kd.get_ibz_q_points(self.bzq_kc,
+            self.ibzq_qc = self.kd.get_ibz_q_points(self.bzq_qc,
                                                     op_scc)[0]
-            self.q_weights = self.kd.q_weights * len(self.bzq_kc)
+            self.q_weights = self.kd.q_weights * len(self.bzq_qc)
         else:
-            self.ibzq_kc = self.bzq_kc
-            self.q_weights = np.ones(len(self.bzq_kc))
+            self.ibzq_qc = self.bzq_qc
+            self.q_weights = np.ones(len(self.bzq_qc))
             
-        self.pwd = PWDescriptor(self.ecut, self.gd, self.ibzq_kc)
+        self.pwd = PWDescriptor(self.ecut, self.gd, self.bzk_kc)
 
-        for w_q, q_c, Gpk2_G in zip(self.q_weights, self.ibzq_kc, self.pwd.G2_qG):
-            if q_c.any():
-                self.gamma -= w_q*np.dot(np.exp(-self.alpha * Gpk2_G),
-                                         Gpk2_G**-1) 
-            else:
-                self.gamma -= w_q*np.dot(np.exp(-self.alpha * Gpk2_G[1:]),
+        n = 0
+        for k_c, Gpk2_G in zip(self.bzk_kc[:], self.pwd.G2_qG):
+            if (k_c > -0.5).all() and (k_c <= 0.5).all(): #XXX???
+                if k_c.any():
+                    self.gamma -= np.dot(np.exp(-self.alpha * Gpk2_G),
+                                         Gpk2_G**-1)
+                else:
+                    self.gamma -= np.dot(np.exp(-self.alpha * Gpk2_G[1:]),
                                          Gpk2_G[1:]**-1)
+                n += 1
+                
+        assert n == self.kd.N_c.prod()
+
+        self.pwd = PWDescriptor(self.ecut, self.gd, self.ibzq_qc)
+
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
                         dtype=complex)
 
-        self.ghat.set_k_points(self.bzq_kc)
+        self.ghat.set_k_points(self.bzq_qc)
+        
         self.interpolator = density.interpolator
-
         self.print_initialization(hamiltonian.xc.name)
 
  
@@ -227,14 +245,14 @@ class HybridXC(XCFunctional):
         W = world.size // self.nspins
         parallel = (W > 1)
         self.exx = 0.0
-        self.exx_kq = np.zeros((K, len(self.ibzq_kc)), float)
+        self.exx_kq = np.zeros((K, len(self.ibzq_qc)), float)
                 
         for s in range(self.nspins):
             ibz_kpts = [KPoint(kd, kpt)
                         for kpt in self.kpt_u if kpt.s == s]
             for ik, kpt in enumerate(kd.bzk_kc):
                 print >> self.txt, 'K %s %s ...' % (ik, kpt)
-                for iq, q in enumerate(self.ibzq_kc):
+                for iq, q in enumerate(self.ibzq_qc):
                     kpq = kd.find_k_plus_q(q, kpts_k=[ik])
                     self.apply(ibz_kpts[kd.bz2ibz_k[ik]],
                                ibz_kpts[kd.bz2ibz_k[kpq[0]]],
@@ -249,7 +267,7 @@ class HybridXC(XCFunctional):
         print >> self.txt
         print >> self.txt, 'Contributions: q         w        E_q (eV)' 
         for q in range(len(exx_q)):
-            print >> self.txt, '[%1.3f %1.3f %1.3f]    %1.3f   %s' % (self.ibzq_kc[q][0], self.ibzq_kc[q][1], self.ibzq_kc[q][2], self.q_weights[q]/len(self.bzq_kc), exx_q[q]/self.q_weights[q]*len(self.bzq_kc)*Ha)
+            print >> self.txt, '[%1.3f %1.3f %1.3f]    %1.3f   %s' % (self.ibzq_qc[q][0], self.ibzq_qc[q][1], self.ibzq_qc[q][2], self.q_weights[q]/len(self.bzq_qc), exx_q[q]/self.q_weights[q]*len(self.bzq_qc)*Ha)
         print >> self.txt, 'PAW correction: %s eV' % (paw*Ha)
         print >> self.txt
         print >> self.txt, 'E_EXX = %s eV' % (self.exx*Ha)
@@ -262,11 +280,11 @@ class HybridXC(XCFunctional):
     def apply(self, kpt1, kpt2, ik1, ik2, iq):
         k1_c = self.kd.bzk_kc[ik1]
         k2_c = self.kd.bzk_kc[ik2]
-        q = self.ibzq_kc[iq]
+        q = self.ibzq_qc[iq]
 
         if self.qsym:
-            for i, q in enumerate(self.bzq_kc):
-                if abs(q - self.ibzq_kc[iq]).max() < 1e-9:
+            for i, q in enumerate(self.bzq_qc):
+                if abs(q - self.ibzq_qc[iq]).max() < 1e-9:
                     bzq_index = i
                     break    
         else:
@@ -383,7 +401,6 @@ class HybridXC(XCFunctional):
         print >> self.txt, '------------------------------------------------------'
         print >> self.txt, 'Started at:  ', ctime()
         print >> self.txt
-        print >> self.txt, 'Atoms                          :   %s' % self.atoms.get_name()
         print >> self.txt, 'Ground state XC functional     :   %s' % xc
         print >> self.txt, 'Valence electrons              :   %s' % self.setups.nvalence
         print >> self.txt, 'Number of Spins                :   %s' % self.nspins
@@ -395,16 +412,16 @@ class HybridXC(XCFunctional):
         print >> self.txt, 'ACDF method                    :   %s' % self.acdf
         print >> self.txt, 'Number of k-points             :   %s' % len(self.kd.bzk_kc)
         print >> self.txt, 'Number of Irreducible k-points :   %s' % len(self.kd.ibzk_kc)
-        print >> self.txt, 'Number of q-points             :   %s' % len(self.bzq_kc)
+        print >> self.txt, 'Number of q-points             :   %s' % len(self.bzq_qc)
         if not self.qsym:
             print >> self.txt, 'q-point symmetry               :   %s' % self.qsym
         else:
-            print >> self.txt, 'Number of Irreducible q-points :   %s' % len(self.ibzq_kc)
+            print >> self.txt, 'Number of Irreducible q-points :   %s' % len(self.ibzq_qc)
 
         print >> self.txt
-        for q, weight in zip(self.ibzq_kc, self.q_weights):
+        for q, weight in zip(self.ibzq_qc, self.q_weights):
             print >> self.txt, 'q: [%1.3f %1.3f %1.3f] - weight: %1.3f'%(q[0],q[1],q[2],
-                                                                         weight/len(self.bzq_kc))
+                                                                         weight/len(self.bzq_qc))
         print >> self.txt
         print >> self.txt, '------------------------------------------------------'
         print >> self.txt, '------------------------------------------------------'
