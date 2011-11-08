@@ -1071,10 +1071,6 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         self.my_atom_indices = None
 
-    def set_k_points(self, ibzk_qc):
-        self.ibzk_qc = ibzk_qc
-        self.gamma = False
-
     def set_positions(self, spos_ac):
         if self.kpt_comm:
             lfbc = LocFuncBroadcaster(self.kpt_comm)

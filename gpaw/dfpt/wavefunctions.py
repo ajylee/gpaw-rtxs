@@ -38,7 +38,8 @@ class WaveFunctions:
         # Number of occupied bands
         self.nbands = nbands
         # Projectors
-        self.pt = LFC(gd, [setup.pt_j for setup in setups], dtype=self.dtype)
+        self.pt = LFC(gd, [setup.pt_j for setup in setups], kd,
+                      dtype=self.dtype)
         # Store grid
         self.gd = gd
 
@@ -127,11 +128,6 @@ class WaveFunctions:
         # Set positions on LFC's
         self.pt.set_positions(spos_ac)
         
-        if not self.kd.gamma:
-            # Set k-vectors and update
-            self.pt.set_k_points(self.kd.ibzk_kc)
-            self.pt._update(spos_ac)
-
         # Calculate projector coefficients for the GS wave-functions
         self.calculate_projector_coef()
 
