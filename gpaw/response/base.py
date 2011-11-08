@@ -17,6 +17,8 @@ from gpaw.response.math_func import delta_function,  \
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc
+from gpaw.kpt_descriptor import KPointDescriptor
+
 
 class BASECHI:
     """This class is to store the basic common stuff for chi and bse."""
@@ -153,9 +155,9 @@ class BASECHI:
         # Projectors init
         setups = calc.wfs.setups
         pt = LFC(gd, [setup.pt_j for setup in setups],
-                 dtype=calc.wfs.dtype, forces=True)
+                 KPointDescriptor(self.bzk_kc),
+                 dtype=complex, forces=True)
         spos_ac = calc.atoms.get_scaled_positions()
-        pt.set_k_points(self.bzk_kc)
         pt.set_positions(spos_ac)
         self.pt = pt
 

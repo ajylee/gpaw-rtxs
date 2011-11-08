@@ -17,6 +17,7 @@ from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 
 from gpaw.symmetry import Symmetry
 from gpaw.kpoint import KPoint
+import gpaw.mpi as mpi
 import _gpaw
 
 
@@ -71,16 +72,8 @@ class KPointDescriptor:
         # Gamma-point calculation?
         self.gamma = self.nbzkpts == 1 and not self.bzk_kc[0].any()
             
-        self.symmetry = None
-        self.comm = None
-        self.ibzk_kc = None
-        self.weight_k = None
-        self.nibzkpts = None
-
-        self.rank0 = None
-        self.mynks = None
-        self.ks0 = None
-        self.ibzk_qc = None
+        self.set_symmetry(None, None, usesymm=None)
+        self.set_communicator(mpi.serial_comm)
 
     def __len__(self):
         """Return number of k-point/spin combinations of local CPU."""
@@ -104,19 +97,22 @@ class KPointDescriptor:
             If not None:  Check also symmetry of grid.
         """
 
-        if (~atoms.pbc & self.bzk_kc.any(0)).any():
-            raise ValueError('K-points can only be used with PBCs!')
+        if atoms is not None:
+            if (~atoms.pbc & self.bzk_kc.any(0)).any():
+                raise ValueError('K-points can only be used with PBCs!')
 
-        if magmom_av is None:
-            magmom_av = np.zeros((len(atoms), 3))
-            magmom_av[:, 2] = atoms.get_initial_magnetic_moments()
+            if magmom_av is None:
+                magmom_av = np.zeros((len(atoms), 3))
+                magmom_av[:, 2] = atoms.get_initial_magnetic_moments()
 
-        magmom_av = magmom_av.round(decimals=3)  # round off
-        id_a = zip(setups.id_a, *magmom_av.T)
+            magmom_av = magmom_av.round(decimals=3)  # round off
+            id_a = zip(setups.id_a, *magmom_av.T)
 
-        # Construct a Symmetry instance containing the identity operation
-        # only
-        self.symmetry = Symmetry(id_a, atoms.cell / Bohr, atoms.pbc)
+            # Construct a Symmetry instance containing the identity operation
+            # only
+            self.symmetry = Symmetry(id_a, atoms.cell / Bohr, atoms.pbc)
+        else:
+            self.symmetry = None
         
         if self.gamma or usesymm is None:
             # Point group and time-reversal symmetry neglected
@@ -142,7 +138,8 @@ class KPointDescriptor:
              self.ibz2bz_k,
              self.bz2bz_ks) = self.symmetry.reduce(self.bzk_kc, comm)
 
-        setups.set_symmetry(self.symmetry)
+        if setups is not None:
+            setups.set_symmetry(self.symmetry)
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)

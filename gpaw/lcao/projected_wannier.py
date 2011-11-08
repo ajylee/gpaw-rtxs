@@ -64,9 +64,7 @@ def eigvals(H, S):
 def get_bfs(calc):
     wfs = calc.wfs
     bfs = BasisFunctions(wfs.gd, [setup.phit_j for setup in wfs.setups],
-                         wfs.kpt_comm, cut=True)
-    if not wfs.gamma:
-        bfs.set_k_points(wfs.ibzk_qc)
+                         wfs.kd, cut=True)
     bfs.set_positions(calc.atoms.get_scaled_positions() % 1.)
     return bfs
 

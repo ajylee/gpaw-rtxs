@@ -208,7 +208,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
         spos_ac = self.atoms.get_scaled_positions() % 1.0
         self.rank_a = self.gd.get_ranks_from_positions(spos_ac)
         self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
-                      self.kpt_comm, dtype=self.dtype)
+                      dtype=self.dtype)
         self.pt.set_positions(spos_ac)
 
         if memstats:

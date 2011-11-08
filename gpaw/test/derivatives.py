@@ -11,8 +11,6 @@ s = Spline(l=0, rmax=2.0, f_g=np.array([1, 0.9, 0.1, 0.0]))
 p = Spline(l=1, rmax=2.0, f_g=np.array([1, 0.9, 0.1, 0.0]))
 spline_aj = [[s], [s, p]]
 c = LFC(gd, spline_aj, cut=True, forces=True)
-if kpts_kc is not None:
-    c.set_k_points(kpts_kc)
 c.set_positions(spos_ac)
 C_ani = c.dict(3, zero=True)
 if 1 in C_ani:

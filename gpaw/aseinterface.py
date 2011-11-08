@@ -586,9 +586,7 @@ class GPAW(PAW):
                    (np.sqrt(4 * np.pi) * _fact[2 * l + 1]))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
             
-        lf = LFC(wfs.gd, splines_x, wfs.kpt_comm, dtype=wfs.dtype)
-        if not wfs.gamma:
-            lf.set_k_points(wfs.kd.ibzk_qc)
+        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
         lf.set_positions(spos_xc)
 
         assert wfs.gd.comm.size == 1

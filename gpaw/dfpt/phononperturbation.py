@@ -71,12 +71,12 @@ class PhononPerturbation(Perturbation):
                        integral=[setup.Nct for setup in setups], dtype=self.dtype)
         # compensation charges
         #XXX what is the consequence of numerical errors in the integral ??
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups], kd,
                         dtype=self.dtype)
         ## self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
         ##                 integral=sqrt(4 * pi), dtype=self.dtype)
         # vbar potential
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
+        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups], kd,
                         dtype=self.dtype)
 
         # Expansion coefficients for the compensation charges
@@ -105,14 +105,6 @@ class PhononPerturbation(Perturbation):
         self.vbar.set_positions(spos_ac)
 
         if not self.kd.gamma:
-            
-            # Set q-vectors and update
-            self.ghat.set_k_points(self.kd.ibzk_qc)
-            self.ghat._update(spos_ac)
-            # Set q-vectors and update
-            self.vbar.set_k_points(self.kd.ibzk_qc)
-            self.vbar._update(spos_ac)
-
             # Phase factor exp(iq.r) needed to obtian the periodic part of lfcs
             coor_vg = self.finegd.get_grid_point_coordinates()
             cell_cv = self.finegd.cell_cv

@@ -219,10 +219,8 @@ class HybridXC(XCFunctional):
 
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
-                        dtype=complex)
+                        KPointDescriptor(self.bzk_kc), dtype=complex)
 
-        self.ghat.set_k_points(self.bzq_qc)
-        
         self.interpolator = density.interpolator
         self.print_initialization(hamiltonian.xc.name)
 

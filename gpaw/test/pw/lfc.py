@@ -5,7 +5,8 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 import gpaw.mpi as mpi
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC, RealSpacePWLFC
+from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.kpt_descriptor import KPointDescriptor
 
 
 x = 2.0
@@ -17,9 +18,10 @@ a = 8.0
 gd = GridDescriptor((n, n, n), (a, a, a), comm=mpi.serial_comm)
 
 kpts = np.array([(0.25, 0.25, 0.0)])
+kd = KPointDescriptor(kpts)
 spos_ac = np.array([(0.15, 0.5, 0.95)])
 
-pd = PWDescriptor(45, gd, kpts)
+pd = PWDescriptor(45, gd, complex)
 
 eikr = np.ascontiguousarray(np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
                                                          (kpts / gd.N_c).T).T)[0])
@@ -31,9 +33,8 @@ for l in range(3):
     print(l)
     s = Spline(l, rc, 2 * x**1.5 / np.pi * np.exp(-x * r**2))
 
-    lfc1 = LFC(gd, [[s]], dtype=complex)
-    lfc2 = RealSpacePWLFC(LFC(gd, [[s]]), pd)
-    lfc3 = PWLFC([[s]], pd)
+    lfc1 = LFC(gd, [[s]], kd, dtype=complex)
+    lfc2 = PWLFC([[s]], pd, kd)
     
     c_axi = {0: np.zeros((1, 2 * l + 1), complex)}
     c_axi[0][0, 0] = 1.9 - 4.5j
@@ -41,17 +42,12 @@ for l in range(3):
 
     b1 = gd.zeros(1, dtype=complex)
     b2 = pd.zeros(1, dtype=complex)
-    b3 = pd.zeros(1, dtype=complex)
 
-    for lfc, b in [(lfc1, b1), (lfc2, b2), (lfc3, b3)]:
-        lfc.set_k_points(kpts)
+    for lfc, b in [(lfc1, b1), (lfc2, b2)]:
         lfc.set_positions(spos_ac)
         lfc.add(b, c_axi, 0)
 
-    print(abs(b2-b3).max())
-    equal(abs(b2-b3).max(), 0, 2e-5)
     b2 = pd.ifft(b2[0]) * eikr
-    print(abs(b2-b1[0]).max())
     equal(abs(b2-b1[0]).max(), 0, 0.001)
     
     b1 = eikr[None]
@@ -59,7 +55,7 @@ for l in range(3):
 
     results = []
     results2 = []
-    for lfc, b in [(lfc1, b1), (lfc2, b2), (lfc3, b2)]:
+    for lfc, b in [(lfc1, b1), (lfc2, b2)]:
         lfc.integrate(b, c_axi, 0)
         results.append(c_axi[0][0].copy())
         lfc.derivative(b, c_axiv, 0)

@@ -4,7 +4,8 @@
 from __future__ import division
 
 import numpy as np
-from gpaw.utilities.blas import rk, r2k, gemm
+
+from gpaw.utilities.blas import gemm
 from gpaw.matrix_descriptor import BandMatrixDescriptor, \
                                    BlacsBandMatrixDescriptor
 
@@ -159,41 +160,6 @@ class MatrixOperator:
             mem.subnode('A_qnn', count * mem.itemsize[dtype])
 
         self.bmd.estimate_memory(mem.subnode('Band Matrices'), dtype)
-
-    def _pseudo_braket(self, bra_xG, ket_yG, A_yx, square=None):
-        """Calculate matrix elements of braket pairs of pseudo wave functions.
-        Low-level helper function. Results will be put in the *A_yx* array::
-        
-                   /     ~ *     ~   
-           A    =  | dG bra (G) ket  (G)
-            nn'    /       n       n'
-
-
-        Parameters:
-
-        bra_xG: ndarray
-            Set of bra-like vectors in which the matrix elements are evaluated.
-        key_yG: ndarray
-            Set of ket-like vectors in which the matrix elements are evaluated.
-        A_yx: ndarray
-            Matrix in which to put calculated elements. Take care: Due to the
-            difference in Fortran/C array order and the inherent BLAS nature,
-            the matrix has to be filled in transposed (conjugated in future?).
-
-        """
-        assert bra_xG.shape[1:] == ket_yG.shape[1:]
-        assert (ket_yG.shape[0], bra_xG.shape[0]) == A_yx.shape
-
-        if square is None:
-            square = (bra_xG.shape[0]==ket_yG.shape[0])
-
-        dv = self.gd.dv
-        if ket_yG is bra_xG:
-            rk(dv, bra_xG, 0.0, A_yx)
-        elif self.hermitian and square:
-            r2k(0.5 * dv, bra_xG, ket_yG, 0.0, A_yx)
-        else:
-            gemm(dv, bra_xG, ket_yG, 0.0, A_yx, 'c')
 
     def _initialize_cycle(self, sbuf_mG, rbuf_mG, sbuf_In, rbuf_In, auxiliary):
         """Initializes send/receive cycle of pseudo wave functions, as well as
@@ -363,7 +329,8 @@ class MatrixOperator:
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit_nG)
-            self._pseudo_braket(psit_nG, Apsit_nG, A_NN)
+            self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
+                              _transposed_result=A_NN)
             for a, P_ni in P_ani.items():
                 gemm(1.0, P_ni, dA(a, P_ni), 1.0, A_NN, 'c')
             domain_comm.sum(A_NN, 0)
@@ -428,7 +395,8 @@ class MatrixOperator:
                 #    # Special case, we only need the lower part:
                 #     self._pseudo_braket(psit_nG[:n2], sbuf_mG, A_mn[:, :n2])
                 # else:
-                self._pseudo_braket(psit_nG, sbuf_mG, A_mn, square=False)
+                self.gd.integrate(psit_nG, sbuf_mG, hermitian=False,
+                                  _transposed_result=A_mn)
 
                 # If we're at the last slice, add contributions from P_ani's.
                 if cycle_P_ani:
@@ -505,7 +473,7 @@ class MatrixOperator:
         if B == 1 and J == 1:
             # Simple case:
             newpsit_nG = self.work1_xG
-            gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
+            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, newpsit_nG)
             self.work1_xG = psit_nG
             if P_ani:
                 for P_ni in P_ani.values():
@@ -559,7 +527,7 @@ class MatrixOperator:
                 # Calculate wave-function contributions from the current slice
                 # of grid data by the current mynbands x mynbands matrix block.
                 C_nn = self.bmd.extract_block(C_NN, (rank + q) % B, rank)
-                gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2])
+                self.gd.gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2])
 
                 # If we're at the last slice, add contributions to P_ani's.
                 if cycle_P_ani:

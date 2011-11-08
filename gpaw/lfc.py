@@ -226,15 +226,20 @@ class NewLocalizedFunctionsCollection(BaseLFC):
     a wrapper around the old localized_functions which use rectangular grids.
 
     """
-    def __init__(self, gd, spline_aj, kpt_comm=None, cut=False, dtype=float,
+    def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
                  integral=None, forces=None):
         self.gd = gd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
-        self.ibzk_qc = None
-        self.gamma = True
         self.dtype = dtype
         self.Mmax = None
+
+        if kd is None:
+            self.ibzk_qc = np.zeros((1, 3))
+            self.gamma = True
+        else:
+            self.ibzk_qc = kd.ibzk_qc
+            self.gamma = kd.gamma
 
         # Global or local M-indices?
         self.use_global_indices = False
@@ -250,11 +255,6 @@ class NewLocalizedFunctionsCollection(BaseLFC):
   
         self.my_atom_indices = None
 
-    def set_k_points(self, ibzk_qc):
-        self.ibzk_qc = ibzk_qc
-        self.gamma = False
-        self.dtype = complex
-                
     def set_positions(self, spos_ac):
         assert len(spos_ac) == len(self.sphere_a)
         spos_ac = np.asarray(spos_ac)
@@ -910,10 +910,10 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
 
 class BasisFunctions(NewLocalizedFunctionsCollection):
-    def __init__(self, gd, spline_aj, kpt_comm=None, cut=False, dtype=float,
+    def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
                  integral=None, forces=None):
         NewLocalizedFunctionsCollection.__init__(self, gd, spline_aj,
-                                                 kpt_comm, cut,
+                                                 kd, cut,
                                                  dtype, integral,
                                                  forces)
         self.use_global_indices = True
@@ -1047,79 +1047,6 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                 self.Mstart,
                 self.Mstop)
 
-    # Python implementations:
-    if 0:
-        def add_to_density(self, nt_sG, f_sM):
-            nspins = len(nt_sG)
-            nt_sG = nt_sG.reshape((nspins, -1))
-            for G1, G2 in self.griditer():
-                for W in self.current_lfindices:
-                    M = self.M_W[W]
-                    A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
-                    nm = A_gm.shape[1]
-                    nt_sG[0, G1:G2] += np.dot(A_gm**2, f_sM[0, M:M + nm])
-
-        def construct_density(self, rho_MM, nt_G, k):
-            nt_G = nt_G.ravel()
-
-            for G1, G2 in self.griditer():
-                for W1 in self.current_lfindices:
-                    M1 = self.M_W[W1]
-                    f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
-                    nm1 = f1_gm.shape[1]
-                    for W2 in self.current_lfindices:
-                        M2 = self.M_W[W2]
-                        f2_gm = self.A_Wgm[W2][self.g_W[W2]:
-                                               self.g_W[W2] + G2 - G1]
-                        nm2 = f2_gm.shape[1]
-                        rho_mm = rho_MM[M1:M1 + nm1, M2:M2 + nm2]
-                        if self.ibzk_qc is not None:
-                            rho_mm = (rho_mm *
-                                      self.phase_qW[k, W1] *
-                                      self.phase_qW[k, W2].conj()).real
-                        nt_G[G1:G2] += (np.dot(f1_gm, rho_mm) * f2_gm).sum(1)
-
-        def calculate_potential_matrix(self, vt_G, Vt_MM, k):
-            vt_G = vt_G.ravel()
-            Vt_MM[:] = 0.0
-            dv = self.gd.dv
-
-            for G1, G2 in self.griditer():
-                for W1 in self.current_lfindices:
-                    M1 = self.M_W[W1]
-                    f1_gm = self.A_Wgm[W1][self.g_W[W1]:self.g_W[W1] + G2 - G1]
-                    nm1 = f1_gm.shape[1]
-                    for W2 in self.current_lfindices:
-                        M2 = self.M_W[W2]
-                        f2_gm = self.A_Wgm[W2][self.g_W[W2]:
-                                               self.g_W[W2] + G2 - G1]
-                        nm2 = f2_gm.shape[1]
-                        Vt_mm = np.dot(f1_gm.T,
-                                       vt_G[G1:G2, None] * f2_gm) * dv
-                        if self.ibzk_qc is not None:
-                            Vt_mm = (Vt_mm *
-                                     self.phase_qW[k, W1].conj() *
-                                     self.phase_qW[k, W2])
-                        Vt_MM[M1:M1 + nm1, M2:M2 + nm2] += Vt_mm
-
-        def lcao_to_grid(self, C_nM, psit_nG, k):
-            for C_M, psit_G in zip(C_nM, psit_nG):
-                self._lcao_band_to_grid(C_M, psit_G, k)
-
-        def _lcao_band_to_grid(self, C_M, psit_G, k):
-            psit_G = psit_G.ravel()
-            for G1, G2 in self.griditer():
-                for W in self.current_lfindices:
-                    A_gm = self.A_Wgm[W][self.g_W[W]:self.g_W[W] + G2 - G1]
-                    M1 = self.M_W[W]
-                    M2 = M1 + A_gm.shape[1]
-                    if self.ibzk_qc is None:
-                        psit_G[G1:G2] += np.dot(A_gm, C_M[M1:M2])
-                    else:
-                        psit_G[G1:G2] += np.dot(A_gm,
-                                                C_M[M1:M2] /
-                                                self.phase_qW[k, W])
-
 
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
@@ -1143,10 +1070,6 @@ class LocalizedFunctionsCollection(BaseLFC):
         self.kpt_comm = kpt_comm
 
         self.my_atom_indices = None
-
-    def set_k_points(self, ibzk_qc):
-        self.ibzk_qc = ibzk_qc
-        self.gamma = False
 
     def set_positions(self, spos_ac):
         if self.kpt_comm:
@@ -1252,11 +1175,11 @@ if extra_parameters.get('usenewlfc', True):
     LocalizedFunctionsCollection = NewLocalizedFunctionsCollection
 
 
-def LFC(gd, spline_aj, kpt_comm=None,
+def LFC(gd, spline_aj, kd=None,
         cut=False, dtype=float,
         integral=None, forces=False):
     if isinstance(gd, GridDescriptor):
-        return LocalizedFunctionsCollection(gd, spline_aj, kpt_comm,
+        return LocalizedFunctionsCollection(gd, spline_aj, kd,
                                             cut, dtype, integral, forces)
     else:
         return gd.get_lfc(gd, spline_aj)

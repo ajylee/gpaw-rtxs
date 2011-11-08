@@ -36,7 +36,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def set_setups(self, setups):
         self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
-                      self.kpt_comm, dtype=self.dtype, forces=True)
+                      self.kd, dtype=self.dtype, forces=True)
         FDPWWaveFunctions.set_setups(self, setups)
 
     def set_positions(self, spos_ac):
@@ -114,8 +114,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         kd.set_communicator(serial_comm)
 
         self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
-                      dtype=self.dtype)
-        self.pt.set_k_points(kd.ibzk_kc)
+                      kd, dtype=self.dtype)
         self.pt.set_positions(atoms.get_scaled_positions())
 
         self.initialize_wave_functions_from_restart_file()

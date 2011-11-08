@@ -19,7 +19,7 @@ class Davidson(Eigensolver):
 
     * Subspace diagonalization
     * Calculate all residuals
-    * Add preconditioned residuals to the subspace and diagonalize 
+    * Add preconditioned residuals to the subspace and diagonalize
     """
 
     def __init__(self, niter=2):
@@ -32,10 +32,8 @@ class Davidson(Eigensolver):
         # Allocate arrays
         self.H_nn = np.zeros((self.nbands, self.nbands), self.dtype)
         self.S_nn = np.zeros((self.nbands, self.nbands), self.dtype)
-        self.H_2n2n = np.empty((2 * self.nbands, 2 * self.nbands),
-                                self.dtype)
-        self.S_2n2n = np.empty((2 * self.nbands, 2 * self.nbands),
-                                self.dtype)        
+        self.H_2n2n = np.empty((2 * self.nbands, 2 * self.nbands), self.dtype)
+        self.S_2n2n = np.empty((2 * self.nbands, 2 * self.nbands), self.dtype)
         self.eps_2n = np.empty(2 * self.nbands)
 
     def estimate_memory(self, mem, gd, dtype, mynbands, nbands):
@@ -53,14 +51,14 @@ class Davidson(Eigensolver):
         nbands = self.nbands
 
         self.subspace_diagonalize(hamiltonian, wfs, kpt)
-                    
+
         H_2n2n = self.H_2n2n
         S_2n2n = self.S_2n2n
         eps_2n = self.eps_2n
         psit2_nG = wfs.matrixoperator.suggest_temporary_buffer()
 
         self.timer.start('Davidson')
-        R_nG = self.Htpsit_nG 
+        R_nG = self.Htpsit_nG
         self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
                                  kpt.P_ani, kpt.eps_n, R_nG)
 
@@ -81,8 +79,8 @@ class Davidson(Eigensolver):
                         weight = 0.0
                 error += weight * np.vdot(R_nG[n], R_nG[n]).real
 
-                H_2n2n[n,n] = kpt.eps_n[n]
-                S_2n2n[n,n] = 1.0
+                H_2n2n[n, n] = kpt.eps_n[n]
+                S_2n2n[n, n] = 1.0
                 psit2_nG[n] = self.preconditioner(R_nG[n], kpt)
             
             # Calculate projections
@@ -114,7 +112,7 @@ class Davidson(Eigensolver):
 
             # Overlap matrix
             # <psi2 | S | psi>
-            gemm(self.gd.dv, kpt.psit_nG, psit2_nG, 0.0, self.S_nn, "c")
+            gemm(self.gd.dv, kpt.psit_nG, psit2_nG, 0.0, self.S_nn, 'c')
         
             for a, P_ni in kpt.P_ani.items():
                 P2_ni = P2_ani[a]
@@ -154,7 +152,7 @@ class Davidson(Eigensolver):
                 gemm(1.0, P_ni.copy(), H_2n2n[:nbands, :nbands], 0.0, P_ni)
                 gemm(1.0, P2_ni, H_2n2n[:nbands, nbands:], 1.0, P_ni)
 
-            if nit < niter - 1 :
+            if nit < niter - 1:
                 wfs.kin.apply(kpt.psit_nG, self.Htpsit_nG, kpt.phase_cd)
                 hamiltonian.apply_local_potential(kpt.psit_nG, self.Htpsit_nG,
                                                   kpt.s)
@@ -164,9 +162,4 @@ class Davidson(Eigensolver):
 
         self.timer.stop('Davidson')
         error = self.gd.comm.sum(error)
-        return error
-
-
-
-
-    
+        return error * self.gd.dv
