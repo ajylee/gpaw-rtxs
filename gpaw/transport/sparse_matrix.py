@@ -67,18 +67,20 @@ class Banded_Sparse_Matrix:
         mat_sum = np.sum(abs(mat))
         spar_sum = 0
         while abs(mat_sum - spar_sum) > self.tol * 10:
-            ku += 1
-            kl += 1
-            ud_sum = 1
-            dd_sum = 1
-            while(ud_sum > self.tol):
-                ku += 1
-                ud_sum = np.sum(np.diag(abs(mat), ku))
-            while(dd_sum > self.tol):
-                kl += 1
-                dd_sum = np.sum(np.diag(abs(mat), -kl))
-            ku -= 1
-            kl -= 1
+            #ku += 1
+            #kl += 1
+            #ud_sum = 1
+            #dd_sum = 1
+            #while(ud_sum > self.tol):
+            #    ku += 1
+            #    ud_sum = np.sum(np.diag(abs(mat), ku))
+            #while(dd_sum > self.tol):
+            #    kl += 1
+            #    dd_sum = np.sum(np.diag(abs(mat), -kl))
+            #ku -= 1
+            #kl -= 1
+            ku = dim
+	    kl = dim
    
             # storage in the tranpose, bacause column major order for zgbsv_ function
             length = (kl + ku + 1) * dim - kl * (kl + 1) / 2. - \
