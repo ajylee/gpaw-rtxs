@@ -8,9 +8,10 @@ a0 = 2.84
 def f(name, dist, k, g):
     tag = '%s-%02d-%2d' % (name, k, g)
     task = BulkTask(tag=tag, lattice_constant=a0, cubic=True,
-                    kpts=(k, k, k), magmoms=[2.3],
+                    magmoms=[2.3],
                     fit=(5, 0.02))
     factory = GPAWFactory(xc='PBE',
+                          kpts=(k, k, k),
                           occupations=dist,
                           basis='dzp',
                           mixer=MixerSum(0.05, 5, 1),
