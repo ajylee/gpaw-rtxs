@@ -1,3 +1,4 @@
+from ase import Atoms
 from ase.structure import molecule
 from ase.parallel import paropen
 from gpaw import GPAW, Mixer, MixerDif
@@ -53,7 +54,10 @@ energies = {}
 # Calculate energies
 i = 0
 for formula in systems:
-    loa = molecule(formula)
+    if formula == 'Be2':
+        loa = Atoms('Be2', [(0, 0, 0), (0, 0, 2.0212)])
+    else:
+        loa = molecule(formula)
     loa.set_cell(cell)
     loa.center()
     width = 0.0
