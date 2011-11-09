@@ -11,6 +11,14 @@
 #include "bmgs/spherical_harmonics.h"
 #include "bmgs/bmgs.h"
 
+#ifdef GPAW_NO_UNDERSCORE_BLAS
+#  define zgemm_  zgemm
+#endif
+void zgemm_(char *transa, char *transb, int *m, int * n,
+	    int *k, void *alpha, void *a, int *lda,
+	    const void *b, int *ldb, void *beta,
+	    void *c, int *ldc);
+
 
 static void lfc_dealloc(LFCObject *self)
 {
@@ -24,6 +32,7 @@ static void lfc_dealloc(LFCObject *self)
   PyObject_DEL(self);
 }
 
+
 PyObject* calculate_potential_matrix(LFCObject *self, PyObject *args);
 PyObject* integrate(LFCObject *self, PyObject *args);
 PyObject* derivative(LFCObject *self, PyObject *args);
@@ -33,11 +42,13 @@ PyObject* construct_density1(LFCObject *self, PyObject *args);
 PyObject* ae_valence_density_correction(LFCObject *self, PyObject *args);
 PyObject* ae_core_density_correction(LFCObject *self, PyObject *args);
 PyObject* lcao_to_grid(LFCObject *self, PyObject *args);
+PyObject* lcao_to_grid_k(LFCObject *self, PyObject *args);
 PyObject* add(LFCObject *self, PyObject *args);
 PyObject* calculate_potential_matrix_derivative(LFCObject *self, 
                                                 PyObject *args);
 PyObject* second_derivative(LFCObject *self, PyObject *args);
 PyObject* add_derivative(LFCObject *self, PyObject *args);
+
 
 static PyMethodDef lfc_methods[] = {
     {"calculate_potential_matrix",
@@ -58,6 +69,8 @@ static PyMethodDef lfc_methods[] = {
      (PyCFunction)ae_core_density_correction, METH_VARARGS, 0},
     {"lcao_to_grid",
      (PyCFunction)lcao_to_grid, METH_VARARGS, 0},
+    {"lcao_to_grid_k",
+     (PyCFunction)lcao_to_grid_k, METH_VARARGS, 0},
     {"add",
      (PyCFunction)add, METH_VARARGS, 0},
     {"calculate_potential_matrix_derivative",
@@ -569,6 +582,76 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
     GRID_LOOP_STOP(lfc, k);
   }
   Py_RETURN_NONE;
+}
+
+// Faster implementation of lcao_to_grid() function specialized
+// for k-points
+PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
+{
+    const PyArrayObject* c_xM_obj;
+    PyArrayObject* psit_xG_obj;
+    int k;
+    int Mblock;
+
+    if (!PyArg_ParseTuple(args, "OOii", &c_xM_obj, &psit_xG_obj, &k,
+			  &Mblock))
+        return NULL; 
+  
+    const double complex* c_xM = (const double complex*)c_xM_obj->data;
+    double complex* psit_xG = (double complex*)psit_xG_obj->data;
+
+    int nd = psit_xG_obj->nd;
+    npy_intp* dims = psit_xG_obj->dimensions;
+    int nx = PyArray_MultiplyList(dims, nd - 3);
+    int Gmax = PyArray_MultiplyList(dims + nd - 3, 3);
+    int Mmax = c_xM_obj->dimensions[c_xM_obj->nd - 1];
+
+    double complex* tmp_GM = 0;
+
+    for (int Mstart = 0; Mstart < Mmax; Mstart += Mblock) {
+        int Mstop = Mstart + Mblock;
+        if (Mstop > Mmax) {
+            Mstop = Mmax;
+	    Mblock = Mstop - Mstart;
+	}
+
+	if (tmp_GM == 0)
+	    tmp_GM = GPAW_MALLOC(double complex, Mblock * Gmax);
+	
+	for (int GM = 0; GM < Gmax * Mblock; GM++)
+	    tmp_GM[GM] = 0.0;
+
+	GRID_LOOP_START(lfc, k) {
+	    for (int i = 0; i < ni; i++) {
+	        LFVolume* v = volume_i + i;
+		int M1 = v->M;
+		if (M1 >= Mstop)
+		    continue;
+		int nm = v->nm;
+		int M2 = M1 + nm;
+		if (M2 <= Mstart)
+		    continue;
+		int M1p = MAX(M1, Mstart);
+		int M2p = MIN(M2, Mstop);
+		if (M1p == M2p)
+		    continue;
+		
+		double complex phase = phase_i[i];
+		const double* A_gm = v->A_gm;
+		for (int G = Ga; G < Gb; G++)
+		    for (int M = M1p; M < M2p; M++)
+		        tmp_GM[G * Mblock + M - Mstart] += \
+			  A_gm[(G - Ga) * nm + M - M1] * phase;
+	    }
+	}
+	GRID_LOOP_STOP(lfc, k);
+
+	double complex one = 1.0;
+	zgemm_("C", "N", &Gmax, &nx, &Mblock, &one, tmp_GM, &Mblock,
+	       c_xM + Mstart, &Mmax, &one, psit_xG, &Gmax);
+    }
+    free(tmp_GM);
+    Py_RETURN_NONE;
 }
 
 PyObject* add(LFCObject *lfc, PyObject *args)

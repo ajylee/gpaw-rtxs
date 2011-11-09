@@ -452,18 +452,12 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def _get_wave_function_array(self, u, n):
         kpt = self.kpt_u[u]
-        C_nM = kpt.C_nM
-        if C_nM is None:
+        if kpt.C_nM is None:
             # Hack to make sure things are available after restart
             self.lazyloader.load(self)
         
         psit_G = self.gd.zeros(dtype=self.dtype)
-        psit_1G = psit_G.reshape(1, -1)
-        C_1M = kpt.C_nM[n].reshape(1, -1)
-        q = kpt.q # Should we enforce q=-1 for gamma-point?
-        if self.kd.gamma:
-            q = -1
-        self.basis_functions.lcao_to_grid(C_1M, psit_1G, q)
+        self.basis_functions.lcao_to_grid(kpt.C_nM[n], psit_G, kpt.q)
         return psit_G
 
     def load_lazily(self, hamiltonian, spos_ac):
