@@ -646,6 +646,8 @@ class PAWSetupGenerator:
         plt.axis(xmax=2 * self.rcmax,
                  ymin=self.vtr_g[1] / r_g[1],
                  ymax=max(0, (self.v0r_g[1:] / r_g[1:]).max()))
+        plt.xlabel('radius [Bohr]')
+        plt.ylabel('potential [Ha]')
         plt.legend()
         
         plt.figure()
@@ -664,6 +666,8 @@ class PAWSetupGenerator:
                 plt.plot(r_g[:gc], (phit_g * r_g)[:gc], '--', color=colors[i])
                 i += 1
         plt.axis(xmax=3 * self.rcmax)
+        plt.xlabel('radius [Bohr]')
+        plt.ylabel(r'$r\phi_{n\ell}(r)$')
         plt.legend()
 
         plt.figure()
@@ -938,6 +942,8 @@ def _generate(symbol, opt):
 
             if ldmax != 0.0:
                 plt.axis(ymin=-3 * ldmax, ymax=3 * ldmax)
+            plt.xlabel('energy [Ha]')
+            plt.ylabel(r'$d\phi_{\ell\epsilon}(r)/dr/\phi_{\ell\epsilon}(r)|_{r=r_c}$')
             plt.legend(loc='best')
             
 
