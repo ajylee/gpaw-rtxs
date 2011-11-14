@@ -49,7 +49,7 @@ class PAW(PAWTextOutput):
         The following parameters can be used: `nbands`, `xc`, `kpts`,
         `spinpol`, `gpts`, `h`, `charge`, `usesymm`, `width`, `mixer`,
         `hund`, `lmax`, `fixdensity`, `convergence`, `txt`, `parallel`,
-        `softgauss` and `stencils`.
+        `communicator`, `dtype`, `softgauss` and `stencils`.
 
         If you don't specify any parameters, you will get:
 
