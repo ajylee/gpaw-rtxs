@@ -60,6 +60,5 @@ for l in range(3):
         results.append(c_axi[0][0].copy())
         lfc.derivative(b, c_axiv, 0)
         results2.append(c_axiv[0][0].copy())
-    print(results, results2)
     equal(abs(np.ptp(results2, 0)).max(), 0, 1e-7)
     equal(abs(np.ptp(results, 0)).max(), 0, 3e-8)

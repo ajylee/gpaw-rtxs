@@ -381,14 +381,16 @@ class PWLFC(BaseLFC):
                            self.Y_qLG[q, l**2:(l + 1)**2])
         return f_IG
 
-    def add(self, a_xG, c_axi, q):
-        assert a_xG.ndim == 2
+    def add(self, a_xG, c_axi, q=-1):
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
-        c_xI = np.empty((len(a_xG), nI), self.pd.dtype)
+        c_xI = np.empty(a_xG.shape[:-1] + (nI,), self.pd.dtype)
         f_IG = self.expand(q)
         for a, j, i1, i2, I1, I2 in self:
             l = self.lf_aj[a][j][0]
-            c_xI[:, I1:I2] = c_axi[a][:, i1:i2] * self.eikR_qa[q][a].conj()
+            c_xI[..., I1:I2] = c_axi[a][..., i1:i2] * self.eikR_qa[q][a].conj()
+
+        c_xI = c_xI.reshape((-1, nI))
+        a_xG = a_xG.reshape((-1, len(self.pd)))
 
         if self.pd.dtype == float:
             f_IG = f_IG.view(float)
@@ -396,11 +398,13 @@ class PWLFC(BaseLFC):
 
         gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG)
 
-    def integrate(self, a_xG, c_axi, q):
-        assert a_xG.ndim == 2
+    def integrate(self, a_xG, c_axi, q=-1):
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
-        c_xI = np.zeros((len(a_xG), nI), self.pd.dtype)
+        c_xI = np.zeros(a_xG.shape[:-1] + (nI,), self.pd.dtype)
         f_IG = self.expand(q)
+
+        b_xI = c_xI.reshape((-1, nI))
+        a_xG = a_xG.reshape((-1, len(self.pd)))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
@@ -409,27 +413,41 @@ class PWLFC(BaseLFC):
             f_IG = f_IG.view(float)
             a_xG = a_xG.view(float)
             
-        gemm(alpha, f_IG, a_xG, 0.0, c_xI, 'c')
+        gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
         for a, j, i1, i2, I1, I2 in self:
             l = self.lf_aj[a][j][0]
-            c_axi[a][:, i1:i2] = self.eikR_qa[q][a] * c_xI[:, I1:I2]
+            c_axi[a][..., i1:i2] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
 
-    def derivative(self, a_xG, c_axiv, q):
-        assert a_xG.ndim == 2
+    def derivative(self, a_xG, c_axiv, q=-1):
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
-        c_xI = np.zeros((len(a_xG), nI), complex)
+        c_xI = np.zeros(a_xG.shape[:-1] + (nI,), self.pd.dtype)
         f_IG = self.expand(q)
 
         K_v = self.K_qv[q]
 
-        for v in range(3):
-            gemm(-1.0 / self.pd.gd.N_c.prod(),
-                 f_IG * (self.pd.G_Gv[:, v] + K_v[v]), a_xG,
-                 0.0, c_xI, 'c')
-            for a, j, i1, i2, I1, I2 in self:
-                l = self.lf_aj[a][j][0]
-                c_axiv[a][:, i1:i2, v] = (1.0j * self.eikR_qa[q][a] *
-                                          c_xI[:, I1:I2])
+        b_xI = c_xI.reshape((-1, nI))
+        a_xG = a_xG.reshape((-1, len(self.pd)))
+
+        alpha = 1.0 / self.pd.gd.N_c.prod()
+        if self.pd.dtype == float:
+            for v in range(3):
+                gemm(2 * alpha,
+                      (f_IG * 1.0j * self.pd.G_Gv[:, v]).view(float),
+                      a_xG.view(float),
+                      0.0, b_xI, 'c')
+                for a, j, i1, i2, I1, I2 in self:
+                    l = self.lf_aj[a][j][0]
+                    c_axiv[a][..., i1:i2, v] = c_xI[..., I1:I2]
+        else:
+            for v in range(3):
+                gemm(-alpha,
+                      f_IG * (self.pd.G_Gv[:, v] + K_v[v]),
+                      a_xG,
+                      0.0, b_xI, 'c')
+                for a, j, i1, i2, I1, I2 in self:
+                    l = self.lf_aj[a][j][0]
+                    c_axiv[a][..., i1:i2, v] = (1.0j * self.eikR_qa[q][a] *
+                                                c_xI[..., I1:I2])
 
 
 class PW:

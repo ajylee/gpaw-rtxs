@@ -95,6 +95,7 @@ tests = [
     'gauss_wave.py',
     'pw/h.py',
     'pw/lfc.py',
+    'pw/reallfc.py',
     'pw/bulk.py',
     'pw/slab.py',
     'coulomb.py',
