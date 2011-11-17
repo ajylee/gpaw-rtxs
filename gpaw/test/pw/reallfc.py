@@ -56,10 +56,10 @@ for l in range(4):
 
     lfc.integrate(b0, c_axi)
     lfcr.integrate(br0, cr_axi)
-    assert abs(c_axi[0][0]-cr_axi[0][0]).max() < 1e-16
+    assert abs(c_axi[0][0]-cr_axi[0][0]).max() < 1e-15
 
     c_axiv = {0: np.zeros((1, 2 * l + 1, 3), complex)}
     cr_axiv = {0: np.zeros((1, 2 * l + 1, 3))}
     lfc.derivative(b0, c_axiv)
     lfcr.derivative(br0, cr_axiv)
-    assert abs(c_axiv[0][0]-cr_axiv[0][0]).max() < 1e-16
+    assert abs(c_axiv[0][0]-cr_axiv[0][0]).max() < 1e-15
