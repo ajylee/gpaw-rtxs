@@ -6,6 +6,7 @@ from math import pi, exp, sqrt, log
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
+from scipy import __version__ as scipy_version
 from ase.utils import prnt
 from ase.units import Hartree, Bohr
 from ase.data import atomic_numbers, chemical_symbols
@@ -337,7 +338,11 @@ class PAWSetupGenerator:
             def f(alpha):
                 return log(spillage(alpha)) - log(eps)
 
-            self.alpha = fsolve(f, 7.0)[0]
+            if scipy_version < '0.8':
+                self.alpha = fsolve(f, 7.0)
+            else:
+                self.alpha = fsolve(f, 7.0)[0]
+
             self.alpha = round(self.alpha, 1)
 
         self.log('Shape function: exp(-alpha*r^2), alpha=%.1f Bohr^-2' %
