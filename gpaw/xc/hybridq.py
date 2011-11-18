@@ -181,7 +181,8 @@ class HybridXC(XCFunctional):
                       self.kd.nbzkpts)
 
         if self.ecut is None:
-            self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+            ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+            self.ecut = 0.5 * ecutmax
 
         assert self.kd.N_c is not None
         n = self.kd.N_c * 2 - 1
@@ -199,11 +200,13 @@ class HybridXC(XCFunctional):
         else:
             self.ibzq_qc = self.bzq_qc
             self.q_weights = np.ones(len(self.bzq_qc))
-            
-        self.pwd = PWDescriptor(self.ecut, self.gd, self.bzk_kc)
-
+        print self.ibzq_qc
+        print self.q_weights
+        self.pwd = PWDescriptor(self.ecut, self.gd, complex)
+        self.G2_qG = self.pwd.g2(self.bzk_kc)
+        
         n = 0
-        for k_c, Gpk2_G in zip(self.bzk_kc[:], self.pwd.G2_qG):
+        for k_c, Gpk2_G in zip(self.bzk_kc[:], self.G2_qG):
             if (k_c > -0.5).all() and (k_c <= 0.5).all(): #XXX???
                 if k_c.any():
                     self.gamma -= np.dot(np.exp(-self.alpha * Gpk2_G),
@@ -215,16 +218,16 @@ class HybridXC(XCFunctional):
                 
         assert n == self.kd.N_c.prod()
 
-        self.pwd = PWDescriptor(self.ecut, self.gd, self.ibzq_qc)
-
+        self.pwd = PWDescriptor(self.ecut, self.gd, complex)
+        self.G2_qG = self.pwd.g2(self.ibzq_qc)
+        
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
-                        KPointDescriptor(self.bzk_kc), dtype=complex)
-
+                        dtype=complex)
+        
         self.interpolator = density.interpolator
         self.print_initialization(hamiltonian.xc.name)
 
- 
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)
         self.spos_ac = spos_ac
@@ -257,6 +260,7 @@ class HybridXC(XCFunctional):
                                ik, kpq[0], iq)
 
         self.exx = world.sum(self.exx)
+        print '---------------------------------', self.exx
         paw = self.calculate_exx_paw_correction()
         self.exx += paw
         exx_q = np.sum(self.exx_kq, 0)
@@ -295,7 +299,7 @@ class HybridXC(XCFunctional):
         if Gamma and self.skip_gamma:
             return
 
-        Gpk2_G = self.pwd.G2_qG[iq]
+        Gpk2_G = self.G2_qG[iq]
         if Gamma:
             Gpk2_G = Gpk2_G.copy()
             Gpk2_G[0] = 1.0 / self.gamma
