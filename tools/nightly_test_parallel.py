@@ -33,9 +33,11 @@ os.chdir('gpaw')
 if os.system('source /home/camp/modulefiles.sh&& ' +
              'module load NUMPY&& ' +
              'module load open64/4.2.3-0&& ' +
+             'module load openmpi/1.3.3-1.el5.fys.open64.4.2.3&& ' +
+             'module load hdf5/1.8.6-5.el5.fys.open64.4.2.3.openmpi.1.3.3&& ' +
              'python setup.py --remove-default-flags ' +
-             '--customize=' +
-             'doc/install/Linux/Niflheim/el5-xeon-open64-goto2-1.13-acml-4.4.0.py ' +
+             '--customize=doc/install/Linux/Niflheim/' +
+             'el5-xeon-open64-goto2-1.13-acml-4.4.0-hdf.py ' +
              'install --home=%s 2>&1 | ' % tmpdir +
              'grep -v "c/libxc/src"') != 0:
     fail('Installation failed!')
