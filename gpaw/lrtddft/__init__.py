@@ -198,8 +198,11 @@ class LrTDDFT(ExcitationList):
         # remove old stuff
         while len(self): self.pop()
 
+        print >> self.txt, 'LrTDDFT digonalized:'
         for j in range(len(self.Om.kss)):
             self.append(LrTDDFTExcitation(self.Om,j))
+            print >> self.txt, ' ', str(self[-1])
+            
 
     def get_Om(self):
         return self.Om
