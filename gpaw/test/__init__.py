@@ -284,7 +284,8 @@ if mpi.size > 1:
                 'asewannier.py',
                 'wannier_ethylene.py',
                 'muffintinpot.py',
-                'stark_shift.py']
+                'stark_shift.py',
+                'exx_q.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
