@@ -116,6 +116,7 @@ compiler = None
 scalapack = False
 hdf5 = False
 
+# User provided customizations:
 execfile(customize)
 
 if platform_id != '':
