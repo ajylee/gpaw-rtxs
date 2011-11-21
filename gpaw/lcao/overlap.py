@@ -163,7 +163,9 @@ class OverlapExpansion(BaseOverlapExpansionSet):
         describing the overlap integral."""
         x_mi = self.zeros()
         for l, spline, G_mmm in self.gaunt_iter():
-            x_mi += spline(r) * np.dot(G_mmm, rlY_lm[l])
+            s = spline(r)
+            if abs(s) > 1e-10:
+                x_mi += s * np.dot(G_mmm, rlY_lm[l])
         return x_mi
 
     def derivative(self, r, Rhat_c, rlY_lm, drlYdR_lmc):
@@ -174,9 +176,10 @@ class OverlapExpansion(BaseOverlapExpansionSet):
         dxdR_cmi = self.zeros((3,))
         for l, spline, G_mmm in self.gaunt_iter():
             x, dxdr = spline.get_value_and_derivative(r)
-            GrlY_mi = np.dot(G_mmm, rlY_lm[l])
-            dxdR_cmi += dxdr * GrlY_mi * Rhat_c[:, None, None]
-            dxdR_cmi += x * np.dot(G_mmm, drlYdR_lmc[l]).transpose(2, 0, 1)
+            if abs(x) > 1e-10:
+                GrlY_mi = np.dot(G_mmm, rlY_lm[l])
+                dxdR_cmi += dxdr * GrlY_mi * Rhat_c[:, None, None]
+                dxdR_cmi += x * np.dot(G_mmm, drlYdR_lmc[l]).transpose(2, 0, 1)
         return dxdR_cmi
 
 
@@ -308,7 +311,7 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
     def evaluate_slice(self, disp, x_xqNM):
         a1 = disp.a1
         a2 = disp.a2
-        if (a2 in self.local_indices and (self.astart <= a1 < self.aend)):
+        if a2 in self.local_indices and (self.astart <= a1 < self.aend):
             #assert a2 <= a1
             msoe = self.msoe
             I1 = msoe.I1_a[a1]
@@ -324,7 +327,8 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
             Mend2 = Mstart2 + tsoe.shape[1]
             x_xqNM[..., Mstart1b:Mend1b, Mstart2:Mend2] += \
                         x_qxmm[..., Mstart1b - Mstart1:Mend1b - Mstart1, :]
-        if a2 < a1:
+        if a1 in self.local_indices and a2 < a1 and (self.astart <=
+                                                     a2 < self.aend):
             # XXX this is necessary to fill out both upper/lower
             #
             # Should not be decided here, and should not be done except
