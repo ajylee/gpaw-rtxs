@@ -4,6 +4,7 @@ from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
 from gpaw.mpi import world 
+from gpaw.lrtddft.excited_state import ExcitedState
 
 txt='-'
 txt='/dev/null'
@@ -28,6 +29,7 @@ if not io_only:
     lr = LrTDDFT(calc, xc=xc)
     lr.diagonalize()
     t1 = lr[0]
+    lr_calc = lr 
 
     # course grids
     for finegrid in [1,0]:
@@ -89,3 +91,13 @@ if not io_only:
 
 e4 = t4.get_energy()
 equal(e4, 0.675814, 1e-4)
+
+# excited state with forces
+accuracy = 0.01
+exst = ExcitedState(lr_calc, 0)
+forces = exst.get_forces(H2)
+print "forces=", forces
+for c in range(2):
+    equal(forces[0,c], 0.0, accuracy)
+    equal(forces[1,c], 0.0, accuracy)
+equal(forces[0, 2] + forces[1, 2], 0.0, accuracy)
