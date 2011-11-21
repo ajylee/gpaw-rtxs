@@ -23,11 +23,7 @@ extra_link_args =[
     '-rpath=/opt/blacs/1.1/24.el5.IB.fys.open64.4.2.3.openmpi.1.3.3/lib64,'
     '-rpath=/opt/scalapack/1.8.0/1.el5.IB.fys.open64.4.2.3.openmpi.1.3.3.goto2.2.1.13.acml.4.4.0/lib64'
     ]
-extra_compile_args =['-O3', '-std=c99', '-fPIC',
-                     '-Wall',
-                     '-Wextra',
-                     '-pedantic',
-                     ]
+extra_compile_args =['-O3', '-std=c99', '-fPIC', '-Wall']
 define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
 define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 mpicompiler = '/opt/openmpi/1.3.3-1.el5.IB.fys.open64.4.2.3/bin/mpicc'
