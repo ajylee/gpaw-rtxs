@@ -19,23 +19,13 @@ def build_parser():
                       help='use the given fractions to define the split'+
                       '-valence cutoffs.  Default: [%default]')
     parser.add_option('-f', '--xcfunctional', default='PBE', metavar='<XC>',
-                      help='Exchange-Correlation functional [default: %default]')
+                      help='Exchange-Correlation functional '
+                      '[default: %default]')
     parser.add_option('-g', '--non-relativistic-guess', action='store_true',
                       help='Run non-scalar relativistic AE calculation for '
                       'initial guess')
-    #parser.add_option('-D', '--energy-derivative', action='store_true',
-    #                  dest='derivative',
-    #                  help='include derivative of atomic orbital with respect '+
-    #                  'to confinement potential inner cutoff as second '+
-    #                  'basis function')
-    #parser.add_option('-P', '--plot', action='store_true',
-    #                  help='plot basis functions')
-    #parser.add_option('-N', '--no-files', action='store_true',
-    #                  help='Do not write basis function files')
-    #parser.add_option('-X', '--exclude', action='store_true',
-    #                  help='generate basis sets for all g2 elements, excluding '+
-    #                  'those specified')
-    parser.add_option('--rcut-max', type='float', default=16., metavar='<rcut>',
+    parser.add_option('--rcut-max', type='float', default=16.,
+                      metavar='<rcut>',
                       help='max cutoff for confined atomic orbitals.  This '+
                       'option has no effect on orbitals with smaller cutoff '+
                       '[default/Bohr: %default]')
@@ -47,25 +37,29 @@ def build_parser():
                       metavar='<rchar>',
                       help='characteristic radius of Gaussian when not using '+
                       'interpolation scheme, relative to rcut')
-    #parser.add_option('--gaussians', type='int', metavar='<n>',
-    #                  help='use the specified number of Gaussians for '+
-    #                  'polarization function interpolation')
     parser.add_option('--vconf-amplitude', type='float', default=12.,
                       metavar='<alpha>',
-                      help='set proportionality constant of smooth confinement '+
-                      'potential [default: %default]')
+                      help='set proportionality constant of smooth '
+                      'confinement potential [default: %default]')
     parser.add_option('--vconf-rstart-rel', type='float', default=.6,
                       metavar='<ri/rc>',
-                      help='set inner cutoff for smooth confinement potential '+
+                      help='set inner cutoff for smooth confinement potential '
                       'relative to hard cutoff [default: %default]')
     parser.add_option('--vconf-sharp-confinement', action='store_true',
-                      help='use sharp rather than smooth confinement potential')
+                      help='use sharp rather than smooth confinement '
+                      'potential')
     parser.add_option('--debug', action='store_true',
                       help='use gpaw-DEBUG mode')
-
-    parser.add_option('-l', '--lvalues',
-                      help='Explicitly specify which l-values to include.  ' +
-                      'For example: spd')
+    parser.add_option('--lpol', type=int, default=None,
+                      help='angular momentum quantum number '
+                      'of polarization function.  '
+                      'Default behaviour is to take the lowest l which is not '
+                      'among the valence states.')
+    parser.add_option('--jvalues',
+                      help='explicitly specify which states to include.  '
+                      'Numbering corresponds to generator\'s valence state '
+                      'ordering.  '
+                      'For example: 0,1,2.')
 
     return parser
 
@@ -137,11 +131,10 @@ def main():
         if not opts.vconf_sharp_confinement:
             vconf_args = opts.vconf_amplitude, opts.vconf_rstart_rel
 
-        if opts.lvalues:
-            lvalues = ['spdf'.index(c) for c in opts.lvalues]
-        else:
-            lvalues = None
-            
+        jvalues = None
+        if opts.jvalues:
+            jvalues = [int(j) for j in opts.jvalues.split(',')]
+
         basis = bm.generate(zetacount, polcount,
                             tailnorm=tailnorm,
                             energysplit=opts.energy_shift,
@@ -149,8 +142,8 @@ def main():
                             referenceindex=referenceindex,
                             rcutpol_rel=opts.rcut_pol_rel,
                             rcutmax=opts.rcut_max,
-                            #ngaussians=opts.gaussians,
                             rcharpol_rel=opts.rchar_pol_rel,
                             vconf_args=vconf_args,
-                            lvalues=lvalues)
+                            l_pol=opts.lpol,
+                            jvalues=jvalues)
         basis.write_xml()

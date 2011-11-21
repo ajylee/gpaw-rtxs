@@ -288,7 +288,10 @@ class BasisMaker:
                  rcharpol_rel=None,
                  vconf_args=(12.0, 0.6), txt='-',
                  include_energy_derivatives=False,
-                 lvalues=None):
+                 #lvalues=None, # XXX clean up some of these!
+                 jvalues=None,
+                 l_pol=None
+                 ):
         """Generate an entire basis set.
 
         This is a high-level method which will return a basis set
@@ -340,30 +343,32 @@ class BasisMaker:
         g = self.generator
         rgd = self.rgd
 
-        # Find out all relevant orbitals
-        # We'll probably need: s, p and d.
-        # The orbitals we want are stored in u_j.
-        # Thus we must find the j corresponding to the highest energy of
-        # each orbital-type.
-        #
-        # However not all orbitals in l_j are actually occupied, so we
-        # will check the occupations in the generator object's lists
-        #
-        # ASSUMPTION: The last index of a given value in l_j corresponds
-        # exactly to the orbital we want, except those which are not occupied
-        #
-        # Get (only) one occupied valence state for each l
-        # Not including polarization in this list
-        j_l = []
-        lvalues = []
-        [j_l, lvalues] = get_basis_l(g.f_j, g.l_j, g.Nv)
-        lvalues = np.array(lvalues)
+        njcore = g.njcore
+        n_j = g.n_j[njcore:]
+        l_j = g.l_j[njcore:]
+        f_j = g.f_j[njcore:]
 
-        if isinstance(energysplit,float):
-            energysplit=[energysplit]*(len(lvalues))
-            #print energysplit,'~~~~~~~~'
+        if jvalues is None:
+            jvalues = []
+            sortkeys = []
+            for j in range(len(n_j)):
+                if f_j[j] == 0 and l_j[j] != 0:
+                    continue
+                jvalues.append(j)
+                sortkeys.append(l_j[j])
             
-            
+            # Now order jvalues by l
+            #
+            # Use a stable sort so the energy ordering within each
+            # angular momentum is guaranteed to be preserved
+            args = np.argsort(sortkeys, kind='mergesort')
+            jvalues = np.array(jvalues)[args]
+
+        fulljvalues = [njcore + j for j in jvalues]
+        
+        if isinstance(energysplit, float):
+            energysplit = [energysplit] * len(jvalues)
+        
         title = '%s Basis functions for %s' % (g.xcname, g.symbol)
         print >> txt, title
         print >> txt, '=' * len(title)
@@ -377,10 +382,10 @@ class BasisMaker:
         derivativedescr = 'derivative of sz wrt. (ri/rc) of potential'
 
 
-        for indexl, l in enumerate(lvalues):
-            # Get one unmodified pseudo-orbital basis vector for each l
-            j = j_l[indexl]
-            n = g.n_j[j]
+        for vj, fullj, esplit in zip(jvalues, fulljvalues, energysplit):
+            l = l_j[vj]
+            n = n_j[vj]
+            assert n > 0
             orbitaltype = str(n) + 'spdf'[l]
             msg = 'Basis functions for l=%d, n=%d' % (l, n)
             print >> txt
@@ -392,7 +397,7 @@ class BasisMaker:
                 adverb = 'softly'
             print >> txt, 'Zeta 1: %s confined pseudo wave,' % adverb,
 
-            u, e, de, vconf, rc = self.rcut_by_energy(j, energysplit[indexl],
+            u, e, de, vconf, rc = self.rcut_by_energy(fullj, esplit,
                                                       tolerance,
                                                       vconf_args=vconf_args)
             if rc > rcutmax:
@@ -400,7 +405,7 @@ class BasisMaker:
                 if vconf is not None:
                     vconf = g.get_confinement_potential(amplitude, ri_rel * rc,
                                                         rc)
-                u, e = g.solve_confined(j, rc, vconf)
+                u, e = g.solve_confined(fullj, rc, vconf)
                 print >> txt, 'using maximum cutoff'
                 print >> txt, 'rc=%.02f Bohr' % rc
             else:
@@ -425,7 +430,7 @@ class BasisMaker:
                 print >> txt, '\nZeta %d: %s' % (zeta, derivativedescr)
                 vconf2 = g.get_confinement_potential(amplitude,
                                                      ri_rel * rc * .99, rc)
-                u2, e2 = g.solve_confined(j, rc, vconf2)
+                u2, e2 = g.solve_confined(fullj, rc, vconf2)
                 
                 phit2_g = self.smoothify(u2, l)
                 dphit_g = phit2_g - phit_g
@@ -449,18 +454,32 @@ class BasisMaker:
                 bf = BasisFunction(l, rsplit, phit_g - splitwave, descr)
                 multizetas[i].append(bf)
             
-        if polarizationcount > 0:
-            # Now make up some properties for the polarization orbital
-            # We just use the cutoffs from the previous one times a factor
-            rcut = max([bf.rc for bf in singlezetas]) * rcutpol_rel
-            rcut = min(rcut, rcutmax)
-            # Find 'missing' values in lvalues
-            for i in range(max(lvalues) + 1):
-                if list(lvalues).count(i) == 0:
-                    l_pol = i
+        if polarizationcount > 0 or l_pol is not None:
+            if l_pol is None:
+                # Now make up some properties for the polarization orbital
+                # We just use the cutoffs from the previous one times a factor
+                # Find 'missing' values in lvalues
+                lvalues = [l_j[vj] for vj in jvalues]
+                for i in range(max(lvalues) + 1):
+                    if list(lvalues).count(i) == 0:
+                        l_pol = i
+                        break
+                else:
+                        l_pol = max(lvalues) + 1
+
+            # Find the last state with l=l_pol - 1, which will be the state we
+            # base the polarization function on
+            for vj, fullj, bf in zip(jvalues[::-1], fulljvalues[::-1],
+                              singlezetas[::-1]):
+                if bf.l == l_pol - 1:
+                    vj_pol = vj # index of the state *which* we polarize
+                    fullj_pol = fullj
+                    rcut = bf.rc * rcutpol_rel
                     break
             else:
-                    l_pol = max(lvalues) + 1
+                raise ValueError('The requested value l_pol=%d requires l=%d '
+                                 'among valence states' % (l_pol, l_pol - 1))
+            rcut = min(rcut, rcutmax)
             msg = 'Polarization function: l=%d, rc=%.02f' % (l_pol, rcut)
             print >> txt, '\n' + msg
             print >> txt, '-' * len(msg)
@@ -477,8 +496,8 @@ class BasisMaker:
             # these value for other energies, we just find the energy
             # shift at .3 eV now
 
-            j = max(j_l)
-            u, e, de, vconf, rc_fixed = self.rcut_by_energy(j, .3, 1e-2,
+            u, e, de, vconf, rc_fixed = self.rcut_by_energy(fullj_pol,
+                                                            .3, 1e-2,
                                                             6., (12., .6))
 
             default_rchar_rel = .25
@@ -496,13 +515,6 @@ class BasisMaker:
             msg = 'Rchar = %.03f*rcut = %.03f Bohr' % (rcharpol_rel, rchar)
             adjective = 'Gaussian'
             print >> txt, msg
-            #else:
-            #    psi_pol = self.make_polarization_function(rcut, l_pol,
-            #                                              referencefile,
-            #                                              referenceindex,
-            #                                              ngaussians, txt)
-            #    adjective = 'interpolated'
-
             type = '%s-type %s polarization' % ('spdfg'[l_pol], adjective)
             bf_pol = BasisFunction(l_pol, rcut, psi_pol, type)
                                    
