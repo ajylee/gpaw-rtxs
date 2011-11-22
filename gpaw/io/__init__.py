@@ -396,8 +396,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                     w.fill(ne_o, s, k)
 
         w.add('LinearExpansionCoefficients', ('nspins',
-              'nibzkpts', 'norbitals', 'nbands'), dtype=complex,
-                  write=master)
+              'nibzkpts', 'norbitals', 'nbands'), dtype=complex)
         for s in range(wfs.nspins):
             for k in range(wfs.nibzkpts):
                 for o in range(norbitals):
