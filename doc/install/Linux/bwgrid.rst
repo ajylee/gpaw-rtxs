@@ -11,47 +11,33 @@ with 3 GB of memory per core and eight dual socket, six-core Intel Xenon
 X5650 CPUs, 2.66GHz processors with 2 GB of memory per core. For more
 information visit `<http://www.bfg.uni-freiburg.de/doc/bwgrid>`_.
 
+Building GPAW with Intel compiler
+=================================
+
+Use the compiler wrapper file :svn:`~doc/install/Linux/icc.py`
+
+.. literalinclude:: icc.py
+
 Instructions assume **bash**, installation under $HOME/opt.
 Load the necessary modules::
 
   module load devel/python/2.7.2
-  module load compiler/gnu/4.5
-  module load mpi/openmpi/1.4.3-gnu-4.5
-  module load numlib/lapack/3.2.2-gnu-4.4
-  module load numlib/atlas/3.8.3-gnu-4.4
-  module load numlib/acml/4.4.0-gnu
+  module load compiler/intel/12.0
+  module load mpi/impi/4.0.2-intel-12.0
+  module load numlib/mkl/10.3.5
+  module load numlib/numpy/1.6.1-python-2.7.2-mkl-10.3.5
 
-We use ATLAS for numpy and acml for gpaw. This might change in future.
- 
-Build numpy. ATLAS will be detected automaticly::
+The installation of gpaw requires to modify customize.py to
+:svn:`~doc/install/Linux/customize_bwgrid_icc.py`
 
-  mkdir -p ${HOME}/opt/python/lib/python2.7/site-packages
-  export PYTHONPATH=${HOME}/opt/python/lib/python2.7/site-packages
-
-  wget http://dfn.dl.sourceforge.net/sourceforge/numpy/numpy-1.6.1.tar.gz
-  wget http://python-nose.googlecode.com/files/nose-0.11.0.tar.gz
-  tar zxf nose-0.11.0.tar.gz
-  tar zxf numpy-1.6.1.tar.gz
-  cd nose-0.11.0
-  python setup.py install --prefix=$HOME/opt/python | tee install.log
-  cd ../numpy-1.6.1
-  python setup.py build --fcompiler=gnu95  | tee build.log
-  python setup.py install --prefix=$HOME/opt/python | tee install.log
-  cd ..
-  python -c "import numpy; numpy.test()"
-
-The installation of gpaw requires to modify customize.py to::
-
-  libraries = ['acml', 'gfortran']
-  library_dirs = ['/opt/bwgrid/numlib/acml/4.4.0-gnu/gfortran64/lib']
-
+.. literalinclude:: customize_bwgrid_icc.py
 
 and build GPAW (``python setup.py build_ext | tee build_ext.log``)
 
 A gpaw script :file:`test.py` can be submitted to run on 8 cpus like this::
 
   > gpaw-runscript test.py 8
-  using pbs_bwg
-  run.pbs_bwg written
-  > qsub run.pbs_bwg
+  using bwg
+  run.bwg written
+  > qsub run.bwg
 

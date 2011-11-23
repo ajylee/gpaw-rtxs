@@ -28,7 +28,7 @@ hosts = { 'batman'                   : 'pbs_batman',
           'louhi'                    : 'louhi',
           'opaali.phys.jyu.fi'       : 'sge',
           'sepeli.csc.fi'            : 'sepeli',
-          'bwui.bfg.uni-freiburg.de' : 'pbs_bwg',
+          'bwui.bfg.uni-freiburg.de' : 'bwg',
           'ui.bfg.uni'               : 'pbs_bfg',
           'xc2n992'                  : 'xc2',
           'xc2n993'                  : 'xc2',
@@ -344,15 +344,13 @@ unset CC CFLAGS LDFLAGS
         print >> f, '>', set['out']+'_$PBS_JOBID',
         print >> f, '2>', set['err']+'_$PBS_JOBID'
 
-    def pbs_bwg(self, f, set, env):
+    def bwg(self, f, set, env):
         modules_to_load = [
 		'devel/python/2.7.2',
-        'compiler/gnu/4.5',
-		'mpi/openmpi/1.4.3-gnu-4.5',
-		'numlib/lapack/3.2.2-gnu-4.4',
-		'numlib/atlas/3.8.3-gnu-4.4',
-		'numlib/acml/4.4.0-gnu',
-        ]
+		'mpi/impi/4.0.2-intel-12.0',
+		'numlib/mkl/10.3.5',
+                'numlib/numpy/1.6.1-python-2.7.2-mkl-10.3.5',
+                ]
         print >> f, '#!/bin/bash'
         print >> f, '#PBS -N '+set['name']
         # bwg nodes contain 8 cores
@@ -373,8 +371,12 @@ unset CC CFLAGS LDFLAGS
         print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
         print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
         print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
-        print >> f, ('export LD_LIBRARY_PATH=' + os.environ['LD_LIBRARY_PATH']
-                     + ':$LD_LIBRARY_PATH')
+        try:       
+            LD_LIBRARY_PATH = os.environ['LD_LIBRARY_PATH'] + ':'
+        except:
+            LD_LIBRARY_PATH = ''
+        print >> f, ('export LD_LIBRARY_PATH=' + LD_LIBRARY_PATH
+                     + '$LD_LIBRARY_PATH')
         print >> f, 'mpirun -np', cores, '$GPAW_PYTHON', set['script'],
         if 'parameters' in set:
             print >> f, set['parameters'],
@@ -547,7 +549,6 @@ if opt.parameters:
 if opt.time:
     set['time'] = s_from_dhms(opt.time)
 
-print "opt.smt", opt.smt
 if opt.smt:
     set['smt'] = True
 
