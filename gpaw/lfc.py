@@ -1059,6 +1059,51 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                 self.Mstop)
 
 
+    def calculate_potential_matrix_force_contribution(self, vt_G, rhoT_MM, 
+                                                      q):
+        """Calculate derivatives of potential matrix elements.
+
+        ::
+
+                      /     *  _
+                     |   Phi  (r)
+           ~c        |      mu    ~ _        _   _
+          DV      += |   -------- v(r) Phi  (r) dr
+            mu nu    |     dr             nu
+                    /        c
+
+        Results are added to DVt_vMM.
+        """
+        cspline_M = []
+        for a, sphere in enumerate(self.sphere_a):
+            for j, spline in enumerate(sphere.spline_j):
+                nm = 2 * spline.get_angular_momentum_number() + 1
+                cspline_M.extend([spline.spline] * nm)
+        gd = self.gd
+        Mstart = self.Mstart
+        Mstop = self.Mstop
+        F_cM = np.zeros((3, Mstop - Mstart))
+        assert self.Mmax == rhoT_MM.shape[1]
+        assert Mstop - Mstart == rhoT_MM.shape[0]
+        for c in range(3): # XXX
+            self.lfc.calculate_potential_matrix_force_contribution(
+                vt_G, rhoT_MM, F_cM[c],
+                np.ascontiguousarray(gd.h_cv),
+                gd.n_c, q, c,
+                np.array(cspline_M),
+                gd.beg_c,
+                self.pos_Wv,
+                Mstart,
+                Mstop)
+
+        F_av = np.zeros((len(self.M_a), 3))
+        a = 0
+        for a, M1 in enumerate(self.M_a):
+            M2 = M1 + self.sphere_a[a].Mmax
+            F_av[a, :] = 2.0 * F_cM[:, M1 - Mstart:M2 - Mstart].sum(axis=1)
+
+        return F_av
+
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
 

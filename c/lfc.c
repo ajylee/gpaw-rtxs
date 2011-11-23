@@ -46,6 +46,8 @@ PyObject* lcao_to_grid_k(LFCObject *self, PyObject *args);
 PyObject* add(LFCObject *self, PyObject *args);
 PyObject* calculate_potential_matrix_derivative(LFCObject *self, 
                                                 PyObject *args);
+PyObject* calculate_potential_matrix_force_contribution(LFCObject *self, 
+							PyObject *args);
 PyObject* second_derivative(LFCObject *self, PyObject *args);
 PyObject* add_derivative(LFCObject *self, PyObject *args);
 
@@ -75,6 +77,8 @@ static PyMethodDef lfc_methods[] = {
      (PyCFunction)add, METH_VARARGS, 0},
     {"calculate_potential_matrix_derivative",
      (PyCFunction)calculate_potential_matrix_derivative, METH_VARARGS, 0},
+    {"calculate_potential_matrix_force_contribution",
+     (PyCFunction)calculate_potential_matrix_force_contribution, METH_VARARGS, 0},
     {"second_derivative",
      (PyCFunction)second_derivative, METH_VARARGS, 0},
     {"add_derivative",
@@ -1037,6 +1041,246 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
   }
   Py_RETURN_NONE;
 }
+
+
+// Horrible copy-paste of calculate_potential_matrix
+// Surely it must be possible to find a way to actually reuse code
+// Maybe some kind of preprocessor thing
+PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject *args)
+{
+  const PyArrayObject* vt_G_obj;
+  PyArrayObject* rho_MM_obj;
+  PyArrayObject* F_M_obj;
+  PyArrayObject* h_cv_obj;
+  PyArrayObject* n_c_obj;
+  int k, c;
+  PyArrayObject* spline_obj_M_obj;
+  PyArrayObject* beg_c_obj;
+  PyArrayObject* pos_Wc_obj;
+  int Mstart, Mstop;
+
+  if (!PyArg_ParseTuple(args, "OOOOOiiOOOii", &vt_G_obj, &rho_MM_obj, 
+			&F_M_obj,
+                        &h_cv_obj, &n_c_obj, &k, &c,
+                        &spline_obj_M_obj, &beg_c_obj,
+                        &pos_Wc_obj, &Mstart, &Mstop))
+    return NULL;
+
+  const double* vt_G = (const double*)vt_G_obj->data;
+  const double* h_cv = (const double*)h_cv_obj->data;
+  const long* n_c = (const long*)n_c_obj->data;
+  const SplineObject** spline_obj_M = \
+    (const SplineObject**)spline_obj_M_obj->data;
+  const double (*pos_Wc)[3] = (const double (*)[3])pos_Wc_obj->data;
+  double* F_M = (double*)F_M_obj->data;
+
+  long* beg_c = LONGP(beg_c_obj);
+  int nM = rho_MM_obj->dimensions[1];
+  double* work_gm = lfc->work_gm;
+  double dv = lfc->dv;
+
+  if (!lfc->bloch_boundary_conditions) {
+    double* rho_MM = (double*)rho_MM_obj->data;
+    {
+      GRID_LOOP_START(lfc, -1) {
+        // In one grid loop iteration, only z changes.
+        int iza = Ga % n_c[2] + beg_c[2];
+        int iy = (Ga / n_c[2]) % n_c[1] + beg_c[1];
+        int ix = Ga / (n_c[2] * n_c[1]) + beg_c[0];
+        int iz = iza;
+
+        //assert(Ga == ((ix - beg_c[0]) * n_c[1] + (iy - beg_c[1])) 
+        //       * n_c[2] + iza - beg_c[2]);
+
+        for (int i1 = 0; i1 < ni; i1++) {
+          iz = iza;
+          LFVolume* v1 = volume_i + i1;
+          int M1 = v1->M;
+          const SplineObject* spline_obj = spline_obj_M[M1];
+          const bmgsspline* spline = \
+            (const bmgsspline*)(&(spline_obj->spline));
+          
+          int nm1 = v1->nm;
+
+          int M1p = MAX(M1, Mstart);
+          int nm1p = MIN(M1 + nm1, Mstop) - M1p;
+          if (nm1p <= 0)
+            continue;
+
+          int m1start = M1 < Mstart ? nm1 - nm1p : 0;
+
+          double fdYdc_m[nm1];
+          double rlYdfdr_m[nm1];
+          double f, dfdr;
+          int l = (nm1 - 1) / 2;
+          const double* pos_c = pos_Wc[v1->W];
+          //assert(2 * l + 1 == nm1);
+          //assert(spline_obj->spline.l == l);
+          int gm1 = 0;
+          for (int G = Ga; G < Gb; G++, iz++) {
+            double x = h_cv[0] * ix + h_cv[3] * iy + h_cv[6] * iz - pos_c[0];
+            double y = h_cv[1] * ix + h_cv[4] * iy + h_cv[7] * iz - pos_c[1];
+            double z = h_cv[2] * ix + h_cv[5] * iy + h_cv[8] * iz - pos_c[2];
+            double vtdv = vt_G[G] * dv;
+
+            double R_c[] = {x, y, z};
+            
+            double r2 = x * x + y * y + z * z;
+            double r = sqrt(r2);
+            double Rcinvr = r > 1e-15 ? R_c[c] / r : 0.0;
+            //assert(G == ((ix - beg_c[0]) * n_c[1] + 
+            //             (iy - beg_c[1])) * n_c[2] + iz - beg_c[2]);
+
+            bmgs_get_value_and_derivative(spline, r, &f, &dfdr);
+            //assert (r <= spline->dr * spline->nbins); // important
+
+            switch(c) {
+            case 0:
+              spherical_harmonics_derivative_x(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            case 1:
+              spherical_harmonics_derivative_y(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            case 2:
+              spherical_harmonics_derivative_z(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            }
+            spherical_harmonics(l, dfdr * Rcinvr, x, y, z, r2, rlYdfdr_m);
+
+            for (int m1 = 0; m1 < nm1p; m1++, gm1++) {
+              work_gm[gm1] = vtdv * (fdYdc_m[m1 + m1start] 
+                                     + rlYdfdr_m[m1 + m1start]);
+            }            
+          } // end loop over G
+          for (int i2 = 0; i2 < ni; i2++) {
+            LFVolume* v2 = volume_i + i2;
+            int M2 = v2->M;
+            const double* A2_start_gm = v2->A_gm;
+            const double* A2_gm;
+            int nm2 = v2->nm;
+	    double* rho_start_mm = rho_MM + (M1p - Mstart) * nM + M2;
+	    double* rho_mm;
+            double work;
+            for (int g = 0; g < nG; g++) {
+              A2_gm = A2_start_gm + g * nm2;
+              for (int m1 = 0; m1 < nm1p; m1++) {
+                rho_mm = rho_start_mm + m1 * nM;
+                work = 0.0;
+                for (int m2 = 0; m2 < nm2; m2++) {
+                  work += A2_gm[m2] * rho_mm[m2];
+                }
+                F_M[M1p - Mstart + m1] += work * work_gm[g * nm1p + m1];
+              }
+            }
+          } // i2 loop
+        } // G loop
+      } // i1 loop
+      GRID_LOOP_STOP(lfc, -1);
+    } // c loop
+
+  }
+  else {
+    complex double* rho_MM = (complex double*)rho_MM_obj->data;
+    {
+      GRID_LOOP_START(lfc, k) {
+        // In one grid loop iteration, only z changes.
+        int iza = Ga % n_c[2] + beg_c[2];
+        int iy = (Ga / n_c[2]) % n_c[1] + beg_c[1];
+        int ix = Ga / (n_c[2] * n_c[1]) + beg_c[0];
+        int iz = iza;
+
+        for (int i1 = 0; i1 < ni; i1++) {
+          iz = iza;
+          LFVolume* v1 = volume_i + i1;
+          int M1 = v1->M;
+          const SplineObject* spline_obj = spline_obj_M[M1];
+          const bmgsspline* spline = \
+            (const bmgsspline*)(&(spline_obj->spline));
+          
+          int nm1 = v1->nm;
+
+          int M1p = MAX(M1, Mstart);
+          int nm1p = MIN(M1 + nm1, Mstop) - M1p;
+          if (nm1p <= 0)
+            continue;
+
+          int m1start = M1 < Mstart ? nm1 - nm1p : 0;
+
+          double fdYdc_m[nm1];
+          double rlYdfdr_m[nm1];
+          double f, dfdr;
+          int l = (nm1 - 1) / 2;
+          //assert(2 * l + 1 == nm1);
+          //assert(spline_obj->spline.l == l);
+          const double* pos_c = pos_Wc[v1->W];
+
+          int gm1 = 0;
+          for (int G = Ga; G < Gb; G++, iz++) {
+            double x = h_cv[0] * ix + h_cv[3] * iy + h_cv[6] * iz - pos_c[0];
+            double y = h_cv[1] * ix + h_cv[4] * iy + h_cv[7] * iz - pos_c[1];
+            double z = h_cv[2] * ix + h_cv[5] * iy + h_cv[8] * iz - pos_c[2];
+            double vtdv = vt_G[G] * dv;
+
+            double R_c[] = {x, y, z};
+            
+            double r2 = x * x + y * y + z * z;
+            double r = sqrt(r2);
+            double Rc_over_r = r > 1e-15 ? R_c[c] / r : 0.0;
+            bmgs_get_value_and_derivative(spline, r, &f, &dfdr);
+            //assert (r <= spline->dr * spline->nbins);
+
+            switch(c) {
+            case 0:
+              spherical_harmonics_derivative_x(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            case 1:
+              spherical_harmonics_derivative_y(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            case 2:
+              spherical_harmonics_derivative_z(l, f, x, y, z, r2, fdYdc_m);
+              break;
+            }
+            spherical_harmonics(l, dfdr * Rc_over_r, x, y, z, r2, rlYdfdr_m);
+	    
+            for (int m1 = 0; m1 < nm1p; m1++, gm1++) {
+              work_gm[gm1] = vtdv * (fdYdc_m[m1 + m1start] 
+				     + rlYdfdr_m[m1 + m1start]);
+            }            
+          } // end loop over G
+
+          for (int i2 = 0; i2 < ni; i2++) {
+            LFVolume* v2 = volume_i + i2;
+            int M2 = v2->M;
+            const double* A2_start_gm = v2->A_gm;
+            const double* A2_gm;
+            int nm2 = v2->nm;
+            double complex* rho_start_mm = rho_MM + (M1p - Mstart) * nM + M2;
+            double complex* rho_mm;
+            double complex phase = conj(phase_i[i1]) * phase_i[i2];
+            double complex work;
+            for (int g = 0; g < nG; g++) {
+              A2_gm = A2_start_gm + g * nm2;
+              for (int m1 = 0; m1 < nm1p; m1++) {
+                rho_mm = rho_start_mm + m1 * nM;
+                work = 0.0;
+                for (int m2 = 0; m2 < nm2; m2++) {
+                  work += A2_gm[m2] * rho_mm[m2];
+                }
+                F_M[M1p - Mstart + m1] += creal(work * work_gm[g * nm1p + m1] 
+                                                * phase);
+              }
+            }
+          } // i2 loop
+        } // G loop
+      } // i1 loop
+      GRID_LOOP_STOP(lfc, k);
+    } // c loop
+  }
+  Py_RETURN_NONE;
+}
+
+
+
 
 PyObject* derivative(LFCObject *lfc, PyObject *args)
 {

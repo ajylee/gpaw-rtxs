@@ -351,17 +351,32 @@ class LCAOWaveFunctions(WaveFunctions):
         #        mu in a; nu
         #
         self.timer.start('LCAO forces: potential')
-        Fpot_av = np.zeros_like(F_av)
+        #Fpot2_av = np.zeros_like(F_av)
         vt_G = hamiltonian.vt_sG[kpt.s]
-        DVt_vMM = np.zeros((3, mynao, nao), dtype)
-        # Note that DVt_vMM contains dPhi(r) / dr = - dPhi(r) / dR^a
-        basis_functions.calculate_potential_matrix_derivative(vt_G, DVt_vMM, q)
+
         
-        for a, M1, M2 in slices():
-            for v in range(3):
-                Fpot_av[a, v] = 2 * (DVt_vMM[v, M1:M2, :]
-                                     * rhoT_MM[M1:M2, :]).real.sum()
-        del DVt_vMM
+        #DVt_vMM = np.zeros((3, mynao, nao), dtype)
+        ## Note that DVt_vMM contains dPhi(r) / dr = - dPhi(r) / dR^a
+        #self.timer.start('CPMD')
+        #basis_functions.calculate_potential_matrix_derivative(vt_G, DVt_vMM, q)
+        #self.timer.stop('CPMD')
+
+        #np.set_printoptions(precision=2, suppress=1)
+
+        
+        #for a, M1, M2 in slices():
+        #    for v in range(3):
+        #        Fpot2_av[a, v] = 2 * (DVt_vMM[v, M1:M2, :]
+        #                             * rhoT_MM[M1:M2, :]).real.sum()
+        self.timer.start('newCPMD')
+        Fpot_av = basis_functions.calculate_potential_matrix_force_contribution(vt_G, rhoT_MM, q)
+        self.timer.stop('newCPMD')
+
+        #errs = np.abs((Fpot_av - Fpot2_av).sum(axis=1)) > 1e-8
+        #error = errs.max()
+        #assert error < 1e-8
+        
+        #del DVt_vMM
         self.timer.stop('LCAO forces: potential')
         
         # Density matrix contribution due to basis overlap
