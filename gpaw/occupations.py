@@ -406,13 +406,35 @@ class SmoothDistribution(ZeroKelvin):
             self.fermilevel = fermilevels.mean()
             self.split = fermilevels[0] - fermilevels[1]
 
+    def get_homo_lumo_by_spin(self, wfs, spin):
+        if wfs.nspins == 1:
+            assert spin == 0
+            n = self.nvalence // 2
+            homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
+            lumo = -wfs.world.max(-min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
+            return np.array([homo, lumo])
+	else:
+            assert self.fixmagmom
+            sign = 1 - spin * 2
+            n = (self.nvalence + sign * self.magmom) // 2
+            assert spin is not None
+            homo = -1000
+            lumo = +1000
+            for kpt in wfs.kpt_u:
+                if kpt.s == spin:
+                    homo = max(homo, kpt.eps_n[n - 1])
+                    lumo = min(lumo, kpt.eps_n[n])
+            homo = wfs.world.max(homo)
+            lumo = -wfs.world.max(-lumo)
+            return np.array( [homo, lumo] )
+
     def get_homo_lumo(self, wfs):
         if self.width == 0:
             return ZeroKelvin.get_homo_lumo(self, wfs)
-        
+
         if wfs.nspins == 2:
             raise NotImplementedError
-        
+
         if self.nvalence is None:
             self.calculate(wfs)
 
@@ -420,7 +442,7 @@ class SmoothDistribution(ZeroKelvin):
         homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
         lumo = -wfs.world.max(-min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
         return np.array([homo, lumo])
-        
+
     def guess_fermi_level(self, wfs):
         fermilevel = 0.0
 

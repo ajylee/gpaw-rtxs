@@ -54,13 +54,20 @@ class C_Response(Contribution):
         self.Dxc_vt_sG = None
         self.Dxc_Dresp_asp = {}
         self.Dxc_D_asp = {}
-        
-    def calculate_spinpaired(self, e_g, n_g, v_g):
-        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u)
+
+    def update_potentials(self, nt_sg):
+        nspins = len(nt_sg)
+        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, nspins=nspins)
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
+
+        #if w_kn is None:
+        #    # LDA Response, before eigenvalues are available
+        #    self.vt_sg[:] = 0.0 # 3*pi**2*np.array(nt_sg))**(1.0/3.0)/(2*pi)
+        #    print self.vt_sg
         if w_kn is not None:
             self.vt_sG[:] = 0.0
             self.nt_sG[:] = 0.0
+
             for kpt, w_n in zip(self.kpt_u, w_kn):
                 self.wfs.add_to_density_from_k_point_with_occupation(self.vt_sG, kpt, w_n)
                 self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)
@@ -81,52 +88,49 @@ class C_Response(Contribution):
                 self.D_asp, f_kn)
 
             self.vt_sG /= self.nt_sG +1e-10
-            #if world.rank == 0:
-            #    print "Updating vt_sG"
-            #else:
-            #if world.rank == 0:
-            #    print "Reusing potential"
-        self.density.interpolator.apply(self.vt_sG[0], self.vt_sg[0])
+
+        for s in range(nspins):
+            self.density.interpolator.apply(self.vt_sG[s], self.vt_sg[s])
+        
+    def calculate_spinpaired(self, e_g, n_g, v_g):
+        self.update_potentials([n_g]) 
         v_g[:] += self.weight * self.vt_sg[0]
         return 0.0
 
-    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g, 
-                                a2_g=None, aa2_g=None, ab2_g=None, deda2_g=None,
-                                dedaa2_g=None, dedab2_g=None):
-        raise NotImplementedError
+    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
+        self.update_potentials([na_g, nb_g])
+        va_g[:] += self.weight * self.vt_sg[0]
+        vb_g[:] += self.weight * self.vt_sg[1]
+        return 0.0
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
-        #print "In response::calculate_energy_and_derivatives"
         # Get the XC-correction instance
         c = setup.xc_correction
-        ncresp_g = setup.extra_xc_data['core_response']
+        ncresp_g = setup.extra_xc_data['core_response'] / self.nspins
         
-        D_p = self.D_asp.get(a)[0]
-        Dresp_p = self.Dresp_asp.get(a)[0]
-        dEdD_p = H_sp[0][:]
-        
-        D_Lq = np.dot(c.B_pqL.T, D_p)
-        n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
-        n_Lg[0] += c.nc_g * sqrt(4 * pi)
-        nt_Lg = np.dot(D_Lq, c.nt_qg) # Construct smooth density (without smooth core)
+        for D_p, dEdD_p, Dresp_p in zip(D_sp, H_sp, self.Dresp_asp.get(a)):
+            D_Lq = np.dot(c.B_pqL.T, D_p)
+            n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
+            n_Lg[0] += c.nc_g * sqrt(4 * pi) / self.nspins
+            nt_Lg = np.dot(D_Lq, c.nt_qg) # Construct smooth density (without smooth core)
 
-        Dresp_Lq = np.dot(c.B_pqL.T, Dresp_p)
-        nresp_Lg = np.dot(Dresp_Lq, c.n_qg) # Construct 'response density'
-        nrespt_Lg = np.dot(Dresp_Lq, c.nt_qg) # Construct smooth 'response density' (w/o smooth core)
+            Dresp_Lq = np.dot(c.B_pqL.T, Dresp_p)
+            nresp_Lg = np.dot(Dresp_Lq, c.n_qg) # Construct 'response density'
+            nrespt_Lg = np.dot(Dresp_Lq, c.nt_qg) # Construct smooth 'response density' (w/o smooth core)
 
-        for w, Y_L in zip(weight_n, c.Y_nL):
-            nt_g = np.dot(Y_L, nt_Lg)
-            nrespt_g = np.dot(Y_L, nrespt_Lg)
-            x_g = nrespt_g / (nt_g + 1e-10)
-            dEdD_p -= self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
-                                                np.dot(c.nt_qg, x_g * c.rgd.dv_g))
+            for w, Y_L in zip(weight_n, c.Y_nL):
+                nt_g = np.dot(Y_L, nt_Lg)
+                nrespt_g = np.dot(Y_L, nrespt_Lg)
+                x_g = nrespt_g / (nt_g + 1e-10)
+                dEdD_p -= self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
+                                                   np.dot(c.nt_qg, x_g * c.rgd.dv_g))
 
-            n_g = np.dot(Y_L, n_Lg)
-            nresp_g = np.dot(Y_L, nresp_Lg)
-            x_g = (nresp_g+ncresp_g) / (n_g + 1e-10)
-            
-            dEdD_p += self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
-                                                np.dot(c.n_qg, x_g * c.rgd.dv_g))
+                n_g = np.dot(Y_L, n_Lg)
+                nresp_g = np.dot(Y_L, nresp_Lg)
+                x_g = (nresp_g+ncresp_g) / (n_g + 1e-10)
+           
+                dEdD_p += self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
+                                                   np.dot(c.n_qg, x_g * c.rgd.dv_g))
             
         return 0.0
 
@@ -167,13 +171,11 @@ class C_Response(Contribution):
         if homolumo == None:
             # Calculate band gap
             print "Warning: Calculating KS-gap directly from the k-points, can be inaccurate."
-            homolumo = self.occupations.get_homo_lumo(self.wfs)
+            #homolumo = self.occupations.get_homo_lumo(self.wfs)
 
-
-        homo, lumo = homolumo
-        Ksgap = lumo-homo
-        print "Using KS-gap of ", Ksgap
-
+        #homo, lumo = homolumo
+        #Ksgap = lumo-homo
+        #print "Using KS-gap of ", Ksgap
         
         for a in self.density.D_asp:
             ni = self.setups[a].ni
@@ -181,9 +183,9 @@ class C_Response(Contribution):
             self.Dxc_D_asp[a] = np.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
 
         # Calculate new response potential with LUMO reference 
-        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, lumo_perturbation=True, homolumo=homolumo)
-        #print "dxc w_kn", w_kn
-       
+        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, lumo_perturbation=True, 
+                                                         homolumo=homolumo,
+                                                         nspins=self.nspins)
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
 
         vt_sG = self.gd.zeros(self.nlfunc.nspins)
@@ -216,8 +218,6 @@ class C_Response(Contribution):
         
         # Calculate average of lumo reference response potential
         method1_dxc = np.average(self.Dxc_vt_sG[0])
-        #print self.Dxc_vt_sG[0][0][0]
-
         nt_G = self.gd.empty()
 
         ne = self.nvalence # Number of electrons
@@ -280,7 +280,6 @@ class C_Response(Contribution):
         f_asi = {}
         w_asi = {}              
 
-        assert self.nspins == 1  # Note: All initializations with magmom=0, hund=False and charge=0
         for a in basis_functions.atom_indices:
             w_j = self.setups[a].extra_xc_data['w_j']
             # Basis function coefficients based of response weights
@@ -289,6 +288,7 @@ class C_Response(Contribution):
             # Basis function coefficients based on density
             f_si = self.setups[a].calculate_initial_occupation_numbers(
                     0, False, charge=0, nspins=self.nspins)            
+
             if a in basis_functions.my_atom_indices:
                 self.Dresp_asp[a] = self.setups[a].initialize_density_matrix(w_si)
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
@@ -318,7 +318,7 @@ class C_Response(Contribution):
         x_g = np.dot(w_j[:njcore], safe_sqr(ae.u_j[:njcore]))
         x_g[1:] /= ae.r[1:]**2 * 4*np.pi
         x_g[0] = x_g[1]
-        dict['core_response'] = x_g        
+        dict['core_response'] = x_g
 
         # For debugging purposes
         w_j = self.coefficients.get_coefficients_1d()

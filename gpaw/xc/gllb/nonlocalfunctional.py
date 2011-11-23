@@ -49,7 +49,7 @@ class NonLocalFunctional(XCFunctional):
         if self.nspins == 1:
             self.calculate_spinpaired(e_g, n_sg[0], v_sg[0])
         else:
-            dsfsdfg
+            self.calculate_spinpolarized(e_g, n_sg[0], v_sg[0], n_sg[1], v_sg[1])
         return gd.integrate(e_g)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp, a):
