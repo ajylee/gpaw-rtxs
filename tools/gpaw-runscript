@@ -347,6 +347,7 @@ unset CC CFLAGS LDFLAGS
     def bwg(self, f, set, env):
         modules_to_load = [
 		'devel/python/2.7.2',
+                'compiler/intel/12.0',
 		'mpi/impi/4.0.2-intel-12.0',
 		'numlib/mkl/10.3.5',
                 'numlib/numpy/1.6.1-python-2.7.2-mkl-10.3.5',
