@@ -858,7 +858,10 @@ def generate(argv=None):
 def _generate(symbol, opt):
     aea = AllElectronAtom(symbol, xc=opt.xc_functional)
 
-    projectors, radii, extra = parameters[symbol]
+    if symbol in parameters:
+        projectors, radii, extra = parameters[symbol]
+    else:
+        projectors, radii, extra = None, 1.0, {}
     
     if opt.projectors:
         projectors = opt.projectors
