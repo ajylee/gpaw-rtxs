@@ -28,7 +28,7 @@ class EggboxTestTask(ConvergenceTestTask):
             forces = []
             for i in range(25):
                 x = self.L / g * i / 48
-                atoms[0].x = x
+                atoms.positions[0] = x
                 e = atoms.calc.get_potential_energy(atoms,
                                                     force_consistent=True)
                 energies.append(e)
@@ -44,7 +44,7 @@ class EggboxTestTask(ConvergenceTestTask):
         for name, data in self.data.items():
             results = []
             for g in self.gs:
-                de = data[g][0].ptp()
+                de = data[str(g)][0].ptp()
                 results.append(de * 1000)
             self.results[name] = results
 
