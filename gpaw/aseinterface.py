@@ -48,9 +48,6 @@ class GPAW(PAW):
                     'Methfessel-Paxton distribution with order > 0.')
             return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
 
-    def get_reference_energy(self):
-        return self.wfs.setups.Eref * Hartree
-    
     def get_forces(self, atoms):
         """Return the forces for the current state of the atoms."""
         # I believe that the force_call_to_set_positions must be set
