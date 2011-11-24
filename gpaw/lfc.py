@@ -1102,9 +1102,12 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         F_av = np.zeros((len(self.M_a), 3))
         a = 0
         for a, M1 in enumerate(self.M_a):
+            M1 -= Mstart
             M2 = M1 + self.sphere_a[a].Mmax
-            F_av[a, :] = 2.0 * F_cM[:, M1 - Mstart:M2 - Mstart].sum(axis=1)
-
+            if M2 < 0:
+                continue
+            M1 = max(0, M1)
+            F_av[a, :] = 2.0 * F_cM[:, M1:M2].sum(axis=1)
         return F_av
 
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster

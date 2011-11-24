@@ -283,7 +283,8 @@ class LCAOWaveFunctions(WaveFunctions):
             for a in indices:
                 M1 = basis_functions.M_a[a] - Mstart
                 M2 = M1 + self.setups[a].niAO
-                yield a, M1, M2
+                if M2 > 0:
+                    yield a, max(0, M1), M2
         
         def slices():
             return _slices(atom_indices)
@@ -307,12 +308,13 @@ class LCAOWaveFunctions(WaveFunctions):
             ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n * kpt.eps_n,
                                                            kpt.C_nM)
             if hasattr(kpt, 'c_on'):
+                # XXX does this work with BLACS/non-BLACS/etc.?
                 assert self.bd.comm.size == 1
                 d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands), dtype=kpt.C_nM.dtype)
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                         d_nn += ne * np.outer(c_n.conj(), c_n)
                 rhoT_MM += self.ksl.get_transposed_density_matrix_delta(d_nn, kpt.C_nM)
-                ET_MM+=self.ksl.get_transposed_density_matrix_delta(d_nn*kpt.eps_n, kpt.C_nM)
+                ET_MM += self.ksl.get_transposed_density_matrix_delta(d_nn * kpt.eps_n, kpt.C_nM)
         else:
             H_MM = self.eigensolver.calculate_hamiltonian_matrix(hamiltonian,
                                                                  self,
@@ -338,7 +340,7 @@ class LCAOWaveFunctions(WaveFunctions):
         Fkin_av = np.zeros_like(F_av)
         dEdTrhoT_vMM = (dTdR_vMM * rhoT_MM[np.newaxis]).real
         for a, M1, M2 in my_slices():
-            Fkin_av[a, :] = 2 * dEdTrhoT_vMM[:, M1:M2].sum(-1).sum(-1)
+            Fkin_av[a, :] = 2.0 * dEdTrhoT_vMM[:, M1:M2].sum(-1).sum(-1)
         del dEdTrhoT_vMM
         
         # Potential contribution
@@ -361,9 +363,6 @@ class LCAOWaveFunctions(WaveFunctions):
         #basis_functions.calculate_potential_matrix_derivative(vt_G, DVt_vMM, q)
         #self.timer.stop('CPMD')
 
-        #np.set_printoptions(precision=2, suppress=1)
-
-        
         #for a, M1, M2 in slices():
         #    for v in range(3):
         #        Fpot2_av[a, v] = 2 * (DVt_vMM[v, M1:M2, :]
@@ -464,6 +463,12 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO forces: atomic density')
         
         F_av += Fkin_av + Fpot_av + Frho_av + Fatom_av
+        
+        from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
+        # ugly ugly ugly ugly ugly ugly ugly ugly ugly ugly ugly ugly XXX
+        isblacs = isinstance(self.ksl, BlacsOrbitalLayouts)
+        if not isblacs:
+            self.bd.comm.sum(F_av)
 
     def _get_wave_function_array(self, u, n):
         kpt = self.kpt_u[u]
