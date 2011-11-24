@@ -277,7 +277,7 @@ class LCAOWaveFunctions(WaveFunctions):
         
         basis_functions = self.basis_functions
         my_atom_indices = basis_functions.my_atom_indices
-        atom_indices = basis_functions.atom_indices        
+        atom_indices = basis_functions.atom_indices
         
         def _slices(indices):
             for a in indices:
@@ -463,12 +463,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO forces: atomic density')
         
         F_av += Fkin_av + Fpot_av + Frho_av + Fatom_av
-        
-        from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
-        # ugly ugly ugly ugly ugly ugly ugly ugly ugly ugly ugly ugly XXX
-        isblacs = isinstance(self.ksl, BlacsOrbitalLayouts)
-        if not isblacs:
-            self.bd.comm.sum(F_av)
+
 
     def _get_wave_function_array(self, u, n):
         kpt = self.kpt_u[u]

@@ -142,7 +142,7 @@ run(**OH_kwargs)
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
 parallel['band'] = 2 
-# run(**OH_kwargs) # test for forces is failing in this case!
+run(**OH_kwargs)
 
 if compiled_with_sl():
     # state-parallelization= 2,

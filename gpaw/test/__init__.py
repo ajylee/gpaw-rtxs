@@ -174,6 +174,7 @@ tests = [
     'lcao_bsse.py',
     'lcao_force.py',
     'parallel/lcao_hamiltonian.py',
+    'parallel/lcao_complicated.py',
     'parallel/lcao_parallel.py',
     'parallel/lcao_parallel_kpt.py',
     'parallel/fd_parallel.py',

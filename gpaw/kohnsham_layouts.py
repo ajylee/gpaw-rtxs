@@ -519,12 +519,7 @@ class OrbitalLayouts(KohnShamLayouts):
         self.Mmax = nao
         self.mynao = nao
         self.nao = nao
-        # a problem with forces when
-        # domain-decomposition = (1, 1, 1)
-        # bd.comm.size > 1
-        # kpt.comm.size > 1
-        # Uncomment line 145 in gpaw/test/parallel/lcao_parallel.py
-        self.orbital_comm = serial_comm
+        self.orbital_comm = bd.comm
 
     def diagonalize(self, H_MM, C_nM, eps_n, S_MM):
         eps_M = np.empty(C_nM.shape[-1])
