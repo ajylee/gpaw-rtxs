@@ -322,15 +322,16 @@ class BASECHI:
             return psit_G
 
 
-    def pad(self,psit_g):
-        
-
+    def pad(self, psit_g):
         N_c = self.calc.wfs.gd.N_c
-        shift = np.zeros(3,int)
+        shift = np.zeros(3, int)
         shift[np.where(self.pbc == False)] = 1
-        psit_G = self.gd.zeros(dtype=complex)
-        psit_G[shift[0]:N_c[0], shift[1]:N_c[1], shift[2]:N_c[2]] = \
-                                 psit_g[:N_c[0]-shift[0], :N_c[1]-shift[1], :N_c[2]-shift[2]]
+        psit_G = self.gd.zeros(dtype=psit_g.dtype)
+        psit_G[shift[0]:N_c[0],
+               shift[1]:N_c[1],
+               shift[2]:N_c[2]] = psit_g[:N_c[0]-shift[0],
+                                          :N_c[1]-shift[1],
+                                          :N_c[2]-shift[2]]
 
         return psit_G
             
