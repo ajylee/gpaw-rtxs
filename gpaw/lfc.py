@@ -1013,11 +1013,14 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                        ----
                         mu
         """
-        if self.gamma:
-            if C_xM.size == 0:
-                return
-            C_xM = C_xM.reshape((-1,) + C_xM.shape[-1:])
-            psit_xG = psit_xG.reshape((-1,) + psit_xG.shape[-3:])
+
+        if C_xM.size == 0:
+            return
+        
+        C_xM = C_xM.reshape((-1,) + C_xM.shape[-1:])
+        psit_xG = psit_xG.reshape((-1,) + psit_xG.shape[-3:])
+        
+        if self.gamma or len(C_xM) == 1:
             for C_M, psit_G in zip(C_xM, psit_xG):
                 self.lfc.lcao_to_grid(C_M, psit_G, q)
         else:
