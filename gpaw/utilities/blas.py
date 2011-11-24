@@ -266,7 +266,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     # Vector-vector multiplication is handled by dotu
     if a.ndim == 1 and b.ndim == 1:
         assert out is None
-        if trans is 'c':
+        if trans == 'c':
             return alpha * _gpaw.dotc(b, a) # dotc conjugates *first* argument
         else:
             return alpha * _gpaw.dotu(a, b)
