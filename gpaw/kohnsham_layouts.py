@@ -565,7 +565,6 @@ class OrbitalLayouts(KohnShamLayouts):
             C2_nM = C_nM
         Cf_Mn = np.ascontiguousarray(C2_nM.T.conj() * f_n)
         gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
-        self.bd.comm.sum(rho_MM)
         return rho_MM
 
     def get_transposed_density_matrix(self, f_n, C_nM, rho_MM=None):
