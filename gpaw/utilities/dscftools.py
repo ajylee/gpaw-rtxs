@@ -381,7 +381,7 @@ from gpaw.occupations import FermiDirac
 
 
 def dscf_reconstruct_orbitals_k_point(paw, norbitals, mol, kpt):
-	bd = paw.wfs.bd
+    bd = paw.wfs.bd
     if bd.comm.size != 1:
         raise NotImplementedError('Undefined action for band parallelization.')
 
