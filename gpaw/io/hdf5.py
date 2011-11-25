@@ -158,16 +158,27 @@ class Reader:
         if not read:
             selection = None
 
+        real2complex = False
         if out is None:
             array = np.ndarray(mshape, dset.dtype, order='C')
+        elif out.dtype == complex and dset.dtype == float:
+            # For real to complex reading i.e TDDFT temporary buffer 
+            # is also needed
+            array = np.ndarray(mshape, dset.dtype, order='C')
+            real2complex = True
         else:
             assert type(out) is np.ndarray
             # XXX Check the shapes are compatible
             assert out.shape == mshape
-            assert out.dtype == dset.dtype
+            assert (out.dtype == dset.dtype or 
+                   (out.dtype == complex and dset.dtype == float))
             array = out
 
         dset.read(array, selection, collective)
+
+        if real2complex:
+            out[:] = array[:]
+            array = out
 
         if broadcast:
             self.comm.broadcast(array, 0)

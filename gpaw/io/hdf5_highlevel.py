@@ -234,7 +234,7 @@ class Dataset(object):
 
         filespace = self.dataspace
         memspace = h5s_create(np.asarray(data.shape))
-        memtype = h5_type_from_numpy(np.ndarray((1,), self.dtype))
+        memtype = h5_type_from_numpy(np.ndarray((1,), data.dtype))
 
         if selection is None:
             h5s_select_none(memspace)
