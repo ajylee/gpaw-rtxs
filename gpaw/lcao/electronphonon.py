@@ -64,9 +64,9 @@ from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import StepTimer, nulltimer, Timer
 from gpaw.lcao.overlap import ManySiteDictionaryWrapper, \
      TwoCenterIntegralCalculator
+from gpaw.lcao.tightbinding import TightBinding
 from gpaw.kpt_descriptor import KPointDescriptor
 
-from tightbinding import TightBinding
 
 class ElectronPhononCoupling: # (Displacement):
     """Class for calculating the electron-phonon coupling in an LCAO basis.
