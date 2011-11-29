@@ -25,7 +25,7 @@ Load the necessary modules::
   module load compiler/intel/12.0
   module load mpi/impi/4.0.2-intel-12.0
   module load numlib/mkl/10.3.5
-  module load numlib/numpy/1.6.1-python-2.7.2-mkl-10.3.5
+  module load numlib/python_numpy/1.6.1-python-2.7.2
 
 The installation of gpaw requires to modify customize.py to
 :svn:`~doc/install/Linux/customize_bwgrid_icc.py`
