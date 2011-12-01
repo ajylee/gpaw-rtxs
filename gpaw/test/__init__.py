@@ -260,6 +260,7 @@ tests = [
     'parallel/lcao_projections.py',
     #'dscf_forces.py',
     'lrtddft3.py',
+    'ut_tddft.py',
     'AA_exx_enthalpy.py',
     'transport.py',
     'constant_electric_field.py',

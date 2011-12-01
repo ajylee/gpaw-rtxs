@@ -568,7 +568,13 @@ class PAW(PAWTextOutput):
                                                nao=nao,
                                                timer=self.timer)
 
-                if mode == 'fd':
+                if hasattr(self, 'time'):
+                    assert mode == 'fd'
+                    from gpaw.tddft import TimeDependentWaveFunctions #XXX
+                    self.wfs = TimeDependentWaveFunctions(par.stencils[0],
+                        diagksl, orthoksl, initksl, gd, nvalence, setups,
+                        bd, world, kd, self.timer)
+                elif mode == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
                                                orthoksl, initksl, *args)
                 else:

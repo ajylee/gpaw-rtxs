@@ -27,7 +27,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         self.set_orthonormalized(False)
 
-        self.overlap = Overlap(orthoksl, self.timer)
+        self.overlap = self.make_overlap()
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
@@ -41,6 +41,9 @@ class FDPWWaveFunctions(WaveFunctions):
         self.pt.set_positions(spos_ac)
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
         self.positions_set = True
+
+    def make_overlap(self):
+        return Overlap(self.orthoksl, self.timer)
 
     def initialize(self, density, hamiltonian, spos_ac):
         if self.kpt_u[0].psit_nG is None:

@@ -261,7 +261,7 @@ def dscf_linear_combination(paw, molecule, bands, coefficients):
 
                 if debug: kpt.P_ani[a][:,:].dump('dscf_tool_P_ani_a%01d_k%01ds%01d_%s%02d.pickle' % (a,kpt.k,kpt.s,dumpkey,mpi.rank))
 
-    #paw.gd.comm.sum(P_aui) #TODO HUH?!
+    #paw.wfs.gd.comm.sum(P_aui) #TODO HUH?!
 
     if debug: P_aui.dump('dscf_tool_P_aui_%s%02d.pickle' % (dumpkey,mpi.rank))
 
@@ -274,16 +274,16 @@ def dscf_linear_combination(paw, molecule, bands, coefficients):
 
         print 'P_aui=',P_aui
 
-        print 'gd.Nc=',paw.gd.N_c
+        print 'gd.Nc=',paw.wfs.gd.N_c
     """
 
     if debug: mpi_debug('P_aui.shape='+str(P_aui.shape))
 
     #wf_u = [np.sum([c*paw.wfs.kpt_u[u].psit_nG[n] for (c,n) in zip(coefficients,bands)],axis=0) for u in range(0,len(paw.wfs.kpt_u))]
-    #wf_u = np.zeros((paw.wfs.nibzkpts,paw.gd.N_c[0]-1,paw.gd.N_c[1]-1,paw.gd.N_c[2]-1))#,dtype=complex)
-    wf_u = paw.gd.zeros(len(paw.wfs.kpt_u),dtype=complex)
+    #wf_u = np.zeros((paw.wfs.nibzkpts,paw.wfs.gd.N_c[0]-1,paw.wfs.gd.N_c[1]-1,paw.wfs.gd.N_c[2]-1))#,dtype=complex)
+    wf_u = paw.wfs.gd.zeros(len(paw.wfs.kpt_u),dtype=complex)
 
-    gd_slice = paw.gd.get_slice()
+    gd_slice = paw.wfs.gd.get_slice()
 
     if debug: mpi_debug('gd_slice='+str(gd_slice))
 
@@ -296,7 +296,7 @@ def dscf_linear_combination(paw, molecule, bands, coefficients):
         coeff_i = coeff_ui[u]
         wf_u[u] += np.sum([c*np.array(kpt.psit_nG[n])[gd_slice] for (c,n) in zip(coeff_i,band_i)],axis=0)
 
-    #paw.gd.comm.sum(wf_u)
+    #paw.wfs.gd.comm.sum(wf_u)
 
     if debug: mpi_debug('|wf_u|^2=%s' % str([np.sum(np.abs(wf.flatten())**2) for wf in wf_u]))
 
@@ -376,18 +376,19 @@ def dscf_hamiltonian_elements(paw, kpt):
 
 # -------------------------------------------------------------------
 
+from ase.units import Hartree
 from gpaw.io.tar import Writer, Reader, FileReference
 from gpaw.occupations import FermiDirac
-
+from gpaw.band_descriptor import BandDescriptor
 
 def dscf_reconstruct_orbitals_k_point(paw, norbitals, mol, kpt):
-    bd = paw.wfs.bd
+    bd, gd = paw.wfs.bd, paw.wfs.gd
     if bd.comm.size != 1:
         raise NotImplementedError('Undefined action for band parallelization.')
 
     f_o = np.zeros(norbitals, dtype=float)
     eps_o = np.zeros(norbitals, dtype=float)
-    wf_oG = paw.gd.zeros(norbitals, dtype=complex)
+    wf_oG = gd.zeros(norbitals, dtype=complex)
 
     P_aoi = {}
     for a in mol:
@@ -574,10 +575,12 @@ def dscf_collapse_orbitals(paw, nbands_max='occupied', f_tol=1e-4,
     del paw.occupations.norbitals
 
     # Change various parameters related to new number of bands
-    paw.wfs.mynbands = bd.mynbands = nbands_max
-    paw.wfs.nbands = bd.nbands = nbands_max
+    paw.wfs.bd = BandDescriptor(nbands_max, bd.comm, bd.strided)
+    paw.wfs.mynbands = paw.wfs.bd.mynbands
+    paw.wfs.nbands = paw.wfs.bd.nbands
     if paw.wfs.eigensolver:
         paw.wfs.eigensolver.initialized = False
+    del bd
 
     # Crop convergence criteria nbands_converge to new number of bands
     par = paw.input_parameters
@@ -610,7 +613,7 @@ def dscf_collapse_orbitals(paw, nbands_max='occupied', f_tol=1e-4,
         for a,D_sp in paw.density.D_asp.items():
             old_D_asp[a] = D_sp.copy()
         paw.wfs.calculate_atomic_density_matrices(paw.density.D_asp)
-        if debug: mpi_debug('delta-D_asp: %g' % max([np.abs(D_sp-old_D_asp[a]).max() for a,D_sp in paw.density.D_asp.items()]))
+        if debug: mpi_debug('delta-D_asp: %g' % max([0]+[np.abs(D_sp-old_D_asp[a]).max() for a,D_sp in paw.density.D_asp.items()]))
         for a,D_sp in paw.density.D_asp.items():
             assert np.abs(D_sp-old_D_asp[a]).max() < D_tol, 'Atom %d changed!' % a
 

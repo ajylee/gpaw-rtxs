@@ -282,11 +282,13 @@ class WaveFunctions(EmptyWaveFunctions):
                             self.kpt_comm.ssend(b_nx, 0, 1301)
 
         elif self.world.rank == 0 and kpt_rank != 0:
-            # Find shape and dtype:
+            # Only used to determine shape and dtype of receiving buffer:
             a_nx = getattr(kpt_u[0], name)
-            shape = (self.nbands,) + a_nx.shape[1:]
-            dtype = a_nx.dtype
-            b_nx = np.zeros(shape, dtype=dtype)
+
+            if subset is not None:
+                a_nx = a_nx[subset]
+
+            b_nx = np.zeros((self.nbands,) + a_nx.shape[1:], dtype=a_nx.dtype)
             self.kpt_comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
 

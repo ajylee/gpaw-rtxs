@@ -1,8 +1,14 @@
-from ase import *
+from ase.units import Bohr, AUT, _me, _amu
+from gpaw import *
+from gpaw.tddft import *
+from gpaw.tddft.units import attosec_to_autime
+from gpaw.mpi import world
 
 ###############################################################################
-# NOT FOR PRDUCTION USE
-# WORKS ONLY WITH HGH PSEUDOPOTENTIALS
+# EHRENFEST DYNAMICS WITHIN THE PAW METHOD
+# WORKS WITH PAW AS LONG THERE ISN'T TOO
+# TOO MUCH OVERLAP BETWEEN THE SPHERES
+# SUPPORTS ALSO HGH PSEUDOPOTENTIALS
 ###############################################################################
 
 # m a(t+dt)   = F[psi(t),x(t)] 
@@ -19,29 +25,50 @@ from ase import *
 # m a(t+dt)   = F[psi(t+dt),x(t+dt)] 
 # v(t+dt)     = vh(t+dt/2) + .5 a(t+dt/2) dt/2
 
+#TODO: move force corrections from forces.py to this module, as well as
+# the cg method for calculating the inverse of S from overlap.py
 
 class EhrenfestVelocityVerlet:
-    def __init__(self, calc, mass_scale = 1.0):
-        print '--- EhrenfestVelocityVerlet is NOT READY FOR PRODUCTION USE ---'
+    
+    def __init__(self, calc, mass_scale = 1.0, setups='paw'):
+        """Initializes the Ehrenfest MD calculator.
+
+        Parameters
+        ----------
+
+        calc: TDDFT Object
+
+        mass_scale: 1.0
+            Scaling coefficient for atomic masses
+
+        setups: {'paw', 'hgh'}
+            Type of setups to use for the calculation
+
+        Note
+        ------
+
+        Use propagator = 'EFSICN' for when creating the TDDFT object from a PAW ground state
+        calculator and propagator = 'EFSICN_HGH' for HGH pseudopotentials
+
+        """
+        #print '--- EhrenfestVelocityVerlet is NOT READY FOR PRODUCTION USE ---'
         self.calc = calc
+        self.setups = setups
         self.x  = self.calc.atoms.positions.copy() / Bohr
         self.xn = self.x.copy()
         self.v  = self.x.copy()
-        fs_to_autime = 1000/24.18884326505
+        amu_to_aumass = _amu / _me
         if self.calc.atoms.get_velocities() is not None:
-            self.v = self.calc.atoms.get_velocities().copy()
-            self.v *= (1/Bohr) * (1/(1/units.fs) * fs_to_autime)
+            self.v = self.calc.atoms.get_velocities() / (Bohr / AUT)
         else:
-            self.v[:][:] = 0.0            
+            self.v[:] = 0.0
             self.calc.atoms.set_velocities(self.v)
         
         self.vt = self.v.copy()
         self.vh = self.v.copy()
         self.time = 0.0
-
-        amu_to_aumass = 1822.8875
-        self.M = calc.atoms.get_masses().copy()
-        self.M = self.M * amu_to_aumass * mass_scale
+        
+        self.M = calc.atoms.get_masses() * amu_to_aumass * mass_scale
 
         self.a  = self.v.copy()
         self.ah = self.a.copy()
@@ -59,12 +86,19 @@ class EhrenfestVelocityVerlet:
 
 
     def propagate(self, dt):
-        fs_to_autime = 1000/24.18884326505
-        self.x  = self.calc.atoms.positions.copy() / Bohr
-        self.v  = self.calc.atoms.get_velocities().copy()
-        self.v *= (1/Bohr) * (1/(1/units.fs) * fs_to_autime)
+        """Performs one Ehrenfest MD propagation step
 
-        dt = dt * fs_to_autime/1000
+        Parameters
+        ---------
+
+        dt: scalar
+            Time step (in attoseconds) used for the Ehrenfest MD step
+
+        """
+        self.x  = self.calc.atoms.positions.copy() / Bohr
+        self.v  = self.calc.atoms.get_velocities() / (Bohr / AUT)
+
+        dt = dt * attosec_to_autime
 
         # m a(t+dt)   = F[psi(t),x(t)] 
         self.calc.atoms.positions = self.x * Bohr
@@ -101,7 +135,10 @@ class EhrenfestVelocityVerlet:
 
         # Propagate wf
         # psi(t+dt)   = U(t,t+dt) psi(t)
-        niters = self.calc.propagator.propagate(self.calc.wfs.kpt_u, self.time, dt)
+        if(self.setups == 'paw'):
+            niters = self.calc.propagator.propagate(self.time, dt, self.vh)
+        else:
+            niters = self.calc.propagator.propagate(self.time, dt)
         #print 'Propagation took = ', niters
 
         # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)] 
@@ -157,12 +194,11 @@ class EhrenfestVelocityVerlet:
         self.a[:] = self.an
 
         # update atoms
-        fs_to_autime = 1000/24.18884326505
         self.calc.atoms.set_positions(self.x * Bohr)
-        self.calc.atoms.set_velocities(self.v * Bohr
-                                          / fs_to_autime / units.fs)
+        self.calc.atoms.set_velocities(self.v * Bohr / AUT)
 
     def get_energy(self):
+        """Updates kinetic, electronic and total energies"""
         self.Ekin = 0.0
         for i in range(len(self.v)):
             self.Ekin += (
@@ -182,6 +218,4 @@ class EhrenfestVelocityVerlet:
 
     def set_velocities_in_au(self, v):
         self.v[:] = v
-        fs_to_autime = 1000/24.18884326505
-        va = v / ((1/Bohr) * (1/(1/units.fs) * fs_to_autime))
-        self.calc.atoms.set_velocities(va)
+        self.calc.atoms.set_velocities(v * Bohr / AUT)

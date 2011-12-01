@@ -213,9 +213,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, timer)
         
-        orthoksl.gd = self.pd
-        self.matrixoperator = MatrixOperator(orthoksl)
-        self.wd = self.pd        
+        self.orthoksl.gd = self.pd
+        self.matrixoperator = MatrixOperator(self.orthoksl)
+        self.wd = self.pd
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')

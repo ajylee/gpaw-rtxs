@@ -16,14 +16,10 @@ from gpaw import extra_parameters
 from gpaw.utilities.lapack import diagonalize
 
 class Overlap:
-    """Overlap operator class.
+    """Overlap operator S
 
-    Attributes
-    ==========
-
-    dtype: type object
-        Numerical type of operator (float/complex)
-
+    This class contains information required to apply the
+    overlap operator to a set of wavefunctions.
     """
 
     def __init__(self, ksl, timer):
