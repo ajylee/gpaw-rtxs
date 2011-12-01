@@ -24,7 +24,7 @@ def set_Gvectors(acell, bcell, nG, Ecut, q=[0., 0., 0.]):
     for i in range(3):
         a = acell[i]
         Gcut = sqrt(2*Ecut[i])
-        Gmax[i] = sqrt(a[0]**2 + a[1]**2 + a[2]**2) * Gcut/ (2*pi)
+        Gmax[i] = sqrt(a[0]**2 + a[1]**2 + a[2]**2) * Gcut/ (2*pi) + 1
      
     Nmax = 2 * Gmax + 1
     assert (nG - Nmax >=0).all() # to prevent too many planewaves
