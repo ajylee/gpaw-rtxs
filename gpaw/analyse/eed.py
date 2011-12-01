@@ -3,7 +3,7 @@ import sys
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.parallel import paropen
-from ase.data.vdW import vdW_radii
+from ase.data import vdw_radii
 
 import _gpaw
 from gpaw.io.fmf import FMF
@@ -48,7 +48,7 @@ class ExteriorElectronDensity:
 
     def get_vdWradius(self, Z):
         """Return van der Waals radius in Bohr"""
-        r = vdW_radii[Z] / Bohr
+        r = vdw_radii[Z] / Bohr
         if np.isnan(r):
             msg = 'van der Waals radius for Z=' + str(Z) + ' not known!'
             raise RuntimeError(msg)
