@@ -34,8 +34,8 @@ df = DF(calc='C.gpw', q=q, w=(0.,), eta=0.001,
         ecut=50, hilbert_trans=False, optical_limit=True)
 eM1, eM2 = df.get_macroscopic_dielectric_constant()
 
-eM1_ = 6.15185095143
-eM2_ = 6.04815084635
+eM1_ = 6.15176021 #6.15185095143 for dont use time reversal symmetry
+eM2_ = 6.04805705 #6.04815084635
 
 if (np.abs(eM1[0] - eM1_) > 1e-5 or
     np.abs(eM2[0] - eM2_) > 1e-5):
