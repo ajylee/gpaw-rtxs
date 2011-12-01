@@ -333,7 +333,7 @@ except ImportError:
                 'bse_sym.py',
                 'bse_silicon.py',
                 'aeatom.py',
-                'rpa_energy_Kr.py']
+                'rpa_energy.py']
 
 try:
     import _hdf5
