@@ -438,7 +438,7 @@ class UTHamiltonianFunctionSetup(UTLocalizedFunctionSetup):
         self.hamiltonian = RealSpaceHamiltonian(
             self.gd, self.finegd, self.nspins,
             self.setups, self.timer,
-            xc, p.external,
+            xc, p.external, True,
             p.poissonsolver, p.stencils[1])
         self.hamiltonian.dH_asp = {}
         self.hamiltonian.rank_a = self.rank0_a
