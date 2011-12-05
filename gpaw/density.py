@@ -568,8 +568,6 @@ class Density:
         # The implementation of interpolator memory use is not very
         # accurate; 20 MiB vs 13 MiB estimated in one example, probably
         # worse for parallel calculations.
-        
-        self.interpolator.estimate_memory(mem.subnode('Interpolator'))
 
     def get_spin_contamination(self, atoms, majority_spin=0):
         """Calculate the spin contamination.

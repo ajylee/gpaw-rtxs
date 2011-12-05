@@ -157,4 +157,3 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
-        self.kin.estimate_memory(mem.subnode('Kinetic operator'))

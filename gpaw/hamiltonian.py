@@ -389,7 +389,6 @@ class Hamiltonian:
         arrays.subnode('vHt_g', nfinebytes)
         arrays.subnode('vt_sG', self.nspins * nbytes)
         arrays.subnode('vt_sg', self.nspins * nfinebytes)
-        self.restrictor.estimate_memory(mem.subnode('Restrictor'))
         self.xc.estimate_memory(mem.subnode('XC'))
         self.poisson.estimate_memory(mem.subnode('Poisson'))
         self.vbar.estimate_memory(mem.subnode('vbar'))
