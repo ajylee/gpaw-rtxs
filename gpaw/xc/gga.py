@@ -12,7 +12,7 @@ from gpaw.xc.pawcorrection import rnablaY_nLv
 class GGA(LDA):
     def set_grid_descriptor(self, gd):
         LDA.set_grid_descriptor(self, gd)
-        self.grad_v = [Gradient(gd, v, allocate=True).apply for v in range(3)]
+        self.grad_v = [Gradient(gd, v).apply for v in range(3)]
 
     def calculate_lda(self, e_g, n_sg, v_sg):
         nspins = len(n_sg)

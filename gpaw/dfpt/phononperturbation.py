@@ -84,7 +84,7 @@ class PhononPerturbation(Perturbation):
         
         # Grid transformer -- convert array from fine to coarse grid
         self.restrictor = Transformer(self.finegd, self.gd, nn=3,
-                                      dtype=self.dtype, allocate=False)
+                                      dtype=self.dtype)
 
         # Atom, cartesian coordinate and q-vector of the perturbation
         self.a = None
@@ -120,9 +120,6 @@ class PhononPerturbation(Perturbation):
         # Setup the Poisson solver -- to be used on the fine grid
         self.poisson.set_grid_descriptor(self.finegd)
         self.poisson.initialize()
-
-        # Grid transformer
-        self.restrictor.allocate()
 
     def set_q(self, q):
         """Set the index of the q-vector of the perturbation."""

@@ -64,7 +64,6 @@ class Density:
 
         self.mixer = BaseMixer()
         self.timer = nulltimer
-        self.allocated = False
         
     def initialize(self, setups, stencil, timer, magmom_av, hund):
         self.timer = timer
@@ -73,8 +72,7 @@ class Density:
         self.magmom_av = magmom_av
 
         # Interpolation function for the density:
-        self.interpolator = Transformer(self.gd, self.finegd, stencil,
-                                        allocate=False)
+        self.interpolator = Transformer(self.gd, self.finegd, stencil)
         
         spline_aj = []
         for setup in setups:
@@ -87,22 +85,12 @@ class Density:
                        forces=True, cut=True)
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
                         integral=sqrt(4 * pi), forces=True)
-        if self.allocated:
-            self.allocated = False
-            self.allocate()
-
-    def allocate(self):
-        assert not self.allocated
-        self.interpolator.allocate()
-        self.allocated = True
 
     def reset(self):
         # TODO: reset other parameters?
         self.nt_sG = None
 
     def set_positions(self, spos_ac, rank_a=None):
-        if not self.allocated:
-            self.allocate()
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()

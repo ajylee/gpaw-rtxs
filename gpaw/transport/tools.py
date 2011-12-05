@@ -825,8 +825,7 @@ def interpolate_2d(mat):
     bmat = np.resize(mat, N_c)
     gd = GridDescriptor(N_c, N_c)
     finegd = GridDescriptor(N_c * 2, N_c)
-    interpolator = Transformer(gd, finegd, 3, allocate=False)
-    interpolator.allocate()
+    interpolator = Transformer(gd, finegd, 3)
     fine_bmat = finegd.zeros()
     interpolator.apply(bmat, fine_bmat)
     return fine_bmat[0]

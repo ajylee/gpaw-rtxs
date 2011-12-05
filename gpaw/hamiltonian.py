@@ -82,8 +82,7 @@ class Hamiltonian:
         self.rank_a = None
 
         # Restrictor function for the potential:
-        self.restrictor = Transformer(self.finegd, self.gd, stencil,
-                                      allocate=False)
+        self.restrictor = Transformer(self.finegd, self.gd, stencil)
         self.restrict = self.restrictor.apply
 
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
@@ -97,18 +96,9 @@ class Hamiltonian:
         self.Exc = None
         self.Etot = None
         self.S = None
-        self.allocated = False
-
-    def allocate(self):
-        # TODO We should move most of the gd.empty() calls here
-        assert not self.allocated
-        self.restrictor.allocate()
-        self.allocated = True
 
     def set_positions(self, spos_ac, rank_a=None):
         self.spos_ac = spos_ac
-        if not self.allocated:
-            self.allocate()
         self.vbar.set_positions(spos_ac)
         if self.vbar_g is None:
             self.vbar_g = self.finegd.empty()

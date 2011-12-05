@@ -118,7 +118,7 @@ class FDWFS(FDWaveFunctions):
 
         WaveFunctions.__init__(self, gd, 1, setups, bd, dtype, world,
                                kd, None)
-        self.kin = Laplace(gd, -0.5, dtype=dtype, allocate=False)
+        self.kin = Laplace(gd, -0.5, dtype=dtype)
         self.diagksl = None
         self.orthoksl = BandLayouts(gd, bd, dtype)
         self.initksl = None

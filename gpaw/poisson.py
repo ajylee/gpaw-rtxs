@@ -57,10 +57,10 @@ class PoissonSolver:
                 raise RuntimeError('Cannot use Mehrstellen stencil with '
                                    'non orthogonal cell.')
 
-            self.operators = [LaplaceA(gd, -scale, allocate=False)]
-            self.B = LaplaceB(gd, allocate=False)
+            self.operators = [LaplaceA(gd, -scale)]
+            self.B = LaplaceB(gd)
         else:
-            self.operators = [Laplace(gd, scale, self.nn, allocate=False)]
+            self.operators = [Laplace(gd, scale, self.nn)]
             self.B = None
 
         self.interpolators = []
@@ -79,9 +79,9 @@ class PoissonSolver:
                 gd2 = gd.coarsen()
             except ValueError:
                 break
-            self.operators.append(Laplace(gd2, scale, 1, allocate=False))
-            self.interpolators.append(Transformer(gd2, gd, allocate=False))
-            self.restrictors.append(Transformer(gd, gd2, allocate=False))
+            self.operators.append(Laplace(gd2, scale, 1))
+            self.interpolators.append(Transformer(gd2, gd))
+            self.restrictors.append(Transformer(gd, gd2))
             self.presmooths.append(4)
             self.postsmooths.append(4)
             self.weights.append(1.0)
@@ -106,10 +106,6 @@ class PoissonSolver:
         level += 1
         assert level == self.levels
 
-        for obj in self.operators + self.interpolators + self.restrictors:
-            obj.allocate()
-        if self.B is not None:
-            self.B.allocate()
         self.step = 0.66666666 / self.operators[0].get_diagonal_element()
         self.presmooths[level] = 8
         self.postsmooths[level] = 8
@@ -288,17 +284,6 @@ class PoissonSolver:
             nbytes += 3 * gdbytes # Arrays: rho, phi, residual
             gdbytes //= 8
         mem.subnode('rho, phi, residual [%d levels]' % self.levels, nbytes)
-
-        for i, obj in enumerate(self.restrictors + self.interpolators):
-            obj.estimate_memory(mem.subnode('Transformer %d' % i))
-
-        for i, operator in enumerate(self.operators):
-            name = operator.__class__.__name__
-            operator.estimate_memory(mem.subnode('Operator %d [%s]' % (i,
-                                                                       name)))
-        if self.B is not None:
-            name = self.B.__class__.__name__
-            self.B.estimate_memory(mem.subnode('B [%s]' % name))
 
     def __repr__(self):
         template = 'PoissonSolver(relax=\'%s\', nn=%s, eps=%e)'

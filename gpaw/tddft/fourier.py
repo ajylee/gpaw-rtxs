@@ -56,7 +56,7 @@ class DensityFourierTransform(Observer):
         self.stencil = paw.input_parameters.stencils[1] # i.e. tar['InterpolationStencil']
         self.interpolator = paw.density.interpolator
         self.cinterpolator = Transformer(self.gd, self.finegd, self.stencil, \
-                                        dtype=self.dtype, allocate=False)
+                                        dtype=self.dtype)
         self.phase_cd = np.ones((3, 2), dtype=complex)
 
         self.Ant_sG = paw.density.nt_sG.copy() # TODO in allocate instead?
@@ -75,7 +75,6 @@ class DensityFourierTransform(Observer):
             #self.Ant_sG = ...
             self.Ant_sg = None
             self.gamma_w = np.ones(self.nw, dtype=complex) * self.timestep
-            self.cinterpolator.allocate()
             self.allocated = True
 
         if debug:

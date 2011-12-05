@@ -23,7 +23,7 @@ class ScipyPreconditioner:
         # K-point for the preconditioner
         self.kpt = None
         
-        kin = Laplace(gd, scale=-0.5, n=3, dtype=dtype, allocate=True)
+        kin = Laplace(gd, scale=-0.5, n=3, dtype=dtype)
         self.pc = Preconditioner(gd, kin, dtype=dtype)
         self.pc.allocate()
         

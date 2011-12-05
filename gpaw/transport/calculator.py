@@ -465,9 +465,7 @@ class Transport(GPAW):
                 self.inner_poisson = FixedBoundaryPoissonSolver(nn=1)
             self.inner_poisson.set_grid_descriptor(self.finegd)
             self.interpolator = Transformer(self.gd1, self.finegd1,
-                                            self.input_parameters.stencils[1],
-                                            allocate=False)
-            self.interpolator.allocate()
+                                            self.input_parameters.stencils[1])
 
             if not self.multi_leads:
                 self.surround.combine(self)

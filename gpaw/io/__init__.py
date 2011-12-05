@@ -513,9 +513,7 @@ def read(paw, reader):
 
     wfs = paw.wfs
     density = paw.density
-    density.allocate()
     hamiltonian = paw.hamiltonian
-    hamiltonian.allocate()
     natoms = len(paw.atoms)
 
     world = paw.wfs.world

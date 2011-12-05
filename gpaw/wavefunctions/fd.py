@@ -30,7 +30,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.wd = self.gd  # wave function descriptor
         
         # Kinetic energy operator:
-        self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, allocate=False)
+        self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
 
         self.matrixoperator = MatrixOperator(self.orthoksl)
 
@@ -40,8 +40,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.set_setups(self, setups)
 
     def set_positions(self, spos_ac):
-        if not self.kin.is_allocated():
-            self.kin.allocate()
         FDPWWaveFunctions.set_positions(self, spos_ac)
 
     def summary(self, fd):

@@ -46,7 +46,7 @@ class SternheimerOperator:
         """
 
         self.hamiltonian = hamiltonian
-        self.kin = Laplace(gd, scale=-0.5, n=3, dtype=dtype, allocate=True)
+        self.kin = Laplace(gd, scale=-0.5, n=3, dtype=dtype)
         self.kpt_u = wfs.kpt_u
         self.pt = wfs.pt
         self.gd = gd

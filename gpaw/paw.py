@@ -612,6 +612,7 @@ class PAW(PAWTextOutput):
 
             self.density = Density(gd, finegd, nspins,
                                    par.charge + setups.core_charge, collinear)
+                                   #par.stencils[1])
 
         self.density.initialize(setups, par.stencils[1], self.timer,
                                 magmom_av, par.hund)

@@ -99,10 +99,10 @@ class ResponseCalculator:
         
         # Grid transformer -- convert array from coarse to fine grid
         self.interpolator = Transformer(self.gd, self.finegd, nn=3,
-                                        dtype=self.dtype, allocate=False)
+                                        dtype=self.dtype)
         # Grid transformer -- convert array from fine to coarse grid
         self.restrictor = Transformer(self.finegd, self.gd, nn=3,
-                                      dtype=self.dtype, allocate=False)
+                                      dtype=self.dtype)
 
         # Sternheimer operator
         self.sternheimer_operator = None
@@ -230,10 +230,6 @@ class ResponseCalculator:
                 
         # Initialize WaveFunctions attribute
         self.wfs.initialize(spos_ac)
-        
-        # Initialize interpolator and restrictor
-        self.interpolator.allocate()
-        self.restrictor.allocate()
         
         # Initialize mixer
         # weight = 1 -> no metric is used

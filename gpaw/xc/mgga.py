@@ -37,8 +37,7 @@ class MGGA(GGA):
         self.dedtaut_sG = None
         self.restrict = hamiltonian.restrictor.apply
         self.interpolate = density.interpolator.apply
-        self.taugrad_v = [Gradient(wfs.gd, v, n=self.nn, dtype=wfs.dtype,
-                                   allocate=True).apply
+        self.taugrad_v = [Gradient(wfs.gd, v, n=self.nn, dtype=wfs.dtype).apply
                           for v in range(3)]
 
     def set_positions(self, spos_ac):

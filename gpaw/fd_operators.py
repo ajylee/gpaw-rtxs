@@ -18,8 +18,7 @@ import _gpaw
 
 
 class FDOperator:
-    def __init__(self, coef_p, offset_pc, gd, dtype=float,
-                 allocate=True):
+    def __init__(self, coef_p, offset_pc, gd, dtype=float):
         """FDOperator(coefs, offsets, gd, dtype) -> FDOperator object.
         """
 
@@ -53,30 +52,17 @@ class FDOperator:
         else:
             comm = None
 
-        self.operator = None
-        self.args = [coef_p, offset_p, n_c, mp,
-                     neighbor_cd, dtype == float,
-                     comm, cfd]
         assert neighbor_cd.flags.c_contiguous and offset_p.flags.c_contiguous
         self.mp = mp # padding
         self.gd = gd
         self.npoints = len(coef_p)
 
-        self.allocated = False
-        if allocate:
-            self.allocate()
+        self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
+                                       neighbor_cd, dtype == float,
+                                       comm, cfd)
 
     def __str__(self):
         return '<%d point finite-difference stencil>' % self.npoints
-
-    def allocate(self):
-        assert not self.is_allocated()
-        self.operator = _gpaw.Operator(*self.args)
-        self.args = None
-        self.allocated = True
-
-    def is_allocated(self):
-        return self.allocated
 
     def apply(self, in_xg, out_xg, phase_cd=None):
         self.operator.apply(in_xg, out_xg, phase_cd)
@@ -89,11 +75,6 @@ class FDOperator:
 
     def get_async_sizes(self):
         return self.operator.get_async_sizes()
-
-    def estimate_memory(self, mem):
-        bufsize_c = np.array(self.gd.n_c) + 2 * self.mp
-        itemsize = mem.itemsize[self.dtype]
-        mem.setsize(np.prod(bufsize_c) * itemsize)
 
 
 if debug:
@@ -122,7 +103,7 @@ if debug:
             _FDOperator.relax(self, relax_method, f_g, s_g, n, w)
 
 class Gradient(FDOperator):
-    def __init__(self, gd, v, scale=1.0, n=1, dtype=float, allocate=True):
+    def __init__(self, gd, v, scale=1.0, n=1, dtype=float):
         h = (gd.h_cv**2).sum(1)**0.5
         d = gd.xxxiucell_cv[:,v]
         A=np.zeros((2*n+1,2*n+1))
@@ -142,16 +123,16 @@ class Gradient(FDOperator):
                 offset[:,i]=offs
                 offset_pc.extend(offset)
 
-        FDOperator.__init__(self, coef_p, offset_pc, gd, dtype, allocate)
+        FDOperator.__init__(self, coef_p, offset_pc, gd, dtype)
 
 
-def Laplace(gd, scale=1.0, n=1, dtype=float, allocate=True):
+def Laplace(gd, scale=1.0, n=1, dtype=float):
         if n == 9:
             return FTLaplace(gd, scale, dtype)
         if extra_parameters.get('newgucstencil', True):
-            return NewGUCLaplace(gd, scale, n, dtype, allocate)
+            return NewGUCLaplace(gd, scale, n, dtype)
         else:
-            return GUCLaplace(gd, scale, n, dtype, allocate)
+            return GUCLaplace(gd, scale, n, dtype)
 
 class FTLaplace:
     def __init__(self, gd, scale, dtype):
@@ -180,18 +161,9 @@ class FTLaplace:
     def get_diagonal_element(self):
         return self.d
 
-    def allocate(self):
-        pass
-    
-    def is_allocated(self):
-        return True
-
-    def estimate_memory(self, mem):
-        mem.subnode('FTLaplace estimate not implemented', 0)
-
 
 class LaplaceA(FDOperator):
-    def __init__(self, gd, scale, dtype=float, allocate=True):
+    def __init__(self, gd, scale, dtype=float):
         assert gd.orthogonal
         c = np.divide(-1/12, gd.h_cv.diagonal()**2) * scale  # Why divide? XXX
         c0 = c[1] + c[2]
@@ -214,10 +186,11 @@ class LaplaceA(FDOperator):
                              (0, -1, -1), (0, -1, 1), (0, 1, -1), (0, 1, 1),
                              (-1, 0, -1), (-1, 0, 1), (1, 0, -1), (1, 0, 1),
                              (-1, -1, 0), (-1, 1, 0), (1, -1, 0), (1, 1, 0)],
-                            gd, dtype, allocate=allocate)
+                            gd, dtype)
+
 
 class LaplaceB(FDOperator):
-    def __init__(self, gd, dtype=float, allocate=True):
+    def __init__(self, gd, dtype=float):
         a = 0.5
         b = 1.0 / 12.0
         FDOperator.__init__(self,
@@ -227,10 +200,11 @@ class LaplaceB(FDOperator):
                              (-1, 0, 0), (1, 0, 0),
                              (0, -1, 0), (0, 1, 0),
                              (0, 0, -1), (0, 0, 1)],
-                            gd, dtype, allocate=allocate)
+                            gd, dtype)
+
 
 class NewGUCLaplace(FDOperator):
-    def __init__(self, gd, scale=1.0, n=1, dtype=float, allocate=True):
+    def __init__(self, gd, scale=1.0, n=1, dtype=float):
         """Laplacian for general non orthorhombic grid.
 
         gd: GridDescriptor
@@ -241,8 +215,6 @@ class NewGUCLaplace(FDOperator):
             Range of stencil.  Stencil has O(h^(2n)) error.
         dtype: float or complex
             Datatype to work on.
-        allocate: bool
-            Allocate work arrays.
         """
 
         # Order the 13 neighbor grid points:
@@ -273,7 +245,7 @@ class NewGUCLaplace(FDOperator):
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
             coefs.extend(a_d[d] * np.array(laplace[n][1:]))
 
-        FDOperator.__init__(self, coefs, offsets, gd, dtype, allocate)
+        FDOperator.__init__(self, coefs, offsets, gd, dtype)
         
         self.n = n
 
@@ -316,7 +288,7 @@ if debug:
 
 
 class GUCLaplace(FDOperator):
-    def __init__(self, gd, scale=1.0, n=1, dtype=float, allocate=True):
+    def __init__(self, gd, scale=1.0, n=1, dtype=float):
         """Central finite diference Laplacian.
 
         Uses (max) 12*n**2 + 6*n neighbors."""
@@ -365,5 +337,5 @@ class GUCLaplace(FDOperator):
 
                 ci+=1
 
-        FDOperator.__init__(self, coefs, offsets, gd, dtype, allocate)
+        FDOperator.__init__(self, coefs, offsets, gd, dtype)
 
