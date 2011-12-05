@@ -2068,8 +2068,8 @@ class Transport(GPAW):
         vt_g[:] = ham.vbar_g
         Eext = 0.0
 
-        if ham.vext_g is not None:
-            vt_g += ham.vext_g.get_potential(ham.finegd)
+        if ham.vext is not None:
+            vt_g += ham.vext.get_potential(ham.finegd)
             Eext = np.vdot(vt_g, np.sum(nt_sg, axis=0)) * ham.finegd.dv - Ebar
 
         if ham.nspins == 2:

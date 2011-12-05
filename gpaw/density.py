@@ -65,26 +65,11 @@ class Density:
         self.mixer = BaseMixer()
         self.timer = nulltimer
         
-    def initialize(self, setups, stencil, timer, magmom_av, hund):
+    def initialize(self, setups, timer, magmom_av, hund):
         self.timer = timer
         self.setups = setups
         self.hund = hund
         self.magmom_av = magmom_av
-
-        # Interpolation function for the density:
-        self.interpolator = Transformer(self.gd, self.finegd, stencil)
-        
-        spline_aj = []
-        for setup in setups:
-            if setup.nct is None:
-                spline_aj.append([])
-            else:
-                spline_aj.append([setup.nct])
-        self.nct = LFC(self.gd, spline_aj,
-                       integral=[setup.Nct for setup in setups],
-                       forces=True, cut=True)
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-                        integral=sqrt(4 * pi), forces=True)
 
     def reset(self):
         # TODO: reset other parameters?
@@ -604,3 +589,28 @@ class Density:
         dt_sg = nt_sg[smin] - nt_sg[smaj]
         dt_sg = np.where(dt_sg > 0, dt_sg, 0.0)
         return gd.integrate(dt_sg)
+
+
+class RealSpaceDensity(Density):
+    def __init__(self, gd, finegd, nspins, charge, collinear=True,
+                 stencil=3):
+        Density.__init__(self, gd, finegd, nspins, charge, collinear)
+        self.stencil = stencil
+
+    def initialize(self, setups, timer, magmom_av, hund):
+        Density.initialize(self, setups, timer, magmom_av, hund)
+
+        # Interpolation function for the density:
+        self.interpolator = Transformer(self.gd, self.finegd, self.stencil)
+        
+        spline_aj = []
+        for setup in setups:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+        self.nct = LFC(self.gd, spline_aj,
+                       integral=[setup.Nct for setup in setups],
+                       forces=True, cut=True)
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+                        integral=sqrt(4 * pi), forces=True)

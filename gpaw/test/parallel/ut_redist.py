@@ -15,8 +15,8 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.kpt_descriptor import KPointDescriptorOld
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.density import Density
-from gpaw.hamiltonian import Hamiltonian
+from gpaw.density import RealSpaceDensity
+from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.utilities.tools import md5_array
 from gpaw.utilities.timing import nulltimer
@@ -371,8 +371,9 @@ class UTDensityFunctionSetup(UTLocalizedFunctionSetup):
         UTLocalizedFunctionSetup.setUp(self)
 
         self.finegd = self.gd.refine()
-        self.density = Density(self.gd, self.finegd, self.nspins, p.charge)
-        self.density.initialize(self.setups, p.stencils[1], self.timer, \
+        self.density = RealSpaceDensity(self.gd, self.finegd, self.nspins,
+                                        p.charge, stencil=p.stencils[1])
+        self.density.initialize(self.setups, self.timer, \
             self.atoms.get_initial_magnetic_moments(), p.hund)
         self.density.D_asp = {}
         self.density.rank_a = self.rank0_a
@@ -434,9 +435,11 @@ class UTHamiltonianFunctionSetup(UTLocalizedFunctionSetup):
         UTLocalizedFunctionSetup.setUp(self)
 
         self.finegd = self.gd.refine()
-        self.hamiltonian = Hamiltonian(self.gd, self.finegd, self.nspins,
-                                       self.setups, p.stencils[1], self.timer,
-                                       xc, p.poissonsolver, p.external)
+        self.hamiltonian = RealSpaceHamiltonian(
+            self.gd, self.finegd, self.nspins,
+            self.setups, self.timer,
+            xc, p.external,
+            p.poissonsolver, p.stencils[1])
         self.hamiltonian.dH_asp = {}
         self.hamiltonian.rank_a = self.rank0_a
         self.allocate(self.hamiltonian.dH_asp, self.hamiltonian.rank_a)

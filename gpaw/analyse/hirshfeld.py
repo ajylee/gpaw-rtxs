@@ -2,7 +2,7 @@ import numpy as np
 
 from ase import Atoms
 from ase.units import Bohr
-from gpaw.density import Density
+from gpaw.density import RealSpaceDensity
 from gpaw.lfc import BasisFunctions
 from gpaw.mixer import Mixer
 from gpaw.setup import Setups
@@ -11,12 +11,14 @@ from gpaw.utilities.tools import coordinates
 
 from gpaw.mpi import rank
 
-class HirshfeldDensity(Density):
+class HirshfeldDensity(RealSpaceDensity):
     """Density as sum of atomic densities."""
     def __init__(self, calculator):
         self.calculator = calculator
         density = calculator.density
-        Density.__init__(self, density.gd, density.finegd, 1, 0)
+        par = self.calculator.input_parameters
+        RealSpaceDensity.__init__(self, density.gd, density.finegd, 1, 0,
+                                  stencil=par.stencils[1])
 
     def get_density(self, atom_indicees=None):
         """Get sum of atomic densities from the given atom list.
@@ -54,7 +56,6 @@ class HirshfeldDensity(Density):
 
         # initialize 
         self.initialize(setups, 
-                        par.stencils[1], 
                         self.calculator.timer,
                         np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
@@ -66,8 +67,8 @@ class HirshfeldDensity(Density):
         basis_functions.set_positions(spos_ac)
         self.initialize_from_atomic_densities(basis_functions)
 
-        aed_sg, gd = Density.get_all_electron_density(self, atoms, 
-                                                      gridrefinement=2)
+        aed_sg, gd = self.get_all_electron_density(atoms, 
+                                                   gridrefinement=2)
 
         return aed_sg[0], gd
 

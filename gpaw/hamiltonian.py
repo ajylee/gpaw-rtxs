@@ -51,8 +51,8 @@ class Hamiltonian:
 
     """
 
-    def __init__(self, gd, finegd, nspins, setups, stencil, timer, xc,
-                 psolver, vext_g, collinear=True):
+    def __init__(self, gd, finegd, nspins, setups, timer, xc,
+                 vext=None, collinear=True):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -63,16 +63,10 @@ class Hamiltonian:
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
         
-        # Solver for the Poisson equation:
-        if psolver is None:
-            psolver = PoissonSolver(nn=3, relax='J')
-        self.poisson = psolver
-        self.poisson.set_grid_descriptor(finegd)
-
         self.dH_asp = None
 
         # The external potential
-        self.vext_g = vext_g
+        self.vext = vext
 
         self.vt_sG = None
         self.vHt_g = None
@@ -80,13 +74,6 @@ class Hamiltonian:
         self.vbar_g = None
 
         self.rank_a = None
-
-        # Restrictor function for the potential:
-        self.restrictor = Transformer(self.finegd, self.gd, stencil)
-        self.restrict = self.restrictor.apply
-
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
-                        forces=True)
 
         self.Ekin0 = None
         self.Ekin = None
@@ -100,10 +87,6 @@ class Hamiltonian:
     def set_positions(self, spos_ac, rank_a=None):
         self.spos_ac = spos_ac
         self.vbar.set_positions(spos_ac)
-        if self.vbar_g is None:
-            self.vbar_g = self.finegd.empty()
-        self.vbar_g[:] = 0.0
-        self.vbar.add(self.vbar_g)
 
         self.xc.set_positions(spos_ac)
         
@@ -216,60 +199,9 @@ class Hamiltonian:
             self.poisson.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
-        self.timer.start('vbar')
-        Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
-                                     global_integral=False)
+        Ekin, Epot, Ebar, Eext, Exc, W_aL = \
+            self.update_pseudo_potential(density)
 
-        vt_g = self.vt_sg[0]
-        vt_g[:] = self.vbar_g
-        self.timer.stop('vbar')
-
-        Eext = 0.0
-        if self.vext_g is not None:
-            assert self.collinear
-            vt_g += self.vext_g.get_potential(self.finegd)
-            Eext = self.finegd.integrate(vt_g, density.nt_g,
-                                         global_integral=False) - Ebar
-
-        self.vt_sg[1:self.nspins] = vt_g
-
-        self.vt_sg[self.nspins:] = 0.0
-            
-        self.timer.start('XC 3D grid')
-        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
-        Exc /= self.gd.comm.size
-        self.timer.stop('XC 3D grid')
-
-        self.timer.start('Poisson')
-        # npoisson is the number of iterations:
-        self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
-                                           charge=-density.charge)
-        self.timer.stop('Poisson')
-
-        self.timer.start('Hartree integrate/restrict')
-        Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
-                                           global_integral=False)
-        Ekin = 0.0
-        s = 0
-        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
-            if s < self.nspins:
-                vt_g += self.vHt_g
-            self.restrict(vt_g, vt_G)
-            if s < self.nspins:
-                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
-                                          global_integral=False)
-            else:
-                Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
-            s += 1
-                
-        self.timer.stop('Hartree integrate/restrict')
-            
-        # Calculate atomic hamiltonians:
-        self.timer.start('Atomic')
-        W_aL = {}
-        for a in density.D_asp:
-            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_g, W_aL)
         self.dH_asp = {}
         for a, D_sp in density.D_asp.items():
             W_L = W_aL[a]
@@ -284,8 +216,8 @@ class Hamiltonian:
             Epot += setup.M + np.dot(D_p, (setup.M_p +
                                            np.dot(setup.M_pp, D_p)))
 
-            if self.vext_g is not None:
-                vext = self.vext_g.get_taylor(spos_c=self.spos_ac[a, :])
+            if self.vext is not None:
+                vext = self.vext.get_taylor(spos_c=self.spos_ac[a, :])
                 # Tailor expansion to the zeroth order
                 Eext += vext[0][0] * (sqrt(4 * pi) * density.Q_aL[a][0]
                                       + setup.Z)
@@ -461,3 +393,88 @@ class Hamiltonian:
         self.xc.estimate_memory(mem.subnode('XC'))
         self.poisson.estimate_memory(mem.subnode('Poisson'))
         self.vbar.estimate_memory(mem.subnode('vbar'))
+
+
+class RealSpaceHamiltonian(Hamiltonian):
+    def __init__(self, gd, finegd, nspins, setups, timer, xc,
+                 vext=None, collinear=True, psolver=None, stencil=3):
+        Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
+                             vext, collinear)
+
+        # Solver for the Poisson equation:
+        if psolver is None:
+            psolver = PoissonSolver(nn=3, relax='J')
+        self.poisson = psolver
+        self.poisson.set_grid_descriptor(finegd)
+
+        # Restrictor function for the potential:
+        self.restrictor = Transformer(self.finegd, self.gd, stencil)
+        self.restrict = self.restrictor.apply
+
+        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
+                        forces=True)
+
+    def set_positions(self, spos_ac, rank_a=None):
+        Hamiltonian.set_positions(self, spos_ac, rank_a)
+        if self.vbar_g is None:
+            self.vbar_g = self.finegd.empty()
+        self.vbar_g[:] = 0.0
+        self.vbar.add(self.vbar_g)
+
+    def update_pseudo_potential(self, density):
+        self.timer.start('vbar')
+        Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
+                                     global_integral=False)
+
+        vt_g = self.vt_sg[0]
+        vt_g[:] = self.vbar_g
+        self.timer.stop('vbar')
+
+        Eext = 0.0
+        if self.vext is not None:
+            assert self.collinear
+            vt_g += self.vext.get_potential(self.finegd)
+            Eext = self.finegd.integrate(vt_g, density.nt_g,
+                                         global_integral=False) - Ebar
+
+        self.vt_sg[1:self.nspins] = vt_g
+
+        self.vt_sg[self.nspins:] = 0.0
+            
+        self.timer.start('XC 3D grid')
+        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
+        Exc /= self.gd.comm.size
+        self.timer.stop('XC 3D grid')
+
+        self.timer.start('Poisson')
+        # npoisson is the number of iterations:
+        self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
+                                           charge=-density.charge)
+        self.timer.stop('Poisson')
+
+        self.timer.start('Hartree integrate/restrict')
+        Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
+                                           global_integral=False)
+        Ekin = 0.0
+        s = 0
+        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
+            if s < self.nspins:
+                vt_g += self.vHt_g
+            self.restrict(vt_g, vt_G)
+            if s < self.nspins:
+                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
+                                          global_integral=False)
+            else:
+                Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
+            s += 1
+                
+        self.timer.stop('Hartree integrate/restrict')
+            
+        # Calculate atomic hamiltonians:
+        self.timer.start('Atomic')
+        W_aL = {}
+        for a in density.D_asp:
+            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
+        density.ghat.integrate(self.vHt_g, W_aL)
+
+        return Ekin, Epot, Ebar, Eext, Exc, W_aL

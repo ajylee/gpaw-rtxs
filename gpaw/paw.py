@@ -16,19 +16,20 @@ import gpaw.mpi as mpi
 import gpaw.occupations as occupations
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
 from gpaw.hooks import hooks
-from gpaw.density import Density
+from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.hamiltonian import Hamiltonian
+from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.wavefunctions.pw import PW
+from gpaw.wavefunctions.pw import PW, ReciprocalSpaceDensity, \
+    ReciprocalSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.parameters import InputParameters
 from gpaw.setup import Setups
@@ -600,6 +601,8 @@ class PAW(PAWTextOutput):
             # XXX Eigensolver class doesn't define an nbands_converge property
             self.wfs.set_eigensolver(eigensolver)
 
+        real_space = True  #not isinstance(mode, PW)
+
         if self.density is None:
             gd = self.wfs.gd
             if par.stencils[1] != 9:
@@ -610,21 +613,29 @@ class PAW(PAWTextOutput):
                 # Special case (use only coarse grid):
                 finegd = gd
 
-            self.density = Density(gd, finegd, nspins,
-                                   par.charge + setups.core_charge, collinear)
-                                   #par.stencils[1])
+            if real_space:
+                self.density = RealSpaceDensity(
+                    gd, finegd, nspins, par.charge + setups.core_charge,
+                    collinear, par.stencils[1])
+            else:
+                self.density = ReciprocalSpaceDensity(
+                    gd, finegd, nspins, par.charge + setups.core_charge,
+                    collinear)
 
-        self.density.initialize(setups, par.stencils[1], self.timer,
-                                magmom_av, par.hund)
+        self.density.initialize(setups, self.timer, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
             gd, finegd = self.density.gd, self.density.finegd
-            self.hamiltonian = Hamiltonian(gd, finegd, nspins,
-                                           setups, par.stencils[1], self.timer,
-                                           xc, par.poissonsolver,
-                                           par.external, collinear)
-
+            if real_space:
+                self.hamiltonian = RealSpaceHamiltonian(
+                    gd, finegd, nspins, setups, self.timer, xc, par.external,
+                    collinear, par.poissonsolver, par.stencils[1])
+            else:
+                self.hamiltonian = ReciprocalSpaceHamiltonian(
+                    gd, finegd, nspins, setups, self.timer, xc, par.external,
+                    collinear)
+            
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 

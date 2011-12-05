@@ -466,3 +466,94 @@ class PW:
         wfs = PWWaveFunctions(self.ecut, self.fftwflags,
                               diagksl, orthoksl, initksl, *args)
         return wfs
+
+
+class ReciprocalSpaceDensity(Density):
+    def initialize(self, setups, timer, magmom_av, hund):
+        Density.initialize(self, setups, timer, magmom_av, hund)
+
+        spline_aj = []
+        for setup in setups:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+        self.nct = PWLFC(self.gd, spline_aj,
+                         integral=[setup.Nct for setup in setups],
+                         forces=True, cut=True)
+        self.ghat = PWLFC(self.finegd, [setup.ghat_l for setup in setups],
+                          integral=sqrt(4 * pi), forces=True)
+
+
+class ReciprocalSpaceHamiltonian(Hamiltonian):
+    def __init__(self, gd, finegd, nspins, setups, timer, xc,
+                 vext=None, collinear=True):
+        Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
+                             vext, collinear)
+
+        self.vbar = PWLFC(self.finegd, [[setup.vbar] for setup in setups])
+
+    def set_positions(self, spos_ac, rank_a=None):
+        Hamiltonian.set_positions(self, spos_ac, rank_a)
+        if self.vbar_g is None:
+            self.vbar_g = self.finegd.empty()
+        self.vbar_g[:] = 0.0
+        self.vbar.add(self.vbar_g)
+
+    def update_pseudo_potential(self, density):
+        self.timer.start('vbar')
+        Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
+                                     global_integral=False)
+
+        vt_g = self.vt_sg[0]
+        vt_g[:] = self.vbar_g
+        self.timer.stop('vbar')
+
+        Eext = 0.0
+        if self.vext is not None:
+            assert self.collinear
+            vt_g += self.vext.get_potential(self.finegd)
+            Eext = self.finegd.integrate(vt_g, density.nt_g,
+                                         global_integral=False) - Ebar
+
+        self.vt_sg[1:self.nspins] = vt_g
+
+        self.vt_sg[self.nspins:] = 0.0
+            
+        self.timer.start('XC 3D grid')
+        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
+        Exc /= self.gd.comm.size
+        self.timer.stop('XC 3D grid')
+
+        self.timer.start('Poisson')
+        # npoisson is the number of iterations:
+        self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
+                                           charge=-density.charge)
+        self.timer.stop('Poisson')
+
+        self.timer.start('Hartree integrate/restrict')
+        Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
+                                           global_integral=False)
+        Ekin = 0.0
+        s = 0
+        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
+            if s < self.nspins:
+                vt_g += self.vHt_g
+            self.restrict(vt_g, vt_G)
+            if s < self.nspins:
+                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
+                                          global_integral=False)
+            else:
+                Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
+            s += 1
+                
+        self.timer.stop('Hartree integrate/restrict')
+            
+        # Calculate atomic hamiltonians:
+        self.timer.start('Atomic')
+        W_aL = {}
+        for a in density.D_asp:
+            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
+        density.ghat.integrate(self.vHt_g, W_aL)
+
+        return Ekin, Epot, Ebar, Eext, Exc, W_aL
