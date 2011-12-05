@@ -12,6 +12,8 @@ from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y
 from gpaw.utilities import _fact as fac
 from gpaw.utilities.blas import rk, r2k, gemm
+from gpaw.density import Density
+from gpaw.hamiltonian import Hamiltonian
 
 
 class PWDescriptor:
