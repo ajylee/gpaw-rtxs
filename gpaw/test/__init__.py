@@ -51,6 +51,7 @@ def wrap_pylab(names=[]):
 
 
 tests = [
+    'gd.py',
     'ase3k_version.py',
     'numpy_core_multiarray_dot.py',
     'numpy_zdotc_graphite.py',

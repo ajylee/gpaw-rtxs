@@ -229,8 +229,8 @@ class GridDescriptor(Domain):
                     self.comm.sum(result)
             return result
 
-        A_xg = a_xg.reshape((-1,) + a_xg.shape[-3:])
-        B_yg = b_yg.reshape((-1,) + b_yg.shape[-3:])
+        A_xg = np.ascontiguousarray(a_xg.reshape((-1,) + a_xg.shape[-3:]))
+        B_yg = np.ascontiguousarray(b_yg.reshape((-1,) + b_yg.shape[-3:]))
 
         if _transposed_result is None:
             result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
