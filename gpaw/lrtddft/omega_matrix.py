@@ -88,7 +88,7 @@ class OmegaMatrix:
             self.poisson.initialize()
             self.gd = wfs.gd
         self.restrict = Transformer(self.paw.density.finegd, wfs.gd,
-                                    self.paw.input_parameters.stencils[0]
+                                    self.paw.input_parameters.stencils[1]
                                     ).apply
 
         if xc == 'RPA': 
