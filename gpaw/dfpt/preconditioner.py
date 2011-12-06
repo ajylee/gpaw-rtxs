@@ -25,7 +25,6 @@ class ScipyPreconditioner:
         
         kin = Laplace(gd, scale=-0.5, n=3, dtype=dtype)
         self.pc = Preconditioner(gd, kin, dtype=dtype)
-        self.pc.allocate()
         
         # For scipy's linear solver
         N = np.prod(gd.n_c)
