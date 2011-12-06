@@ -278,7 +278,7 @@ class PAWTextOutput:
             t('Energy Contributions Relative to Reference Atom:', end='')
         else:
             t('Energy Contributions Relative to Reference Atoms:', end='')
-        t('(reference = %.5f)' % (self.wfs.setups.Eref * Hartree))
+        t('(reference = %.6f)' % (self.wfs.setups.Eref * Hartree))
 
         t('-------------------------')
 
@@ -290,11 +290,11 @@ class PAWTextOutput:
                     ('Local:        ',  self.hamiltonian.Ebar)]
 
         for name, e in energies:
-            t('%-14s %+10.5f' % (name, Hartree * e))
+            t('%-14s %+11.6f' % (name, Hartree * e))
 
         t('-------------------------')
-        t('Free Energy:   %+10.5f' % (Hartree * self.hamiltonian.Etot))
-        t('Zero Kelvin:   %+10.5f' % (Hartree * (self.hamiltonian.Etot +
+        t('Free Energy:   %+11.6f' % (Hartree * self.hamiltonian.Etot))
+        t('Zero Kelvin:   %+11.6f' % (Hartree * (self.hamiltonian.Etot +
                                                  0.5 * self.hamiltonian.S)))
         t()
         self.occupations.print_fermi_level(self.txt)
@@ -393,7 +393,7 @@ class PAWTextOutput:
             else:
                 niterpoisson = str(self.hamiltonian.npoisson)
 
-            t('iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %- 12.5f %-5s  %-7s' %
+            t('iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %11.6f  %-5s  %-7s' %
               (iter,
                T[3], T[4], T[5],
                eigerr,
