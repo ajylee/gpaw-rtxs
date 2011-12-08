@@ -80,8 +80,6 @@ class Density:
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
 
-        self.nct_G = self.gd.zeros()
-        self.nct.add(self.nct_G, 1.0 / self.nspins)
         #self.nt_sG = None
         self.nt_sg = None
         self.nt_g = None
@@ -171,17 +169,6 @@ class Density:
                 self.nt_sG[:self.nspins] = -(self.charge +
                                              comp_charge) / volume
 
-    def calculate_pseudo_charge(self, comp_charge):
-        self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)
-        self.rhot_g = self.nt_g.copy()
-        self.ghat.add(self.rhot_g, self.Q_aL)
-
-        if debug:
-            charge = self.finegd.integrate(self.rhot_g) + self.charge
-            if abs(charge) > self.charge_eps:
-                raise RuntimeError('Charge not conserved: excess=%.9f' %
-                                   charge)
-
     def mix(self, comp_charge):
         if not self.mixer.mix_rho:
             self.mixer.mix(self)
@@ -192,28 +179,6 @@ class Density:
 
         if self.mixer.mix_rho:
             self.mixer.mix(self)
-
-    def interpolate(self, comp_charge=None):
-        """Interpolate pseudo density to fine grid."""
-        if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
-
-        if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
-
-        for nt_G, nt_g in zip(self.nt_sG, self.nt_sg):
-            self.interpolator.apply(nt_G, nt_g)
-
-        # With periodic boundary conditions, the interpolation will
-        # conserve the number of electrons.
-        if not self.gd.pbc_c.all():
-            # With zero-boundary conditions in one or more directions,
-            # this is not the case.
-            pseudo_charge = -(self.charge + comp_charge)
-            if abs(pseudo_charge) > 1.0e-14:
-                x = (pseudo_charge /
-                     self.finegd.integrate(self.nt_sg[:self.nspins]).sum())
-                self.nt_sg *= x
 
     def calculate_multipole_moments(self):
         """Calculate multipole moments of compensation charges.
@@ -612,3 +577,42 @@ class RealSpaceDensity(Density):
                        forces=True, cut=True)
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
                         integral=sqrt(4 * pi), forces=True)
+
+    def set_positions(self, spos_ac, rank_a=None):
+        Density.set_positions(self, spos_ac, rank_a)
+        self.nct_G = self.gd.zeros()
+        self.nct.add(self.nct_G, 1.0 / self.nspins)
+
+    def interpolate(self, comp_charge=None):
+        """Interpolate pseudo density to fine grid."""
+        if comp_charge is None:
+            comp_charge = self.calculate_multipole_moments()
+
+        if self.nt_sg is None:
+            self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
+
+        for nt_G, nt_g in zip(self.nt_sG, self.nt_sg):
+            self.interpolator.apply(nt_G, nt_g)
+
+        # With periodic boundary conditions, the interpolation will
+        # conserve the number of electrons.
+        if not self.gd.pbc_c.all():
+            # With zero-boundary conditions in one or more directions,
+            # this is not the case.
+            pseudo_charge = -(self.charge + comp_charge)
+            if abs(pseudo_charge) > 1.0e-14:
+                x = (pseudo_charge /
+                     self.finegd.integrate(self.nt_sg[:self.nspins]).sum())
+                self.nt_sg *= x
+
+    def calculate_pseudo_charge(self, comp_charge):
+        self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)
+        self.rhot_g = self.nt_g.copy()
+        self.ghat.add(self.rhot_g, self.Q_aL)
+
+        if debug:
+            charge = self.finegd.integrate(self.rhot_g) + self.charge
+            if abs(charge) > self.charge_eps:
+                raise RuntimeError('Charge not conserved: excess=%.9f' %
+                                   charge)
+

@@ -71,7 +71,6 @@ class Hamiltonian:
         self.vt_sG = None
         self.vHt_g = None
         self.vt_sg = None
-        self.vbar_g = None
 
         self.rank_a = None
 
@@ -412,6 +411,7 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
                         forces=True)
+        self.vbar_g = None
 
     def set_positions(self, spos_ac, rank_a=None):
         Hamiltonian.set_positions(self, spos_ac, rank_a)

@@ -383,7 +383,12 @@ class PWLFC(BaseLFC):
                            self.Y_qLG[q, l**2:(l + 1)**2])
         return f_IG
 
-    def add(self, a_xG, c_axi, q=-1):
+    def add(self, a_xG, c_axi=1.0, q=-1):
+        if isinstance(c_axi, float):
+            assert q == -1, a_xG.dims == 1
+            a_xG += (1.0 / self.pd.gd.dv) * self.expand(-1).sum(0)
+            return
+
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
         c_xI = np.empty(a_xG.shape[:-1] + (nI,), self.pd.dtype)
         f_IG = self.expand(q)
@@ -471,6 +476,29 @@ class PW:
 
 
 class ReciprocalSpaceDensity(Density):
+    def __init__(self, gd, finegd, nspins, charge, collinear=True):
+        Density.__init__(self, gd, finegd, nspins, charge, collinear)
+
+        self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).min()
+        self.pd2 = PWDescriptor(self.ecut2, self.gd)
+        self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).min()
+        self.pd3 = PWDescriptor(self.ecut3, self.finegd)
+
+        N_c = np.array(self.pd2.tmp_Q.shape)
+        N3_c = self.pd3.tmp_Q.shape
+        Q2_G = self.pd2.Q_G
+        Q2_Gc = np.empty((len(Q2_G), 3), int)
+        Q2_Gc[:, 0], r_G = divmod(Q2_G, N_c[1] * N_c[2])
+        Q2_Gc.T[1:] = divmod(r_G, N_c[2])
+        Q2_Gc[:, :2] += N_c[:2] // 2
+        Q2_Gc[:, :2] %= N_c[:2]
+        Q2_Gc[:, :2] -= N_c[:2] // 2
+        Q2_Gc[:, :2] %= N3_c[:2]
+        Q3_G = Q2_Gc[:, 2] + N3_c[2] * (Q2_Gc[:, 1] + N3_c[1] * Q2_Gc[:, 0])
+        G3_Q = np.empty(N3_c, int).ravel()
+        G3_Q[self.pd3.Q_G] = np.arange(len(self.pd3))
+        self.G3_G = G3_Q[Q3_G]
+
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
 
@@ -480,52 +508,106 @@ class ReciprocalSpaceDensity(Density):
                 spline_aj.append([])
             else:
                 spline_aj.append([setup.nct])
-        self.nct = PWLFC(self.gd, spline_aj,
-                         integral=[setup.Nct for setup in setups],
-                         forces=True, cut=True)
-        self.ghat = PWLFC(self.finegd, [setup.ghat_l for setup in setups],
-                          integral=sqrt(4 * pi), forces=True)
+        self.nct = PWLFC(spline_aj, self.pd2)
+
+        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
+
+    def set_positions(self, spos_ac, rank_a=None):
+        Density.set_positions(self, spos_ac, rank_a)
+        self.nct_q = self.pd2.zeros()
+        self.nct.add(self.nct_q, 1.0 / self.nspins)
+        self.nct_G = self.pd2.ifft(self.nct_q)
+
+    def interpolate(self, comp_charge=None):
+        """Interpolate pseudo density to fine grid."""
+        #if comp_charge is None:
+        #    comp_charge = self.calculate_multipole_moments()
+
+        if self.nt_sg is None:
+            self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
+            self.nt_sQ = self.pd2.empty(self.nspins * self.ncomp**2)
+
+        a_Q = self.pd2.tmp_Q
+        b_Q = self.pd3.tmp_Q
+        n0, n1, n2 = a_Q.shape
+        n0 //= 2
+        n1 //= 2
+        for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
+            self.pd2.tmp_R[:] = nt_G
+            self.pd2.fftplan.execute()
+            nt_Q[:] = a_Q.ravel()[self.pd2.Q_G]
+            b_Q[n0:-n0, n1:-n1, :n2] = np.fft.fftshift(a_Q, axes=(0, 1))
+            b_Q[-n0, n1:-n1, :n2] = b_Q[n0, n1:-n1, :n2]
+            b_Q[n0:-n0 + 1, -n1, :n2] = b_Q[n0:-n0 + 1, n1, :n2]
+            b_Q[n0::2 * n0] *= 0.5
+            b_Q[:, n1::2 * n1] *= 0.5
+            b_Q[:, :, n2 - 1] *= 0.5
+            b_Q[:] = np.fft.ifftshift(b_Q, axes=(0, 1))
+            self.pd3.ifftplan.execute()
+            nt_g[:] = self.pd3.tmp_R * (8.0 / self.pd3.tmp_R.size)
+            print abs(nt_G-nt_g[::2,::2,::2]).max()
+
+    def calculate_pseudo_charge(self, comp_charge):
+        self.nt_Q = self.nt_sQ[:self.nspins].sum(axis=0)
+        self.rhot_q = self.pd3.zeros()
+        self.rhot_q[self.G3_G] = self.nt_Q
+        self.ghat.add(self.rhot_q, self.Q_aL)
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, nspins, setups, timer, xc,
+    def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
                  vext=None, collinear=True):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
                              vext, collinear)
 
-        self.vbar = PWLFC(self.finegd, [[setup.vbar] for setup in setups])
+        self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
+        self.pd2 = pd2
+        self.pd3 = pd3
+
+        class PS:
+            def initialize(self):
+                pass
+        self.poisson = PS()
 
     def set_positions(self, spos_ac, rank_a=None):
         Hamiltonian.set_positions(self, spos_ac, rank_a)
-        if self.vbar_g is None:
-            self.vbar_g = self.finegd.empty()
-        self.vbar_g[:] = 0.0
-        self.vbar.add(self.vbar_g)
+        self.vbar_Q = self.pd2.zeros()
+        self.vbar.add(self.vbar_Q)
 
     def update_pseudo_potential(self, density):
-        self.timer.start('vbar')
-        Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
-                                     global_integral=False)
+        Ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
 
-        vt_g = self.vt_sg[0]
-        vt_g[:] = self.vbar_g
-        self.timer.stop('vbar')
-
-        Eext = 0.0
-        if self.vext is not None:
-            assert self.collinear
-            vt_g += self.vext.get_potential(self.finegd)
-            Eext = self.finegd.integrate(vt_g, density.nt_g,
-                                         global_integral=False) - Ebar
-
-        self.vt_sg[1:self.nspins] = vt_g
-
-        self.vt_sg[self.nspins:] = 0.0
+        self.vt_sg[:] = 0.0
             
         self.timer.start('XC 3D grid')
         Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
         Exc /= self.gd.comm.size
+        print density.nt_sg[0,0,0]
+        print self.vt_sg[0,0,0]
+        a_Q = self.pd2.tmp_Q
+        b_Q = self.pd3.tmp_Q
+        n0, n1, n2 = a_Q.shape
+        n0 //= 2
+        n1 //= 2
+        for vt_G, vt_g in zip(self.vt_sG, self.vt_sg):
+            self.pd3.tmp_R[:] = vt_g
+            self.pd3.fftplan.execute()
+            b_Q[:] = np.fft.fftshift(b_Q, axes=(0, 1))
+            b_Q[n0, n1:-n1 + 1, :n2] += b_Q[-n0, n1:-n1 + 1, :n2]
+            b_Q[n0:-n0, n1, :n2] += b_Q[n0:-n0, -n1, :n2]
+            a_Q[:] = b_Q[n0:-n0, n1:-n1, :n2]
+            a_Q[:, :, n2 - 1] *= 2.0
+            a_Q[:] = np.fft.ifftshift(a_Q, axes=(0, 1))
+            self.pd2.ifftplan.execute()
+            vt_G[:] = self.pd2.tmp_R
+            vt_G *= 1.0 / self.pd3.tmp_R.size
+            print abs(vt_G-vt_g[::2,::2,::2]).max()
         self.timer.stop('XC 3D grid')
+
+        vt_g = self.vt_sg[0]
+        vt_g[:] = self.vbar_g
+
+        self.vt_sg[1:self.nspins] = vt_g
 
         self.timer.start('Poisson')
         # npoisson is the number of iterations:

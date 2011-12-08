@@ -633,7 +633,9 @@ class PAW(PAWTextOutput):
                     collinear, par.poissonsolver, par.stencils[1])
             else:
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
-                    gd, finegd, nspins, setups, self.timer, xc, par.external,
+                    gd, finegd,
+                    self.density.pd2, self.density.pd3,
+                    nspins, setups, self.timer, xc, par.external,
                     collinear)
             
         xc.initialize(self.density, self.hamiltonian, self.wfs,
