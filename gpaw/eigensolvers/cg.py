@@ -6,7 +6,7 @@ import numpy as np
 from numpy import dot
 from ase.units import Hartree
 
-from gpaw.utilities.blas import axpy, rk, r2k, gemm
+from gpaw.utilities.blas import axpy, rk, r2k, gemm, dotc
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 
@@ -46,16 +46,16 @@ class CG(Eigensolver):
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a conjugate gradient iterations for the kpoint"""
-        
+
         niter = self.niter
         phi_G = self.phi_G
         phi_old_G = self.phi_old_G
-        
+
         self.subspace_diagonalize(hamiltonian, wfs, kpt)
-        
+
         R_nG = wfs.matrixoperator.suggest_temporary_buffer()
         Htphi_G = R_nG[0]
-        
+
         R_nG[:] = self.Htpsit_nG
         self.timer.start('Residuals')
         self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
@@ -85,7 +85,7 @@ class CG(Eigensolver):
                 phi_G[:] = -pR_G - gamma / gamma_old * phi_old_G
                 gamma_old = gamma
                 phi_old_G[:] = phi_G[:]
-                
+
                 # Calculate projections
                 P2_ai = wfs.pt.dict()
                 wfs.pt.integrate(phi_G, P2_ai, kpt.q)
@@ -93,11 +93,15 @@ class CG(Eigensolver):
                 # Orthonormalize phi_G to all bands
                 self.timer.start('CG: orthonormalize')
                 for nn in range(self.nbands):
-                    overlap = np.vdot(kpt.psit_nG[nn], phi_G) * self.gd.dv
+                    self.timer.start('CG: overlap')
+                    overlap = dotc(kpt.psit_nG[nn], phi_G) * self.gd.dv
+                    self.timer.stop('CG: overlap')
+                    self.timer.start('CG: overlap2')
                     for a, P2_i in P2_ai.items():
                         P_i = kpt.P_ani[a][nn]
                         dO_ii = wfs.setups[a].dO_ii
-                        overlap += np.vdot(P_i, np.inner(dO_ii, P2_i))
+                        overlap += dotc(P_i, np.inner(dO_ii, P2_i))
+                    self.timer.stop('CG: overlap2')
                     overlap = self.gd.comm.sum(overlap)
                     # phi_G -= overlap * kpt.psit_nG[nn]
                     axpy(-overlap, kpt.psit_nG[nn], phi_G)
