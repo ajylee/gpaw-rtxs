@@ -601,7 +601,7 @@ class PAW(PAWTextOutput):
             # XXX Eigensolver class doesn't define an nbands_converge property
             self.wfs.set_eigensolver(eigensolver)
 
-        real_space = True  #not isinstance(mode, PW)
+        real_space = not isinstance(mode, PW)
 
         if self.density is None:
             gd = self.wfs.gd

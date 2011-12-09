@@ -201,6 +201,7 @@ class Hamiltonian:
         Ekin, Epot, Ebar, Eext, Exc, W_aL = \
             self.update_pseudo_potential(density)
 
+        self.timer.start('Atomic')
         self.dH_asp = {}
         for a, D_sp in density.D_asp.items():
             W_L = W_aL[a]
@@ -301,6 +302,28 @@ class Hamiltonian:
                      self.Ebar + self.Exc - self.S)
 
         return self.Etot
+
+    def calculate_forces(self, dens, F_av):
+        ghat_aLv = dens.ghat.dict(derivative=True)
+        nct_av = dens.nct.dict(derivative=True)
+        vbar_av = self.vbar.dict(derivative=True)
+
+        self.calculate_forces2(dens, ghat_aLv, nct_av, vbar_av)
+
+        # Force from compensation charges:
+        for a, dF_Lv in ghat_aLv.items():
+            F_av[a] += np.dot(dens.Q_aL[a], dF_Lv)
+
+        # Force from smooth core charge:
+        for a, dF_v in nct_av.items():
+            F_av[a] += dF_v[0]
+
+        # Force from zero potential:
+        for a, dF_v in vbar_av.items():
+            F_av[a] += dF_v[0]
+
+        self.xc.add_forces(F_av)
+        self.gd.comm.sum(F_av, 0)
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
         """Apply the Hamiltonian operator to a set of vectors.
@@ -454,6 +477,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.start('Hartree integrate/restrict')
         Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
                                            global_integral=False)
+
         Ekin = 0.0
         s = 0
         for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
@@ -466,14 +490,23 @@ class RealSpaceHamiltonian(Hamiltonian):
             else:
                 Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
             s += 1
-                
+
         self.timer.stop('Hartree integrate/restrict')
             
         # Calculate atomic hamiltonians:
-        self.timer.start('Atomic')
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
         density.ghat.integrate(self.vHt_g, W_aL)
 
         return Ekin, Epot, Ebar, Eext, Exc, W_aL
+
+    def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
+        if self.nspins == 2:
+            vt_G = self.vt_sG.mean(0)
+        else:
+            vt_G = self.vt_sG[0]
+
+        dens.ghat.derivative(self.vHt_g, ghat_aLv)
+        dens.nct.derivative(vt_G, nct_av)
+        self.vbar.derivative(dens.nt_g, vbar_av)

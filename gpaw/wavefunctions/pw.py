@@ -27,7 +27,7 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        assert 0.5 * pi**2 / (gd.h_cv**2).sum(1).max() > ecut
+        assert 0.5 * pi**2 / (gd.h_cv**2).sum(1).max() >= ecut
 
         self.dtype = dtype
 
@@ -108,14 +108,36 @@ class PWDescriptor:
         shape = x + self.Q_G.shape
         return np.empty(shape, complex)
     
-    def fft(self, a_R):
-        self.tmp_R[:] = a_R
+    def fft(self, f_R):
+        """Fast Fourier transform.
+
+        Returns c(G) for G<Gc::
+  
+                   __
+                  \        -iG.R
+            c(G) = ) f(R) e
+                  /__
+                   R
+        """
+
+        self.tmp_R[:] = f_R
         self.fftplan.execute()
         return self.tmp_Q.ravel()[self.Q_G]
 
-    def ifft(self, a_G):
+    def ifft(self, c_G):
+        """Inverse fast Fourier transform.
+
+        Returns::
+  
+                      __
+                   1 \        iG.R
+            f(R) = -  ) c(G) e
+                   N /__
+                      G
+        """
+
         self.tmp_Q[:] = 0.0
-        self.tmp_Q.ravel()[self.Q_G] = a_G
+        self.tmp_Q.ravel()[self.Q_G] = c_G
         if self.dtype == float:
             t = self.tmp_Q[:, :, 0]
             n, m = self.gd.N_c[:2] // 2 - 1
@@ -145,17 +167,15 @@ class PWDescriptor:
             Long story.  Don't use this unless you are a method of the
             MatrixOperator class ..."""
         
-        xshape = a_xg.shape[:-1]
-        
-        alpha = self.gd.dv / self.gd.N_c.prod()
-
         if b_yg is None:
             # Only one array:
             assert self.dtype == float
-            return a_xg[..., 0].real * alpha
+            return a_xg[..., 0].real * self.gd.dv
 
         A_xg = a_xg.reshape((-1, len(self)))
         B_yg = b_yg.reshape((-1, len(self)))
+
+        alpha = self.gd.dv / self.gd.N_c.prod()
 
         if self.dtype == float:
             alpha *= 2
@@ -177,6 +197,7 @@ class PWDescriptor:
         if self.dtype == float:
             result_yx -= 0.5 * alpha * np.outer(B_yg[:, 0], A_xg[:, 0])
 
+        xshape = a_xg.shape[:-1]
         yshape = b_yg.shape[:-1]
         result = result_yx.T.reshape(xshape + yshape)
         
@@ -479,9 +500,9 @@ class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, collinear=True):
         Density.__init__(self, gd, finegd, nspins, charge, collinear)
 
-        self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).min()
+        self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
         self.pd2 = PWDescriptor(self.ecut2, self.gd)
-        self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).min()
+        self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max()
         self.pd3 = PWDescriptor(self.ecut3, self.finegd)
 
         N_c = np.array(self.pd2.tmp_Q.shape)
@@ -536,6 +557,7 @@ class ReciprocalSpaceDensity(Density):
             self.pd2.tmp_R[:] = nt_G
             self.pd2.fftplan.execute()
             nt_Q[:] = a_Q.ravel()[self.pd2.Q_G]
+            b_Q[:] = 0.0
             b_Q[n0:-n0, n1:-n1, :n2] = np.fft.fftshift(a_Q, axes=(0, 1))
             b_Q[-n0, n1:-n1, :n2] = b_Q[n0, n1:-n1, :n2]
             b_Q[n0:-n0 + 1, -n1, :n2] = b_Q[n0:-n0 + 1, n1, :n2]
@@ -545,13 +567,13 @@ class ReciprocalSpaceDensity(Density):
             b_Q[:] = np.fft.ifftshift(b_Q, axes=(0, 1))
             self.pd3.ifftplan.execute()
             nt_g[:] = self.pd3.tmp_R * (8.0 / self.pd3.tmp_R.size)
-            print abs(nt_G-nt_g[::2,::2,::2]).max()
 
     def calculate_pseudo_charge(self, comp_charge):
         self.nt_Q = self.nt_sQ[:self.nspins].sum(axis=0)
         self.rhot_q = self.pd3.zeros()
-        self.rhot_q[self.G3_G] = self.nt_Q
+        self.rhot_q[self.G3_G] = self.nt_Q * 8
         self.ghat.add(self.rhot_q, self.Q_aL)
+        self.rhot_q[0] = 0.0
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
@@ -567,7 +589,12 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         class PS:
             def initialize(self):
                 pass
+            def get_method(self):
+                return 'FFT'
+            def get_stencil(self):
+                return '????'
         self.poisson = PS()
+        self.npoisson = 0
 
     def set_positions(self, spos_ac, rank_a=None):
         Hamiltonian.set_positions(self, spos_ac, rank_a)
@@ -575,22 +602,35 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar.add(self.vbar_Q)
 
     def update_pseudo_potential(self, density):
-        Ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
+        ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
 
-        self.vt_sg[:] = 0.0
-            
+        self.timer.start('Poisson')
+        # npoisson is the number of iterations:
+        #self.npoisson = 0
+        self.vHt_q = 4 * pi * density.rhot_q.copy()
+        self.vHt_q[1:] /= self.pd3.G2_qG[0, 1:]
+        epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
+        self.timer.stop('Poisson')
+
+        # Calculate atomic hamiltonians:
+        W_aL = {}
+        for a in density.D_asp:
+            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
+        density.ghat.integrate(self.vHt_q, W_aL)
+
+        self.vt_Q = self.vbar_Q + self.vHt_q[density.G3_G] / 8
+        self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
+        
         self.timer.start('XC 3D grid')
-        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
-        Exc /= self.gd.comm.size
-        print density.nt_sg[0,0,0]
-        print self.vt_sg[0,0,0]
+        vxct_sg = self.finegd.zeros(self.nspins)
+        exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)
         a_Q = self.pd2.tmp_Q
         b_Q = self.pd3.tmp_Q
         n0, n1, n2 = a_Q.shape
         n0 //= 2
         n1 //= 2
-        for vt_G, vt_g in zip(self.vt_sG, self.vt_sg):
-            self.pd3.tmp_R[:] = vt_g
+        for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
+            self.pd3.tmp_R[:] = vxct_g
             self.pd3.fftplan.execute()
             b_Q[:] = np.fft.fftshift(b_Q, axes=(0, 1))
             b_Q[n0, n1:-n1 + 1, :n2] += b_Q[-n0, n1:-n1 + 1, :n2]
@@ -598,46 +638,21 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             a_Q[:] = b_Q[n0:-n0, n1:-n1, :n2]
             a_Q[:, :, n2 - 1] *= 2.0
             a_Q[:] = np.fft.ifftshift(a_Q, axes=(0, 1))
+            self.vt_Q += a_Q.ravel()[self.pd2.Q_G] / self.nspins
             self.pd2.ifftplan.execute()
-            vt_G[:] = self.pd2.tmp_R
-            vt_G *= 1.0 / self.pd3.tmp_R.size
-            print abs(vt_G-vt_g[::2,::2,::2]).max()
+            vt_G += self.pd2.tmp_R * (1.0 / self.pd3.tmp_R.size)
         self.timer.stop('XC 3D grid')
 
-        vt_g = self.vt_sg[0]
-        vt_g[:] = self.vbar_g
+        ekin = 0.0
+        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+            ekin -= self.gd.integrate(vt_G, nt_G)
+        ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
 
-        self.vt_sg[1:self.nspins] = vt_g
+        eext = 0.0
 
-        self.timer.start('Poisson')
-        # npoisson is the number of iterations:
-        self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
-                                           charge=-density.charge)
-        self.timer.stop('Poisson')
+        return ekin, epot, ebar, eext, exc, W_aL
 
-        self.timer.start('Hartree integrate/restrict')
-        Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
-                                           global_integral=False)
-        Ekin = 0.0
-        s = 0
-        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
-            if s < self.nspins:
-                vt_g += self.vHt_g
-            self.restrict(vt_g, vt_G)
-            if s < self.nspins:
-                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
-                                          global_integral=False)
-            else:
-                Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
-            s += 1
-                
-        self.timer.stop('Hartree integrate/restrict')
-            
-        # Calculate atomic hamiltonians:
-        self.timer.start('Atomic')
-        W_aL = {}
-        for a in density.D_asp:
-            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_g, W_aL)
-
-        return Ekin, Epot, Ebar, Eext, Exc, W_aL
+    def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
+        dens.ghat.derivative(self.vHt_q, ghat_aLv)
+        dens.nct.derivative(self.vt_Q, nct_av)
+        self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)
