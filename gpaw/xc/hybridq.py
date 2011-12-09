@@ -1,4 +1,4 @@
- # Copyright (C) 2010  CAMd
+# Copyright (C) 2010  CAMd
 # Please see the accompanying LICENSE file for further information.
 
 """This module provides all the classes and functions associated with the
@@ -14,11 +14,10 @@ from time import ctime
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCNull
 from gpaw.xc.functional import XCFunctional
-from gpaw.utilities import hartree, pack, unpack2, packed_index, devnull
+from gpaw.utilities import pack, unpack2, packed_index, devnull
 from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.kpoint import KPoint as KPoint0
 from gpaw.mpi import world, rank
 
 class KPoint:
@@ -223,7 +222,7 @@ class HybridXC(XCFunctional):
         
         self.ghat = LFC(self.gd,
                         [setup.ghat_l for setup in density.setups],
-                        dtype=complex)
+                        KPointDescriptor(self.bzq_qc), dtype=complex)
         
         self.interpolator = density.interpolator
         self.print_initialization(hamiltonian.xc.name)
@@ -245,6 +244,7 @@ class HybridXC(XCFunctional):
         K = len(kd.bzk_kc)
         W = world.size // self.nspins
         parallel = (W > 1)
+        
         self.exx = 0.0
         self.exx_kq = np.zeros((K, len(self.ibzq_qc)), float)
                 
@@ -260,23 +260,26 @@ class HybridXC(XCFunctional):
                                ik, kpq[0], iq)
 
         self.exx = world.sum(self.exx)
-        print '---------------------------------', self.exx
-        paw = self.calculate_exx_paw_correction()
-        self.exx += paw
+        self.exx += self.calculate_exx_paw_correction()
+
         exx_q = np.sum(self.exx_kq, 0)
+
         print >> self.txt
-        print >> self.txt, '--------------------------------------------'
+        print >> self.txt, \
+              '------------------------------------------------------'
         print >> self.txt
         print >> self.txt, 'Contributions: q         w        E_q (eV)' 
         for q in range(len(exx_q)):
-            print >> self.txt, '[%1.3f %1.3f %1.3f]    %1.3f   %s' % (self.ibzq_qc[q][0], self.ibzq_qc[q][1], self.ibzq_qc[q][2], self.q_weights[q]/len(self.bzq_qc), exx_q[q]/self.q_weights[q]*len(self.bzq_qc)*Ha)
-        print >> self.txt, 'PAW correction: %s eV' % (paw*Ha)
-        print >> self.txt
+            print >> self.txt, '[%1.3f %1.3f %1.3f]    %1.3f   %s' % \
+                  (self.ibzq_qc[q][0], self.ibzq_qc[q][1], self.ibzq_qc[q][2],
+                   self.q_weights[q]/len(self.bzq_qc),
+                   exx_q[q]/self.q_weights[q]*len(self.bzq_qc)*Ha)
         print >> self.txt, 'E_EXX = %s eV' % (self.exx*Ha)
         print >> self.txt
         print >> self.txt, 'Calculation completed at:  ', ctime()
         print >> self.txt
-        print >> self.txt, '------------------------------------------------------'
+        print >> self.txt, \
+              '------------------------------------------------------'
         print >> self.txt
          
     def apply(self, kpt1, kpt2, ik1, ik2, iq):
@@ -291,7 +294,7 @@ class HybridXC(XCFunctional):
                     break    
         else:
             bzq_index = iq
-        
+
         N_c = self.gd.N_c
         eikr_R = np.exp(-2j * pi * np.dot(np.indices(N_c).T, q / N_c).T)
 
@@ -321,15 +324,53 @@ class HybridXC(XCFunctional):
                 if abs(f1) < fcut or abs(f2) < fcut:
                     continue
 
-                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, ik1, ik2, bzq_index)
+                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2,
+                                                   ik1, ik2, bzq_index)
                 nt_G = self.pwd.fft(nt_R * eikr_R) / N
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid
                 self.exx += f1 * f2 * e
-                self.exx_kq[ik1,iq] += f1*f2*e
+                self.exx_kq[ik1,iq] += f1*f2*e        
+    
+    def calculate_pair_density(self, n1, n2, kpt1, kpt2, ik1, ik2, bzq_index):
+        psit1_G = self.kd.transform_wave_function(kpt1.psit_nG[n1], ik1)
+        psit2_G = self.kd.transform_wave_function(kpt2.psit_nG[n2], ik2)
+        nt_G = psit1_G.conj() * psit2_G
 
-        
+        s1 = self.kd.sym_k[ik1]
+        s2 = self.kd.sym_k[ik2]
+        t1 = self.kd.time_reversal_k[ik1]
+        t2 = self.kd.time_reversal_k[ik2]
+        k1_c = self.kd.ibzk_kc[kpt1.k]
+        k2_c = self.kd.ibzk_kc[kpt2.k]
+
+        Q_aL = {}
+        for a in kpt1.P_ani.keys():
+            b1 = self.kd.symmetry.a_sa[s1, a]
+            b2 = self.kd.symmetry.a_sa[s2, a]
+            S1_c = (np.dot(self.spos_ac[a], self.kd.symmetry.op_scc[s1]) -
+                   self.spos_ac[b1])
+            S2_c = (np.dot(self.spos_ac[a], self.kd.symmetry.op_scc[s2]) -
+                   self.spos_ac[b2])
+            assert abs(S1_c.round() - S1_c).max() < 1e-13
+            assert abs(S2_c.round() - S2_c).max() < 1e-13
+            x1 = np.exp(2j * pi * np.dot(k1_c, S1_c))
+            x2 = np.exp(2j * pi * np.dot(k2_c, S2_c))
+            P1_i = np.dot(self.setups[a].R_sii[s1], kpt1.P_ani[b1][n1]) * x1
+            P2_i = np.dot(self.setups[a].R_sii[s2], kpt2.P_ani[b2][n2]) * x2
+            if t1:
+                P1_i = P1_i.conj()
+            if t2:
+                P2_i = P2_i.conj()
+
+            D_ii = np.outer(P1_i.conj(), P2_i)
+            D_p = pack(D_ii)
+            Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
+
+        self.ghat.add(nt_G, Q_aL, bzq_index)
+        return nt_G
+
     def calculate_exx_paw_correction(self):
         exx = 0
         deg = 2 // self.nspins  # spin degeneracy
@@ -354,79 +395,54 @@ class HybridXC(XCFunctional):
                     exx -= self.hybrid * np.dot(D_p, setup.X_p)
             exx += self.hybrid * setup.ExxC
         return exx
-    
-    def calculate_pair_density(self, n1, n2, kpt1, kpt2, ik1, ik2, bzq_index):
-        psit1_G = self.kd.transform_wave_function(kpt1.psit_nG[n1], ik1)
-        psit2_G = self.kd.transform_wave_function(kpt2.psit_nG[n2], ik2)
-        nt_G = psit1_G.conj() * psit2_G
-
-        s1 = self.kd.sym_k[ik1]
-        s2 = self.kd.sym_k[ik2]
-        t1 = self.kd.time_reversal_k[ik1]
-        t2 = self.kd.time_reversal_k[ik2]
-        k1_c = self.kd.ibzk_kc[kpt1.k]
-        k2_c = self.kd.ibzk_kc[kpt2.k]
-
-        Q_aL = {}
-        for a in kpt1.P_ani.keys():
-            P1_i = kpt1.P_ani[a][n1]
-            P2_i = kpt2.P_ani[a][n2]
-            
-            b1 = self.kd.symmetry.a_sa[s1, a]
-            b2 = self.kd.symmetry.a_sa[s2, a]
-            S1_c = (np.dot(self.spos_ac[a], self.kd.symmetry.op_scc[s1]) -
-                   self.spos_ac[b1])
-            S2_c = (np.dot(self.spos_ac[a], self.kd.symmetry.op_scc[s2]) -
-                   self.spos_ac[b2])
-            assert abs(S1_c.round() - S1_c).max() < 1e-13
-            assert abs(S2_c.round() - S2_c).max() < 1e-13
-            x1 = np.exp(2j * pi * np.dot(k1_c, S1_c))
-            x2 = np.exp(2j * pi * np.dot(k2_c, S2_c))
-            P1_i = np.dot(self.setups[a].R_sii[s1], kpt1.P_ani[b1][n1]) * x1
-            P2_i = np.dot(self.setups[a].R_sii[s2], kpt2.P_ani[b2][n2]) * x2
-            if t1:
-                P1_i = P1_i.conj()
-            if t2:
-                P2_i = P2_i.conj()
-
-            D_ii = np.outer(P1_i.conj(), P2_i)
-
-            D_p = pack(D_ii)
-            Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
-
-        self.ghat.add(nt_G, Q_aL, bzq_index)
-        return nt_G
 
     def print_initialization(self, xc):
-        print >> self.txt, '------------------------------------------------------'
+        print >> self.txt, \
+              '------------------------------------------------------'
         print >> self.txt, 'Non-self-consistent HF correlation energy'
-        print >> self.txt, '------------------------------------------------------'
+        print >> self.txt, \
+              '------------------------------------------------------'
         print >> self.txt, 'Started at:  ', ctime()
         print >> self.txt
-        print >> self.txt, 'Ground state XC functional     :   %s' % xc
-        print >> self.txt, 'Valence electrons              :   %s' % self.setups.nvalence
-        print >> self.txt, 'Number of Spins                :   %s' % self.nspins
-        print >> self.txt, 'Plane wave cutoff energy       :   %4.1f eV' % (self.ecut*Ha)
-        print >> self.txt, 'Gamma q-point excluded         :   %s' % self.skip_gamma
+        print >> self.txt, \
+              'Ground state XC functional     :   %s' % xc
+        print >> self.txt, \
+              'Valence electrons              :   %s' % self.setups.nvalence
+        print >> self.txt, \
+              'Number of Spins                :   %s' % self.nspins
+        print >> self.txt, \
+              'Plane wave cutoff energy       :   %4.1f eV' % (self.ecut*Ha)
+        print >> self.txt, \
+              'Gamma q-point excluded         :   %s' % self.skip_gamma
         if not self.skip_gamma:
-            print >> self.txt, 'Alpha parameter                :   %s' % self.alpha
-            print >> self.txt, 'Gamma parameter                :   %3.3f' % self.gamma
-        print >> self.txt, 'ACDF method                    :   %s' % self.acdf
-        print >> self.txt, 'Number of k-points             :   %s' % len(self.kd.bzk_kc)
-        print >> self.txt, 'Number of Irreducible k-points :   %s' % len(self.kd.ibzk_kc)
-        print >> self.txt, 'Number of q-points             :   %s' % len(self.bzq_qc)
+            print >> self.txt, \
+                  'Alpha parameter                :   %s' % self.alpha
+            print >> self.txt, \
+                  'Gamma parameter                :   %3.3f' % self.gamma
+        print >> self.txt, \
+              'ACDF method                    :   %s' % self.acdf
+        print >> self.txt, \
+              'Number of k-points             :   %s' % len(self.kd.bzk_kc)
+        print >> self.txt, \
+              'Number of Irreducible k-points :   %s' % len(self.kd.ibzk_kc)
+        print >> self.txt, \
+              'Number of q-points             :   %s' % len(self.bzq_qc)
         if not self.qsym:
-            print >> self.txt, 'q-point symmetry               :   %s' % self.qsym
+            print >> self.txt, \
+                  'q-point symmetry               :   %s' % self.qsym
         else:
-            print >> self.txt, 'Number of Irreducible q-points :   %s' % len(self.ibzq_qc)
+            print >> self.txt, \
+                  'Number of Irreducible q-points :   %s' % len(self.ibzq_qc)
 
         print >> self.txt
         for q, weight in zip(self.ibzq_qc, self.q_weights):
-            print >> self.txt, 'q: [%1.3f %1.3f %1.3f] - weight: %1.3f'%(q[0],q[1],q[2],
-                                                                         weight/len(self.bzq_qc))
+            print >> self.txt, 'q: [%1.3f %1.3f %1.3f] - weight: %1.3f' % \
+                  (q[0],q[1],q[2], weight/len(self.bzq_qc))
         print >> self.txt
-        print >> self.txt, '------------------------------------------------------'
-        print >> self.txt, '------------------------------------------------------'
+        print >> self.txt, \
+              '------------------------------------------------------'
+        print >> self.txt, \
+              '------------------------------------------------------'
         print >> self.txt
         print >> self.txt, 'Looping over k-points in the full Brillouin zone'
         print >> self.txt

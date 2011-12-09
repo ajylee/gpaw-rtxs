@@ -30,5 +30,5 @@ E_k = E + calc.get_xc_difference(exx)
 print 'Hartree-Fock ACDF method    :', E_q
 print 'Hartree-Fock Standard method:', E_k
 
-#equal(E_q, E_k, 0.001)
-#equal(E_q, -27.71, 0.01)
+equal(E_q, E_k, 0.001)
+equal(E_q, -27.71, 0.01)
