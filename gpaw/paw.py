@@ -669,7 +669,7 @@ class PAW(PAWTextOutput):
         self.density.nct_G = self.density.gd.zeros()
         self.density.nct.add(self.density.nct_G, 1.0 / self.density.nspins)
         self.density.interpolate()
-        self.density.calculate_pseudo_charge(0)
+        self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.update(self.density)
 
