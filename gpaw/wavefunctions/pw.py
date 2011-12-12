@@ -206,6 +206,59 @@ class PWDescriptor:
         else:
             return result
 
+    def interpolate(self, a_G, pd):
+        a_Q = self.tmp_Q
+        b_Q = pd.tmp_Q
+        n0, n1, n2 = a_Q.shape
+        n0 //= 2
+        n1 //= 2
+        self.tmp_R[:] = a_G
+        self.fftplan.execute()
+        b_Q[:] = 0.0
+        b_Q[n0:-n0, n1:-n1, :n2] = np.fft.fftshift(a_Q, axes=(0, 1))
+        b_Q[-n0, n1:-n1, :n2] = b_Q[n0, n1:-n1, :n2]
+        b_Q[n0:-n0 + 1, -n1, :n2] = b_Q[n0:-n0 + 1, n1, :n2]
+        b_Q[n0::2 * n0] *= 0.5
+        b_Q[:, n1::2 * n1] *= 0.5
+        b_Q[:, :, n2 - 1] *= 0.5
+        b_Q[:] = np.fft.ifftshift(b_Q, axes=(0, 1))
+        pd.ifftplan.execute()
+        return pd.tmp_R * (8.0 / pd.tmp_R.size), a_Q.ravel()[self.Q_G]
+
+    def restrict(self, a_g, pd):
+        a_Q = pd.tmp_Q
+        b_Q = self.tmp_Q
+        n0, n1, n2 = a_Q.shape
+        n0 //= 2
+        n1 //= 2
+        self.tmp_R[:] = a_g
+        self.fftplan.execute()
+        b_Q[:] = np.fft.fftshift(b_Q, axes=(0, 1))
+        b_Q[n0, n1:-n1 + 1, :n2] += b_Q[-n0, n1:-n1 + 1, :n2]
+        b_Q[n0:-n0, n1, :n2] += b_Q[n0:-n0, -n1, :n2]
+        a_Q[:] = b_Q[n0:-n0, n1:-n1, :n2]
+        a_Q[:, :, n2 - 1] *= 2.0
+        a_Q[:] = np.fft.ifftshift(a_Q, axes=(0, 1))
+        a_G = a_Q.ravel()[pd.Q_G]
+        pd.ifftplan.execute()
+        return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
+
+    def map(self, pd):
+        N_c = np.array(self.tmp_Q.shape)
+        N3_c = pd.tmp_Q.shape
+        Q2_G = self.Q_G
+        Q2_Gc = np.empty((len(Q2_G), 3), int)
+        Q2_Gc[:, 0], r_G = divmod(Q2_G, N_c[1] * N_c[2])
+        Q2_Gc.T[1:] = divmod(r_G, N_c[2])
+        Q2_Gc[:, :2] += N_c[:2] // 2
+        Q2_Gc[:, :2] %= N_c[:2]
+        Q2_Gc[:, :2] -= N_c[:2] // 2
+        Q2_Gc[:, :2] %= N3_c[:2]
+        Q3_G = Q2_Gc[:, 2] + N3_c[2] * (Q2_Gc[:, 1] + N3_c[1] * Q2_Gc[:, 0])
+        G3_Q = np.empty(N3_c, int).ravel()
+        G3_Q[pd.Q_G] = np.arange(len(pd))
+        return G3_Q[Q3_G]
+
     def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
         """Helper function for MatrixOperator class."""
         if self.dtype == float:
@@ -505,20 +558,7 @@ class ReciprocalSpaceDensity(Density):
         self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max()
         self.pd3 = PWDescriptor(self.ecut3, self.finegd)
 
-        N_c = np.array(self.pd2.tmp_Q.shape)
-        N3_c = self.pd3.tmp_Q.shape
-        Q2_G = self.pd2.Q_G
-        Q2_Gc = np.empty((len(Q2_G), 3), int)
-        Q2_Gc[:, 0], r_G = divmod(Q2_G, N_c[1] * N_c[2])
-        Q2_Gc.T[1:] = divmod(r_G, N_c[2])
-        Q2_Gc[:, :2] += N_c[:2] // 2
-        Q2_Gc[:, :2] %= N_c[:2]
-        Q2_Gc[:, :2] -= N_c[:2] // 2
-        Q2_Gc[:, :2] %= N3_c[:2]
-        Q3_G = Q2_Gc[:, 2] + N3_c[2] * (Q2_Gc[:, 1] + N3_c[1] * Q2_Gc[:, 0])
-        G3_Q = np.empty(N3_c, int).ravel()
-        G3_Q[self.pd3.Q_G] = np.arange(len(self.pd3))
-        self.G3_G = G3_Q[Q3_G]
+        self.G3_G = self.pd2.map(self.pd3)
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
@@ -548,27 +588,10 @@ class ReciprocalSpaceDensity(Density):
             self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
             self.nt_sQ = self.pd2.empty(self.nspins * self.ncomp**2)
 
-        a_Q = self.pd2.tmp_Q
-        b_Q = self.pd3.tmp_Q
-        n0, n1, n2 = a_Q.shape
-        n0 //= 2
-        n1 //= 2
         for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
-            self.pd2.tmp_R[:] = nt_G
-            self.pd2.fftplan.execute()
-            nt_Q[:] = a_Q.ravel()[self.pd2.Q_G]
-            b_Q[:] = 0.0
-            b_Q[n0:-n0, n1:-n1, :n2] = np.fft.fftshift(a_Q, axes=(0, 1))
-            b_Q[-n0, n1:-n1, :n2] = b_Q[n0, n1:-n1, :n2]
-            b_Q[n0:-n0 + 1, -n1, :n2] = b_Q[n0:-n0 + 1, n1, :n2]
-            b_Q[n0::2 * n0] *= 0.5
-            b_Q[:, n1::2 * n1] *= 0.5
-            b_Q[:, :, n2 - 1] *= 0.5
-            b_Q[:] = np.fft.ifftshift(b_Q, axes=(0, 1))
-            self.pd3.ifftplan.execute()
-            nt_g[:] = self.pd3.tmp_R * (8.0 / self.pd3.tmp_R.size)
+            nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
 
-    def calculate_pseudo_charge(self, comp_charge):
+    def calculate_pseudo_charge(self):
         self.nt_Q = self.nt_sQ[:self.nspins].sum(axis=0)
         self.rhot_q = self.pd3.zeros()
         self.rhot_q[self.G3_G] = self.nt_Q * 8
@@ -624,23 +647,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.timer.start('XC 3D grid')
         vxct_sg = self.finegd.zeros(self.nspins)
         exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)
-        a_Q = self.pd2.tmp_Q
-        b_Q = self.pd3.tmp_Q
-        n0, n1, n2 = a_Q.shape
-        n0 //= 2
-        n1 //= 2
+
         for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
-            self.pd3.tmp_R[:] = vxct_g
-            self.pd3.fftplan.execute()
-            b_Q[:] = np.fft.fftshift(b_Q, axes=(0, 1))
-            b_Q[n0, n1:-n1 + 1, :n2] += b_Q[-n0, n1:-n1 + 1, :n2]
-            b_Q[n0:-n0, n1, :n2] += b_Q[n0:-n0, -n1, :n2]
-            a_Q[:] = b_Q[n0:-n0, n1:-n1, :n2]
-            a_Q[:, :, n2 - 1] *= 2.0
-            a_Q[:] = np.fft.ifftshift(a_Q, axes=(0, 1))
-            self.vt_Q += a_Q.ravel()[self.pd2.Q_G] / self.nspins
-            self.pd2.ifftplan.execute()
-            vt_G += self.pd2.tmp_R * (1.0 / self.pd3.tmp_R.size)
+            vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
+            vt_G += vxc_G
+            self.vt_Q += vxc_Q / self.nspins
         self.timer.stop('XC 3D grid')
 
         ekin = 0.0

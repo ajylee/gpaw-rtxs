@@ -175,7 +175,7 @@ class Density:
             comp_charge = None
           
         self.interpolate(comp_charge)
-        self.calculate_pseudo_charge(comp_charge)
+        self.calculate_pseudo_charge()
 
         if self.mixer.mix_rho:
             self.mixer.mix(self)
@@ -605,7 +605,7 @@ class RealSpaceDensity(Density):
                      self.finegd.integrate(self.nt_sg[:self.nspins]).sum())
                 self.nt_sg *= x
 
-    def calculate_pseudo_charge(self, comp_charge):
+    def calculate_pseudo_charge(self):
         self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)
         self.rhot_g = self.nt_g.copy()
         self.ghat.add(self.rhot_g, self.Q_aL)
