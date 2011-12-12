@@ -2553,7 +2553,7 @@ class Transport(GPAW):
   
         comp_charge = density.calculate_multipole_moments()
         density.interpolate(comp_charge)
-        density.calculate_pseudo_charge(comp_charge)            
+        density.calculate_pseudo_charge()
             
         self.update_hamiltonian()
         self.scf.reset()
