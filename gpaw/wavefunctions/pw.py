@@ -10,7 +10,7 @@ import gpaw.fftw as fftw
 from gpaw.lcao.overlap import fbt
 from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y
-from gpaw.utilities import _fact as fac
+from gpaw.utilities import unpack, _fact as fac
 from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.density import Density
 from gpaw.hamiltonian import Hamiltonian
@@ -339,6 +339,45 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 psit_nG[n] = self.pd.fft(psit_R)
             kpt.psit_nG = psit_nG
 
+    def s(self):
+        n = len(self.pd)
+        N = self.pd.tmp_R.size
+        S_GG = np.zeros((n, n), complex)
+        S_GG.ravel()[::n + 1] = self.pd.gd.dv / N
+        f_IG = self.pt.expand()
+        nI = len(f_IG)
+        dS_II = np.zeros((nI, nI))
+        I1 = 0
+        for a in self.pt.my_atom_indices:
+            dS_ii = self.setups[a].dO_ii
+            I2 = I1 + len(dS_ii)
+            dS_II[I1:I2, I1:I2] = dS_ii / N**2
+            I1 = I2
+        S_GG += np.dot(f_IG.T.conj(), np.dot(dS_II, f_IG))
+        return S_GG
+        
+    def h(self, ham):
+        n = len(self.pd)
+        N = self.pd.tmp_R.size
+        H_GG = np.zeros((n, n), complex)
+        H_GG.ravel()[::n + 1] = 0.5 * self.pd.gd.dv / N * self.pd.G2_qG[0]
+        for G in range(len(self.pd)):
+            x_G = self.pd.zeros(dtype=complex)
+            x_G[G] = 1.0
+            H_GG[G] += (self.pd.gd.dv  / N *
+                        self.pd.fft(ham.vt_sG[0] * self.pd.ifft(x_G)))
+        f_IG = self.pt.expand()
+        nI = len(f_IG)
+        dH_II = np.zeros((nI, nI))
+        I1 = 0
+        for a in self.pt.my_atom_indices:
+            dH_ii = unpack(ham.dH_asp[a][0])
+            I2 = I1 + len(dH_ii)
+            dH_II[I1:I2, I1:I2] = dH_ii / N**2
+            I1 = I2
+        H_GG += np.dot(f_IG.T.conj(), np.dot(dH_II, f_IG))
+        return H_GG
+
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
         self.pd.estimate_memory(mem.subnode('PW-descriptor'))
@@ -452,7 +491,7 @@ class PWLFC(BaseLFC):
         self.emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
         self.my_atom_indices = np.arange(len(spos_ac))
 
-    def expand(self, q):
+    def expand(self, q=-1):
         nI = sum(self.get_function_count(a) for a in self.my_atom_indices)
         f_IG = self.pd.empty(nI, self.pd.dtype)
         for a, j, i1, i2, I1, I2 in self:
@@ -471,6 +510,7 @@ class PWLFC(BaseLFC):
         c_xI = np.empty(a_xG.shape[:-1] + (nI,), self.pd.dtype)
         f_IG = self.expand(q)
         for a, j, i1, i2, I1, I2 in self:
+            # XXX Do complete atoms (no l-dependence) !!!
             c_xI[..., I1:I2] = c_axi[a][..., i1:i2] * self.eikR_qa[q][a].conj()
 
         c_xI = c_xI.reshape((-1, nI))
