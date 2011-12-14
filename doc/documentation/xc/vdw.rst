@@ -29,7 +29,7 @@ Perturbative vdW-DF calculation (Non self consistent)
 -----------------------------------------------------
   
 >>> from gpaw import GPAW
->>> from gpaw.vdw import FFTVDWFunctional
+>>> from gpaw.xc.vdw import FFTVDWFunctional
 >>> vdw = FFTVDWFunctional(nspins=1,
 ...                        Nalpha=20, lambd=1.2, 
 ...                        rcut=125.0, Nr=2048, 
@@ -50,7 +50,7 @@ Self Consistent vdW-DF Calculation
 
 >>> from ase.all import *
 >>> from gpaw import GPAW
->>> from gpaw.vdw import FFTVDWFunctional
+>>> from gpaw.xc.vdw import FFTVDWFunctional
 >>> vdw = FFTVDWFunctional(nspins=1, verbose=True)
 >>> atoms = ...
 >>> calc = GPAW(xc=vdw, ...)
@@ -79,7 +79,7 @@ make sense for smaller systems. This method is not self consistent and
 can only be used in the perturbative method described above. To use
 the real space method one changes the following lines from above:
 
->>> from gpaw.vdw import RealSpaceVDWFunctional
+>>> from gpaw.xc.vdw import RealSpaceVDWFunctional
 >>> vdw = RealSpaceVDWFunctional(nspins=1, ncut=0.0005)
 
 
