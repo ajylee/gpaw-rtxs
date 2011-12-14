@@ -195,7 +195,11 @@ class PWDescriptor:
             gemm(alpha, A_xg, B_yg, 0.0, result_yx, 'c')
         
         if self.dtype == float:
-            result_yx -= 0.5 * alpha * np.outer(B_yg[:, 0], A_xg[:, 0])
+            correction_yx = np.outer(B_yg[:, 0], A_xg[:, 0])
+            if hermitian:
+                result_yx -= 0.25 * alpha * (correction_yx + correction_yx.T)
+            else:
+                result_yx -= 0.5 * alpha * correction_yx
 
         xshape = a_xg.shape[:-1]
         yshape = b_yg.shape[:-1]
@@ -467,7 +471,6 @@ class PWLFC(BaseLFC):
         c_xI = np.empty(a_xG.shape[:-1] + (nI,), self.pd.dtype)
         f_IG = self.expand(q)
         for a, j, i1, i2, I1, I2 in self:
-            l = self.lf_aj[a][j][0]
             c_xI[..., I1:I2] = c_axi[a][..., i1:i2] * self.eikR_qa[q][a].conj()
 
         c_xI = c_xI.reshape((-1, nI))
@@ -496,7 +499,6 @@ class PWLFC(BaseLFC):
             
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
         for a, j, i1, i2, I1, I2 in self:
-            l = self.lf_aj[a][j][0]
             c_axi[a][..., i1:i2] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
 
     def derivative(self, a_xG, c_axiv, q=-1):
