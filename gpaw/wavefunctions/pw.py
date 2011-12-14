@@ -243,7 +243,7 @@ class PWDescriptor:
         a_Q[:] = b_Q[n0:-n0, n1:-n1, :n2]
         a_Q[:, :, n2 - 1] *= 2.0
         a_Q[:] = np.fft.ifftshift(a_Q, axes=(0, 1))
-        a_G = a_Q.ravel()[pd.Q_G]
+        a_G = a_Q.ravel()[pd.Q_G] / 8
         pd.ifftplan.execute()
         return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
 
@@ -519,7 +519,6 @@ class PWLFC(BaseLFC):
                       a_xG.view(float),
                       0.0, b_xI, 'c')
                 for a, j, i1, i2, I1, I2 in self:
-                    l = self.lf_aj[a][j][0]
                     c_axiv[a][..., i1:i2, v] = c_xI[..., I1:I2]
         else:
             for v in range(3):
@@ -528,7 +527,6 @@ class PWLFC(BaseLFC):
                       a_xG,
                       0.0, b_xI, 'c')
                 for a, j, i1, i2, I1, I2 in self:
-                    l = self.lf_aj[a][j][0]
                     c_axiv[a][..., i1:i2, v] = (1.0j * self.eikR_qa[q][a] *
                                                 c_xI[..., I1:I2])
 
