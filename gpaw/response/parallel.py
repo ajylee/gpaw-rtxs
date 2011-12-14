@@ -161,6 +161,37 @@ def SliceAlongOrbitals(a_Eo, coords, comm):
     return a_eO
 
 
+def GatherOrbitals(a_Eo, coords, comm):
+    """Slice along orbital axis.
+
+    Input has subset of flattened orbital matrix.
+    Output array has full orbital matrix.
+
+    coords is a list of the number of orbital indices per cpu.
+    """
+    Norb = np.sqrt(sum(coords)).astype(int)
+    if len(np.shape(a_Eo)) == 1:
+        nenergies = 1
+    else:
+        nenergies = len(a_Eo)
+    a_Eo = np.ascontiguousarray(a_Eo)
+
+    if comm.size == 1:
+        if nenergies == 1:
+            return a_Eo.reshape(nenergies, Norb, Norb)[0]
+        else:
+            return a_Eo.reshape(nenergies, Norb, Norb)
+
+    for rank in range(comm.size):
+        tmp = collect_orbitals(a_Eo, coords, comm, root=rank)
+        if rank == comm.rank:
+            if nenergies==1:
+                a_EO = tmp.reshape(Norb, Norb)
+            else:
+                a_EO = tmp.reshape(nenergies, Norb, Norb)
+    return a_EO
+
+
 def par_write(filename, name, comm, chi0_wGG):
 
     ## support only world communicator at the moment

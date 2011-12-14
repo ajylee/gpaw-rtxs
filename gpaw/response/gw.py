@@ -1,14 +1,17 @@
 import numpy as np
+import pickle
 from math import pi, sqrt
 from time import time, ctime
 from datetime import timedelta
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
+from gpaw import GPAW
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.utilities.blas import gemmdot
+from gpaw.utilities.memory import maxrss
 from gpaw.xc.hybridk import HybridXC
 from gpaw.xc.tools import vxc
-from gpaw.response.parallel import parallel_partition
+from gpaw.response.parallel import set_communicator, parallel_partition, SliceAlongFrequency, GatherOrbitals
 from gpaw.response.base import BASECHI
 
 class GW(BASECHI):
@@ -23,13 +26,14 @@ class GW(BASECHI):
                  ecut=150.,
                  eta=0.1,
                  hilbert_trans=False,
-                 wpar=False,
+                 wpar=1,
                  vcut=None,
                  txt=None,
                 ):
 
         BASECHI.__init__(self, calc=file, nbands=nbands, w=w, ecut=ecut, eta=eta, txt=txt)
 
+        self.file = file
         self.vcut = vcut
         self.bands = bands
         self.kpoints = kpoints
@@ -64,9 +68,6 @@ class GW(BASECHI):
         self.w_w  /= Hartree
         self.wmax = self.w_w[-1]
         self.wmin = self.w_w[0] 
-        self.wcut = self.wmax + 5. / Hartree
-#        self.Nw  = int(self.wmax / self.dw) + 1
-#        self.NwS = int(self.wcut / self.dw) + 1
 
         # GW kpoints init
         if (self.kpoints == None):
@@ -90,24 +91,14 @@ class GW(BASECHI):
         self.print_gw_init()
         
         # parallel init
-        if self.hilbert_trans and self.wpar:
-            self.printtxt("-----")
-            self.printtxt("frequency parallelization not yet implemented for method 2, switch to method 1")
-            self.printtxt("-----")
-            self.hilbert_trans = False
-        if not self.wpar:
-            self.qcomm = world
-            nq, self.nq_local, self.q_start, self.q_end = parallel_partition(
-                                      self.nqpt, world.rank, world.size, reshape=False)
-            self.kcommsize = None
-            self.parallel = serial_comm
-        else:
-            self.qcomm = serial_comm
-            self.nq_local = self.nqpt
-            self.q_start = 0
-            self.q_end = self.nqpt
-            self.kcommsize = 1
-            self.parallel = None
+        assert (len(self.w_w) - 1) % self.wpar == 0
+        self.wcommsize = self.wpar
+        self.qcommsize = size // self.wpar
+        assert self.qcommsize * self.wcommsize == size
+        self.wcomm, self.qcomm, self.worldcomm = set_communicator(world, rank, size, self.wpar)
+        nq, self.nq_local, self.q_start, self.q_end = parallel_partition(
+                                  self.nqpt, self.qcomm.rank, self.qcomm.size, reshape=False)
+
 
     def get_QP_spectrum(self):
         
@@ -127,7 +118,7 @@ class GW(BASECHI):
                 continue
             t1 = time()
             # get screened interaction. 
-            df, W_wGG = self.screened_interaction_kernel(iq, static=False, comm=self.parallel, kcommsize=self.kcommsize)
+            df, W_wGG = self.screened_interaction_kernel(iq, static=False, comm=self.wcomm, kcommsize=1)
             t2 = time()
             t_w += t2 - t1
 
@@ -138,8 +129,8 @@ class GW(BASECHI):
             
             Sigma_kn += S
             dSigma_kn += dS
-            
-            del df
+
+            del df, W_wGG
             self.timing(iq, t0, self.nq_local, 'iq')
 
         self.printtxt('W_wGG takes %f seconds' %(t_w))
@@ -161,6 +152,18 @@ class GW(BASECHI):
 
         # finish
         self.print_gw_finish(e_kn, v_kn, e_xx, Sigma_kn, Z_kn, QP_kn)
+        data = {
+                'gwkpt_k': self.gwkpt_k,
+                'gwbands_n': self.gwbands_n,
+                'e_kn': e_kn,         # in Hartree
+                'v_kn': v_kn,         # in Hartree
+                'e_xx': e_xx,         # in Hartree
+                'Sigma_kn': Sigma_kn, # in Hartree
+                'Z_kn': Z_kn,         # dimensionless
+                'QP_kn': QP_kn        # in Hartree
+               }
+        if rank == 0:
+            pickle.dump(data, open('GW.pckl', 'w'), -1)
 
 
     def get_self_energy(self, df, W_wGG):
@@ -178,7 +181,7 @@ class GW(BASECHI):
             for jG in range(1, self.npw):
                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
                 tmp_wG[:,jG] = self.dfinvG0_wG[:,jG] / np.sqrt(np.inner(qG,qG))
-                const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)
+            const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)
             tmp_wG *= const * self.nkpt**(1./3.)
             tmp_w = 2./pi*(6*pi**2/self.vol)**(1./3.) * self.dfinvG0_wG[:,0] * self.vol
             tmp_w *= self.nkpt**(2./3.)
@@ -296,10 +299,8 @@ class GW(BASECHI):
                         if sign == -1:
                             C_Wg = Cminus_Wg[w0_id:w0_id+2] # only two grid points needed for each w0
 
-                        C_wGG = np.zeros((2, nG**2), dtype=complex)
-                        wcomm.all_gather(C_Wg, C_wGG)
+                        C_wGG = GatherOrbitals(C_Wg, coords, wcomm)
                         del C_Wg
-                        C_wGG.reshape(2, nG, nG)
 
                         if df.optical_limit:
                             if n==m:
@@ -315,8 +316,8 @@ class GW(BASECHI):
 
                         # special treat of w0 = 0 (degenerate states):
                         if w0_id == 0:
-                            Cplustmp_GG = Cplus_wGG[1]
-                            Cminustmp_GG = Cminus_wGG[1]
+                            Cplustmp_GG = GatherOrbitals(Cplus_Wg[1], coords, wcomm)
+                            Cminustmp_GG = GatherOrbitals(Cminus_Wg[1], coords, wcomm)
                             if df.optical_limit:
                                 if n==m:
                                     Cplustmp_GG[0,:] = Cminus_wG0.conj()[1]
@@ -342,7 +343,7 @@ class GW(BASECHI):
                             Sigma_kn[i,j] += Sw0
                             dSigma_kn[i,j] += (Sw1 + Sw2)/(2*self.dw)
 
-                        else:
+                        else:                        
                             Sw1_G = gemmdot(C_wGG[0], rho_G, beta=0.0)
                             Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
                             Sw2_G = gemmdot(C_wGG[1], rho_G, beta=0.0)
@@ -358,11 +359,12 @@ class GW(BASECHI):
     def get_exx(self):
 
         self.printtxt("calculating Exact exchange and E_XC ")
-        v_xc = vxc(self.calc)
+        calc = GPAW(self.file, communicator=world, txt=None)
+        v_xc = vxc(calc)
 
         alpha = 5.0
         exx = HybridXC('EXX', alpha=alpha, ecut=self.ecut.max(), bands=self.bands)
-        self.calc.get_xc_difference(exx)
+        calc.get_xc_difference(exx)
 
         e_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
         v_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
@@ -373,7 +375,7 @@ class GW(BASECHI):
             j = 0
             ik = self.kd.bz2ibz_k[k]
             for n in self.gwbands_n:
-                e_kn[i][j] = self.calc.get_eigenvalues(kpt=ik)[n] / Hartree
+                e_kn[i][j] = calc.get_eigenvalues(kpt=ik)[n] / Hartree
                 v_kn[i][j] = v_xc[0][ik][n] / Hartree
                 e_xx[i][j] = exx.exx_skn[0][ik][n]
                 j += 1

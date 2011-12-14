@@ -346,6 +346,7 @@ class CHI(BASECHI):
                 del specfunc_wGG
             else:
                 # redistribute specfunc_wGG to all nodes
+                size = self.comm.size
                 assert self.NwS % size == 0
                 NwStmp1 = (rank % self.kcomm.size) * self.NwS // size
                 NwStmp2 = (rank % self.kcomm.size + 1) * self.NwS // size 

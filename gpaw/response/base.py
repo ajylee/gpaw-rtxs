@@ -475,7 +475,7 @@ class BASECHI:
                     optical_limit=optical_limit, hilbert_trans=True, xc='RPA', full_response=True,
                     rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
                     eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,
-                    txt='no_output', comm=comm, kcommsize=kcommsize)
+                    txt='df_' + str(iq) + '.out', comm=comm, kcommsize=kcommsize)
 
         dfinv_wGG = df.get_inverse_dielectric_matrix(xc='RPA')
         assert df.ecut[0] == self.ecut[0]
