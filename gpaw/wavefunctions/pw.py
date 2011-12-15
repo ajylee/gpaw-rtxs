@@ -333,10 +333,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.initialize_wave_functions_from_basis_functions(
             self, basis_functions, density, hamiltonian, spos_ac)
 
+        N_c = self.gd.N_c
+
         for kpt in self.kpt_u:
+            if self.kd.gamma:
+                emikr_R = 1.0
+            else:
+                k_c = self.kd.ibzk_kc[kpt.k]
+                emikr_R = np.exp(-2j * pi *
+                                  np.dot(np.indices(N_c).T, k_c / N_c).T)
+
             psit_nG = self.pd.empty(self.bd.mynbands, self.dtype)
             for n, psit_R in enumerate(kpt.psit_nG):
-                psit_nG[n] = self.pd.fft(psit_R)
+                psit_nG[n] = self.pd.fft(psit_R * emikr_R)
             kpt.psit_nG = psit_nG
 
     def s(self):
