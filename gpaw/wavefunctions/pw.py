@@ -652,8 +652,8 @@ class ReciprocalSpaceDensity(Density):
 
     def interpolate(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
-        #if comp_charge is None:
-        #    comp_charge = self.calculate_multipole_moments()
+        if comp_charge is None:
+            comp_charge = self.calculate_multipole_moments()
 
         if self.nt_sg is None:
             self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
