@@ -10,6 +10,7 @@ from gpaw.fd_operators import Laplace
 
 from gpaw.utilities.blas import axpy
 
+
 class Preconditioner:
     def __init__(self, gd0, kin0, dtype=float, block=1):
         gd1 = gd0.coarsen()
@@ -30,8 +31,11 @@ class Preconditioner:
         self.restrictor1 = self.restrictor_object1.apply
         self.interpolator2 = self.interpolator_object2.apply
         self.interpolator1 = self.interpolator_object1.apply
+
+    def calculate_kinetic_energy(self, psit_xG, kpt):
+        return None
         
-    def __call__(self, residuals, kpt):
+    def __call__(self, residuals, kpt, ekin=None):
         nb = len(residuals) # number of bands
         phases = kpt.phase_cd
         step = self.step

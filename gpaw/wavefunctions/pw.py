@@ -272,12 +272,34 @@ class PWDescriptor:
 
 
 class Preconditioner:
-    def __init__(self, G2_qG):
-        self.G2_qG = G2_qG
-        self.allocated = True
+    """Preconditioner for KS equation.
 
-    def __call__(self, R_G, kpt):
-        return R_G / (1.0 + self.G2_qG[kpt.q])
+    From:
+
+      Teter, Payne and Allen, Phys. Rev. B 40, 12255 (1989)
+
+    as modified by:
+
+      Kresse and Furthmüller, Phys. Rev. B 54, 11169 (1996)
+    """
+
+    def __init__(self, G2_qG, pd):
+        self.G2_qG = G2_qG
+        self.pd = pd
+
+    def calculate_kinetic_energy(self, psit_xG, kpt):
+        G2_G = self.G2_qG[kpt.q]
+        return [self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
+                for psit_G in psit_xG]
+
+    def __call__(self, R_xG, kpt, ekin_x):
+        G2_G = self.G2_qG[kpt.q]
+        PR_xG = np.empty_like(R_xG)
+        for PR_G, R_G, ekin in zip(PR_xG, R_xG, ekin_x):
+            x_G = 1 / ekin / 3 * G2_G
+            a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
+            PR_G[:] = 4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
+        return PR_xG
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
@@ -288,7 +310,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.ecut =  ecut / units.Hartree
         self.fftwflags = fftwflags
 
-        #kd.gamma = False
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, timer)
@@ -313,7 +334,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  (len(self.pd), self.pd.ecut * units.Hartree))
         
     def make_preconditioner(self, block=1):
-        return Preconditioner(self.G2_qG)
+        return Preconditioner(self.G2_qG, self.pd)
 
     def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
         """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
