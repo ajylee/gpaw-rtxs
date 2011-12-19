@@ -83,6 +83,7 @@ tests = [
     'nabla.py',
     'aeatom.py',
     'pbc.py',
+    'potential.py',
     'atoms_too_close.py',
     'poisson.py',
     'XC2.py',
@@ -267,8 +268,7 @@ tests = [
     'constant_electric_field.py',
     'stark_shift.py',
     'aluminum_testcell.py',
-    'cmr_test2.py',
-    ]
+    'cmr_test2.py']
 
 try:
     import cmr
@@ -288,7 +288,8 @@ if mpi.size > 1:
                 'wannier_ethylene.py',
                 'muffintinpot.py',
                 'stark_shift.py',
-                'exx_q.py']
+                'exx_q.py',
+                'potential.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
@@ -303,8 +304,7 @@ if mpi.size < 4:
                 'bse_diamond.py',
                 'bse_silicon.py',
                 'bse_vs_lrtddft.py',
-                'fileio/parallel.py', 
-                ]
+                'fileio/parallel.py']
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
