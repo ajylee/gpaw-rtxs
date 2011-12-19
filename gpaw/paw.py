@@ -24,6 +24,7 @@ from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
+from gpaw.xc.sic import SIC
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.wavefunctions.fd import FDWaveFunctions
@@ -599,6 +600,9 @@ class PAW(PAWTextOutput):
                                           par.convergence)
             eigensolver.nbands_converge = nbands_converge
             # XXX Eigensolver class doesn't define an nbands_converge property
+
+            if isinstance(xc, SIC):
+                eigensolver.blocksize = 1
             self.wfs.set_eigensolver(eigensolver)
 
         real_space = not isinstance(mode, PW)

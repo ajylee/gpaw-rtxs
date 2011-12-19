@@ -26,7 +26,7 @@ class RMM_DIIS(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, keep_htpsit=True, blocksize=1):
+    def __init__(self, keep_htpsit=True, blocksize=10):
         Eigensolver.__init__(self, keep_htpsit, blocksize)
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
