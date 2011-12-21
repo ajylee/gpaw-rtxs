@@ -1,4 +1,5 @@
 import numpy as np
+
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
 import gpaw.mpi as mpi
@@ -25,15 +26,30 @@ class LCAO:
         return 0.0
     error = property(error)
 
-    def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt, root=-1):
+    def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt, Vt_xMM=None,
+                                     root=-1):
         # XXX document parallel stuff, particularly root parameter
         assert self.has_initialized
-        vt_G = hamiltonian.vt_sG[kpt.s]
-        H_MM = np.empty((wfs.ksl.mynao, wfs.ksl.nao), wfs.dtype)
 
         wfs.timer.start('Potential matrix')
-        wfs.basis_functions.calculate_potential_matrix(vt_G, H_MM, kpt.q)
+
+        bf = wfs.basis_functions
+
+        if Vt_xMM is None:
+            vt_G = hamiltonian.vt_sG[kpt.s]
+            Vt_xMM = bf.calculate_potential_matrices(vt_G)
+
+        if len(Vt_xMM) == 1:
+            H_MM = Vt_xMM[0]
+        else:
+            k_c = wfs.kd.ibzk_qc[kpt.q]
+            H_MM = (0.5 + 0.0j) * Vt_xMM[0]
+            for sdisp_c, Vt_MM in zip(bf.sdisp_xc, Vt_xMM)[1:]:
+                H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
+            H_MM += H_MM.T.conj()
+
         wfs.timer.stop('Potential matrix')
+
         # Add atomic contribution
         #
         #           --   a     a  a*
@@ -59,15 +75,23 @@ class LCAO:
 
     def iterate(self, hamiltonian, wfs):
         wfs.timer.start('LCAO eigensolver')
+
+        s = -1
         for kpt in wfs.kpt_u:
-            self.iterate_one_k_point(hamiltonian, wfs, kpt)
+            if kpt.s != s:
+                s = kpt.s
+                Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
+                    hamiltonian.vt_sG[s])
+            self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
+
         wfs.timer.stop('LCAO eigensolver')
 
-    def iterate_one_k_point(self, hamiltonian, wfs, kpt):
+    def iterate_one_k_point(self, hamiltonian, wfs, kpt, Vt_xMM):
         if wfs.bd.comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
-        H_MM = self.calculate_hamiltonian_matrix(hamiltonian, wfs, kpt, root=0)
+        H_MM = self.calculate_hamiltonian_matrix(hamiltonian, wfs, kpt, Vt_xMM,
+                                                 root=0)
         S_MM = wfs.S_qMM[kpt.q]
 
         if kpt.eps_n is None:
