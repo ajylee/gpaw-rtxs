@@ -268,7 +268,8 @@ tests = [
     'constant_electric_field.py',
     'stark_shift.py',
     'aluminum_testcell.py',
-    'cmr_test2.py']
+    'cmr_test2.py',
+    'gw_test.py']
 
 try:
     import cmr
