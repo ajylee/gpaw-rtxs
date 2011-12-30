@@ -13,7 +13,7 @@ Intel C++ compiler, MKL, and OpenMPI are required::
 > module load hpc/intel-and-mkl-12.3.174
 > module load hpc/openmpi-1.5.3_intel-12.3.174ib
 
-The following :file:`customize.py` file can be used to build GPAW::
+The following :file:`customize.py` file can be used to build GPAW:
 
 .. literalinclude:: customize_odyssey.py
 
