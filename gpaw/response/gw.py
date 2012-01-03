@@ -28,7 +28,8 @@ class GW(BASECHI):
                  hilbert_trans=False,
                  wpar=1,
                  vcut=None,
-                 txt=None,
+                 exxfile=None,
+                 txt=None
                 ):
 
         BASECHI.__init__(self, calc=file, nbands=nbands, w=w, ecut=ecut, eta=eta, txt=txt)
@@ -39,6 +40,7 @@ class GW(BASECHI):
         self.kpoints = kpoints
         self.hilbert_trans = hilbert_trans
         self.wpar = wpar
+        self.exxfile = exxfile
 
     def initialize(self):
 
@@ -358,28 +360,37 @@ class GW(BASECHI):
 
     def get_exx(self):
 
-        self.printtxt("calculating Exact exchange and E_XC ")
-        calc = GPAW(self.file, communicator=world, txt=None)
-        v_xc = vxc(calc)
+        if self.exxfile:
+            self.printtxt("reading Exact exchange and E_XC from file")
 
-        alpha = 5.0
-        exx = HybridXC('EXX', alpha=alpha, ecut=self.ecut.max(), bands=self.bands)
-        calc.get_xc_difference(exx)
+            data = pickle.load(open(self.exxfile))
+            e_kn = data['e_kn'] # in Hartree
+            v_kn = data['v_kn'] # in Hartree
+            e_xx = data['e_xx'] # in Hartree
+        else:
+            self.printtxt("calculating Exact exchange and E_XC")
 
-        e_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
-        v_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
-        e_xx = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
+            calc = GPAW(self.file, communicator=world, txt=None)
+            v_xc = vxc(calc)
 
-        i = 0
-        for k in self.gwkpt_k:
-            j = 0
-            ik = self.kd.bz2ibz_k[k]
-            for n in self.gwbands_n:
-                e_kn[i][j] = calc.get_eigenvalues(kpt=ik)[n] / Hartree
-                v_kn[i][j] = v_xc[0][ik][n] / Hartree
-                e_xx[i][j] = exx.exx_skn[0][ik][n]
-                j += 1
-            i += 1
+            alpha = 5.0
+            exx = HybridXC('EXX', alpha=alpha, ecut=self.ecut.max(), bands=self.bands)
+            calc.get_xc_difference(exx)
+
+            e_xx = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
+            e_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
+            v_kn = np.zeros((self.gwnkpt, self.gwnband), dtype=float)
+
+            i = 0
+            for k in self.gwkpt_k:
+                j = 0
+                ik = self.kd.bz2ibz_k[k]
+                for n in self.gwbands_n:
+                    e_kn[i][j] = calc.get_eigenvalues(kpt=ik)[n] / Hartree
+                    v_kn[i][j] = v_xc[0][ik][n] / Hartree
+                    e_xx[i][j] = exx.exx_skn[0][ik][n]
+                    j += 1
+                i += 1
 
         return e_kn, v_kn, e_xx
 
