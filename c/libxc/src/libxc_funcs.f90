@@ -42,6 +42,7 @@ module libxc_funcs_m
   integer, parameter :: XC_GGA_X_PBEA        = 121  !  Madsen (PBE-like) 
   integer, parameter :: XC_GGA_X_MPBE        = 122  !  Adamo & Barone modification to PBE             
   integer, parameter :: XC_GGA_X_XPBE        = 123  !  xPBE reparametrization by Xu & Goddard         
+  integer, parameter :: XC_GGA_X_OPTPBE      = 124  !  optPBE reparametrization for optPBE-vdW
   integer, parameter :: XC_GGA_C_PBE         = 130  !  Perdew, Burke & Ernzerhof correlation          
   integer, parameter :: XC_GGA_C_LYP         = 131  !  Lee, Yang & Parr 
   integer, parameter :: XC_GGA_C_P86         = 132  !  Perdew 86 

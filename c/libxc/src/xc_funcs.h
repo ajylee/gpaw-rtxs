@@ -37,6 +37,7 @@
 #define  XC_GGA_X_PBEA        121  /* Madsen (PBE-like)                                          */
 #define  XC_GGA_X_MPBE        122  /* Adamo & Barone modification to PBE                         */
 #define  XC_GGA_X_XPBE        123  /* xPBE reparametrization by Xu & Goddard                     */
+#define  XC_GGA_X_OPTPBE      124  /* optPBE reparametrization for optPBE-vdW                    */
 #define  XC_GGA_C_PBE         130  /* Perdew, Burke & Ernzerhof correlation                      */
 #define  XC_GGA_C_LYP         131  /* Lee, Yang & Parr                                           */
 #define  XC_GGA_C_P86         132  /* Perdew 86                                                  */
