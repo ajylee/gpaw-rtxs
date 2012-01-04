@@ -1,4 +1,4 @@
-#!/bin/csh
+#!/bin/bash
 export EXTERNALDIR=/nfs/slac/g/suncatfs/sw/external
 export NUMPYDIR=${EXTERNALDIR}/numpy/1.4.1/install/lib64/python2.4/site-packages
 export SCIPYDIR=${EXTERNALDIR}/scipy/0.7.0/install/lib64/python2.4/site-packages
