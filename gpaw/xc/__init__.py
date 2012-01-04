@@ -21,7 +21,7 @@ def XC(kernel, parameters=None):
     
     if isinstance(kernel, str):
         name = kernel
-        if name in ['vdW-DF', 'vdW-DF2']:
+        if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW', 'C09-vdW']:
             from gpaw.xc.vdw import FFTVDWFunctional
             return FFTVDWFunctional(name)
         elif name in ['EXX', 'PBE0', 'B3LYP']:
