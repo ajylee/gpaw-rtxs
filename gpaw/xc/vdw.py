@@ -165,6 +165,8 @@ class VDWFunctional(GGA):
             assert kernel is None and Zab is None
             kernel = LibXC('GGA_X_C09+LDA_C_PW')
             Zab = -0.8491
+        else:
+            assert kernel is not None and Zab is not None
 
         self.Zab = Zab
         GGA.__init__(self, kernel)
