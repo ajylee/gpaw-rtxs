@@ -165,8 +165,6 @@ class VDWFunctional(GGA):
             assert kernel is None and Zab is None
             kernel = LibXC('GGA_X_C09+LDA_C_PW')
             Zab = -0.8491
-        else:
-            raise ValueError("unknown vdW-DF type functional")
 
         self.Zab = Zab
         GGA.__init__(self, kernel)
