@@ -5,10 +5,12 @@ from gpaw.xc.kernel import XCKernel
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.vdw import FFTVDWFunctional
 from gpaw import debug
+import os
 
 
 class BEE1(XCKernel):
     def __init__(self, parameters=None):
+       """GGA exchange expanded in a PBE-like basis"""
         if parameters is None:
             self.name = 'BEE1'
             parameters = [0.0, 1.0]
@@ -17,6 +19,30 @@ class BEE1(XCKernel):
         parameters = np.array(parameters, dtype=float).ravel()
         self.xc = _gpaw.XCFunctional(18, parameters)
         self.type = 'GGA'
+
+
+class BEE2(XCKernel):
+    def __init__(self, parameters=None):
+        """GGA exchange expanded in Legendre polynomials"""
+        if parameters is None:
+            # LDA exchange
+            t = [1.0, 0.0]
+            coefs = [1.0]
+            orders = [0.0]
+        else:
+            assert len(parameters) > 2
+            assert np.mod(len(parameters),2) == 0
+            t = parameters[0:2]
+            assert t[-1] == 0.0
+            coefs = parameters[2:1+len(parameters)/2]
+            orders = parameters[1+len(parameters)/2:]
+
+        parameters = np.append(t, np.append(orders,coefs))
+        parameters = np.array(parameters, dtype=float).ravel()
+        print parameters
+        self.xc = _gpaw.XCFunctional(17, parameters)
+        self.type = 'GGA'
+        self.name = 'BEE2'
 
 
 class BEEVDWKernel(XCKernel):
