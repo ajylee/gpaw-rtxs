@@ -10,7 +10,7 @@ import os
 
 class BEE1(XCKernel):
     def __init__(self, parameters=None):
-       """GGA exchange expanded in a PBE-like basis"""
+        """GGA exchange expanded in a PBE-like basis"""
         if parameters is None:
             self.name = 'BEE1'
             parameters = [0.0, 1.0]
