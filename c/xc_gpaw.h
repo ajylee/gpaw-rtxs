@@ -39,7 +39,7 @@ typedef struct
   bool gga;
   double kappa;
   int nparameters;
-  double parameters[14];
+  double parameters[110];
 } xc_parameters;
 
 #endif /* _XC_GPAW_H */

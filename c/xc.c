@@ -42,6 +42,9 @@ double rpbe_exchange(const xc_parameters* par,
 double bee1_exchange(const xc_parameters* par,
 		     double n, double rs, double a2,
 		     double* dedrs, double* deda2);
+double beefvdw_exchange(const xc_parameters* par,
+                        double n, double rs, double a2,
+                        double* dedrs, double* deda2);
 
 typedef struct 
 {
@@ -257,12 +260,22 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
     // PW91
     self->exchange = pw91_exchange;
   }
+  else if (code == 17) {
+    // BEEF-vdW
+    self->exchange = beefvdw_exchange;
+    int n = PyArray_DIM(parameters, 0);
+    assert(n <= 110);
+    double* p = (double*)PyArray_BYTES(parameters);
+    for (int i = 0; i < n; i++)
+      self->par.parameters[i] = p[i];
+    self->par.nparameters = n / 2;
+  }
   else {
     // BEE1
     assert(code == 18);
     self->exchange = bee1_exchange;
     int n = PyArray_DIM(parameters, 0);
-    assert(n <= 14);
+    assert(n <= 110);
     double* p = (double*)PyArray_BYTES(parameters);
     for (int i = 0; i < n; i++)
       self->par.parameters[i] = p[i];
