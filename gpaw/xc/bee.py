@@ -23,21 +23,21 @@ class BEE1(XCKernel):
 
 class BEE2(XCKernel):
     def __init__(self, parameters=None):
-        """GGA exchange expanded in Legendre polynomials"""
+        """GGA exchange expanded in Legendre polynomials.
+           Parameters: [transformation,0.0,orders,coefs].
+           transformation is a positive float.
+           orders and coefs must be lists of equal length.""" 
         if parameters is None:
             # LDA exchange
             t = [1.0, 0.0]
             coefs = [1.0]
             orders = [0.0]
+            prameters = np.append(t, np.append(orders,coefs))
         else:
             assert len(parameters) > 2
             assert np.mod(len(parameters),2) == 0
-            t = parameters[0:2]
-            assert t[-1] == 0.0
-            coefs = parameters[2:1+len(parameters)/2]
-            orders = parameters[1+len(parameters)/2:]
+            assert parameters[1] == 0.0
 
-        parameters = np.append(t, np.append(orders,coefs))
         parameters = np.array(parameters, dtype=float).ravel()
         print parameters
         self.xc = _gpaw.XCFunctional(17, parameters)
