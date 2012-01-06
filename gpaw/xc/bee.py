@@ -32,7 +32,7 @@ class BEE2(XCKernel):
             t = [1.0, 0.0]
             coefs = [1.0]
             orders = [0.0]
-            prameters = np.append(t, np.append(orders,coefs))
+            parameters = np.append(t, np.append(orders,coefs))
         else:
             assert len(parameters) > 2
             assert np.mod(len(parameters),2) == 0
