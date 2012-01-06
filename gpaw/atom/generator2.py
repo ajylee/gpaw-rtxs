@@ -885,8 +885,14 @@ def _generate(symbol, opt):
     if opt.zero_potential:
         x = opt.zero_potential.split(',')
         type = x[0]
-        nderiv = int(x[1])
-        r0 = float(x[2])
+        if len(x) == 1:
+            # select only zero_potential type (with defaults)
+            # i.e. on the command line: -0 {f,poly}
+            nderiv = 6
+            r0 = gen.rcmax
+        else:
+            nderiv = int(x[1])
+            r0 = float(x[2])
         if len(x) == 4:
             e0 = float(x[3])
         elif type == 'poly':
