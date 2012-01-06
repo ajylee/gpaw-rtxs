@@ -39,21 +39,24 @@ class BEE2(XCKernel):
             assert parameters[1] == 0.0
 
         parameters = np.array(parameters, dtype=float).ravel()
-        print parameters
         self.xc = _gpaw.XCFunctional(17, parameters)
         self.type = 'GGA'
         self.name = 'BEE2'
 
 
 class BEEVDWKernel(XCKernel):
-    def __init__(self, xcoefs, ldac, pbec, lyp):
-        self.BEE1 = BEE1(xcoefs)
+    def __init__(self, bee, xcoefs, ldac, pbec):
+        if bee is 'BEE1':
+            self.BEE = BEE1(xcoefs)
+        elif bee is 'BEE2':
+            self.BEE = BEE2(xcoefs)
+        else:
+            raise ValueError('Unknown BEE exchange: %s', bee)
+
         self.LDAc = LibXC('LDA_C_PW')
         self.PBEc = LibXC('GGA_C_PBE')
-        self.LYP = LibXC('GGA_C_LYP')
         self.ldac = ldac
         self.pbec = pbec
-        self.lyp = lyp
 
         self.type = 'GGA'
         self.name = 'BEEVDW'
@@ -65,15 +68,14 @@ class BEEVDWKernel(XCKernel):
             self.check_arguments(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
                                  tau_sg, dedtau_sg)
 
-        self.BEE1.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        self.BEE.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
         
         e0_g = np.empty_like(e_g)
         dedn0_sg = np.empty_like(dedn_sg)
         dedsigma0_xg = np.empty_like(dedsigma_xg)
         for coef, kernel in [
             (self.ldac, self.LDAc),
-            (self.pbec - 1.0, self.PBEc),
-            (self.lyp, self.LYP)]:
+            (self.pbec - 1.0, self.PBEc)]:
             dedn0_sg[:] = 0.0
             kernel.calculate(e0_g, n_sg, dedn0_sg, sigma_xg, dedsigma0_xg)
             e_g += coef * e0_g
@@ -83,10 +85,10 @@ class BEEVDWKernel(XCKernel):
 
             
 class BEEVDWFunctional(FFTVDWFunctional):
-    def __init__(self, xcoefs=(0.0, 1.0), ccoefs=(0.0, 1.0, 0.0, 0.0),
+    def __init__(self, bee='BEE1', xcoefs=(0.0, 1.0), ccoefs=(0.0, 1.0, 0.0),
                  **kwargs):
-        ldac, pbec, lyp, vdw = ccoefs
-        kernel = BEEVDWKernel(xcoefs, ldac, pbec, lyp)
+        ldac, pbec, vdw = ccoefs
+        kernel = BEEVDWKernel(bee, xcoefs, ldac, pbec)
         FFTVDWFunctional.__init__(self, name='BEEVDW',
                                   kernel=kernel, Zab=-0.8491, vdwcoef=vdw,
                                   **kwargs)
