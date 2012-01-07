@@ -26,6 +26,6 @@ print e1, e2
 assert abs(e1 - e2) < 3e-6
 
 e1 = calc.get_xc_difference('LDA')
-e2 = calc.get_xc_difference(BEEVDWFunctional([-1000, 1], [1, 0, 0, 0]))
+e2 = calc.get_xc_difference(BEEVDWFunctional('BEE1', [-1000, 1], [1, 0, 0]))
 print e1, e2
 assert abs(e1 - e2) < 3e-6
