@@ -28,7 +28,7 @@ def Df(p, t):
         np.ones_like(t)])
 
 
-for name in ['h2_osc', 'n2_osc', 'na2_osc']:
+for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
     print '\nAnalysing %s\n%s' % (name, '-'*32)
 
     # Import relevant test and make sure it has the prerequisite parameters
