@@ -135,6 +135,7 @@ tests = [
     'mgga_restart.py',
     'gga_atom.py',
     'bee1.py',
+    'beefvdw.py',
     'external_potential.py',
     'refine.py',
     'revPBE.py',
