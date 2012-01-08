@@ -85,12 +85,40 @@ class BEEVDWKernel(XCKernel):
 
             
 class BEEVDWFunctional(FFTVDWFunctional):
-    def __init__(self, bee='BEE1', xcoefs=(0.0, 1.0), ccoefs=(0.0, 1.0, 0.0),
+    def __init__(self, bee='BEE1', xcoefs=(0.0, 1.0),
+                 ccoefs=(0.0, 1.0, 0.0), t=4.0, orders=None,
                  **kwargs):
+
+        if bee is 'BEE1':
+            name = 'BEE1VDW'
+            Zab  = -0.8491
+            soft_corr = False
+        elif bee is 'BEE2':
+            name = 'BEE2VDW'
+            Zab  = -1.887
+            soft_corr = False
+            if orders is None:
+                orders = range(len(xcoefs))
+            xcoefs = np.append([t,0.0],np.append(orders,xcoefs))
+        elif bee == 'BEEF-vdW':
+            bee  = 'BEE2'
+            name = 'BEEF-vdW'
+            Zab  = -1.887
+            soft_corr = True
+            npz_path = os.environ['GPAW_HOME']+'/gpaw/xc/'
+            xc_data = np.load(npz_path+'beefvdw.npz')
+            x       = xc_data['x']
+            orders  = range(len(x))
+            ccoefs  = xc_data['c']
+            t       = [xc_data['t'], 0.0]
+            xcoefs  = np.append(t,np.append(orders,x))
+        else:
+            raise ValueError('Unknown BEEVDW functional: %s', bee)
+
         ldac, pbec, vdw = ccoefs
         kernel = BEEVDWKernel(bee, xcoefs, ldac, pbec)
-        FFTVDWFunctional.__init__(self, name='BEEVDW',
-                                  kernel=kernel, Zab=-0.8491, vdwcoef=vdw,
+        FFTVDWFunctional.__init__(self, name=name, soft_correction=soft_corr,
+                                  kernel=kernel, Zab=Zab, vdwcoef=vdw,
                                   **kwargs)
         
     def get_setup_name(self):

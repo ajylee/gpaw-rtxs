@@ -33,6 +33,9 @@ def XC(kernel, parameters=None):
         elif name == 'BEE2':
             from gpaw.xc.bee import BEE2
             kernel = BEE2(parameters)
+        elif name in ['BEEF-vdW','BEEF-1']:
+            from gpaw.xc.bee import BEEVDWFunctional
+            return BEEVDWFunctional('BEEF-vdW')
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
                  NonLocalFunctionalFactory
