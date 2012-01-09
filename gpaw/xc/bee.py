@@ -5,8 +5,6 @@ from gpaw.xc.kernel import XCKernel
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.vdw import FFTVDWFunctional
 from gpaw import debug
-from gpaw import setup_paths
-import os
 
 
 class BEE1(XCKernel):
@@ -106,29 +104,23 @@ class BEEVDWFunctional(FFTVDWFunctional):
             name = 'BEEF-vdW'
             Zab  = -1.887
             soft_corr = True
-            self.load_xc_pars_npz('beefvdw.npz')
-            x       = self.xc_pars['x']
-            orders  = range(len(x))
-            ccoefs  = self.xc_pars['c']
-            t       = [self.xc_pars['t'], 0.0]
-            xcoefs  = np.append(t,np.append(orders,x))
+            t,x,o,ccoefs = self.load_xc_pars('BEEF-vdW')
+            xcoefs = np.append(t,np.append(o,x))
         else:
-            raise ValueError('Unknown BEEVDW functional: %s', bee)
+            raise KeyError('Unknown BEEVDW functional: %s', bee)
 
         ldac, pbec, vdw = ccoefs
         kernel = BEEVDWKernel(bee, xcoefs, ldac, pbec)
         FFTVDWFunctional.__init__(self, name=name, soft_correction=soft_corr,
                                   kernel=kernel, Zab=Zab, vdwcoef=vdw,
                                   **kwargs)
-        
+
     def get_setup_name(self):
         return 'PBE'
 
-    def load_xc_pars_npz(self, name):
-        dirs = setup_paths + ['.']
-        for dir in dirs:
-            filename = os.path.join(dir, name)
-            if os.path.isfile(filename):
-                self.xc_pars = np.load(filename)
-                return
-        raise IOError('BEEF-vdW: Could not find npz file in $GPAW_SETUP_PATH:', name)
+    def load_xc_pars(self, name):
+        if name == 'BEEF-vdW':
+            from beefvdw_pars import t,x,o,c
+            return t,x,o,c
+        else:
+            raise KeyError('Unknown XC name: %s', name)
