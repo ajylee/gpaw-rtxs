@@ -28,9 +28,11 @@ class DipoleCorrection:
                     raise ValueError('System must be non-periodic along '
                                      'dipole correction axis')
             else:
-                if not gd.pbc_c[c]:
-                    raise ValueError('System must be periodic along axes '
-                                     'perpendicular to dipole correction')
+                pass
+                # XXX why was the below restriction deemed desirable?
+                #if not gd.pbc_c[c]:
+                #    raise ValueError('System must be periodic along axes '
+                #                     'perpendicular to dipole correction')
         self.poissonsolver.set_grid_descriptor(gd)
 
     def initialize(self):
@@ -39,6 +41,7 @@ class DipoleCorrection:
     def solve(self, phi, rho, **kwargs):
         gd = self.poissonsolver.gd
         drho, dphi = self.corrector.get_dipole_correction(gd, rho)
+        phi -= dphi
         iters = self.poissonsolver.solve(phi, rho + drho, **kwargs)
         phi += dphi
         return iters
