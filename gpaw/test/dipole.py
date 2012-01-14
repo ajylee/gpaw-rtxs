@@ -53,7 +53,10 @@ system2.positions *= [1.0, 1.0, -1.0]
 system2 += system1
 system2.center(vacuum=6.0, axis=2)
 
+convergence = dict(density=1e-5)
+
 calc1 = GPAW(mode='lcao',
+             convergence=convergence,
              gpts=h2gpts(0.3, system1.cell, idiv=8),
              poissonsolver=DipoleCorrection(PoissonSolver(relax='GS',
                                                           eps=1e-11), 2))
@@ -65,6 +68,7 @@ v1 = calc1.get_effective_potential(pad=False)
 
 
 calc2 = GPAW(mode='lcao',
+             convergence=convergence,
              gpts=h2gpts(0.3, system2.cell, idiv=8),
              poissonsolver=PoissonSolver(relax='GS', eps=1e-11))
 
@@ -97,7 +101,7 @@ if rank == 0:
     
     print 'Error', err1, err2
     assert err1 < 4e-3
-    assert err2 < 5e-5
+    assert err2 < 2e-4
 
     if 0:
         import pylab as pl
