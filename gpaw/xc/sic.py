@@ -194,7 +194,7 @@ class SIC(XCFunctional):
     def initialize(self, density, hamiltonian, wfs, occ=None):
         
 	assert wfs.gamma
-	assert np.any(wfs.gd.pbc_ci)!=False        
+	assert not wfs.gd.pbc_c.any()
 
         self.wfs = wfs
         self.dtype = float
