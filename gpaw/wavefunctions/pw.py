@@ -541,7 +541,7 @@ class PWLFC(BaseLFC):
     def add(self, a_xG, c_axi=1.0, q=-1):
         if isinstance(c_axi, float):
             assert q == -1, a_xG.dims == 1
-            a_xG += (1.0 / self.pd.gd.dv) * self.expand(-1).sum(0)
+            a_xG += (c_axi / self.pd.gd.dv) * self.expand(-1).sum(0)
             return
 
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
