@@ -12,7 +12,7 @@ from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k, gemmdot
 from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
     inverse_cholesky
-from gpaw.utilities.scalapack import pblas_simple_gemm
+from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_tran
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
 
@@ -404,6 +404,10 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.timer.stop('Distribute overlap matrix')
         return S_qmm.reshape(xshape + blockdesc.shape)
 
+    def add_hermitian_conjugate(self, H_mM):
+        desc = self.mM_unique_descriptor
+        pblas_tran(1.0, H_mM.copy(), 1.0, H_mM, desc, desc)
+
     def get_overlap_matrix_shape(self):
         return self.mmdescriptor.shape
 
@@ -544,6 +548,9 @@ class OrbitalLayouts(KohnShamLayouts):
     def distribute_overlap_matrix(self, S_qMM, root=0):
         self.gd.comm.sum(S_qMM, root)
         return S_qMM
+
+    def add_hermitian_conjugate(self, H_MM):
+        H_MM += H_MM.T.conj()
 
     def get_overlap_matrix_shape(self):
         return self.nao, self.nao

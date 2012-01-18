@@ -46,7 +46,8 @@ class LCAO:
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]
             for sdisp_c, Vt_MM in zip(bf.sdisp_xc, Vt_xMM)[1:]:
                 H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
-            H_MM += H_MM.T.conj()
+            wfs.ksl.add_hermitian_conjugate(H_MM)
+            #H_MM += H_MM.T.conj()
 
         wfs.timer.stop('Potential matrix')
 
