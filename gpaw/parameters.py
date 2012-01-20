@@ -33,7 +33,7 @@ class InputParameters(dict):
             ('txt',             '-'),
             ('hund',            False),
             ('random',          False),
-            ('dtype',           float),
+            ('dtype',           None),
             ('maxiter',         120),
             ('parallel',        {'domain':              parsize,
                                  'band':                parsize_bands,
@@ -106,7 +106,7 @@ class InputParameters(dict):
         self.nbands = r.dimension('nbands')
         self.spinpol = (r.dimension('nspins') == 2)
 
- 
+        bzk_kc = r.get('BZKPoints', broadcast=True) 
         if r.has_array('NBZKPoints'):
             self.kpts = r.get('NBZKPoints', broadcast=True)
             if r.has_array('MonkhorstPackOffset'):
@@ -114,7 +114,8 @@ class InputParameters(dict):
                 if offset_c.any():
                     self.kpts = monkhorst_pack(self.kpts) + offset_c
         else:
-            self.kpts = r.get('BZKPoints', broadcast=True)
+            self.kpts = bzk_kc
+
         self.usesymm = r['UseSymmetry']
         try:
             self.basis = r['BasisSet']
@@ -217,11 +218,7 @@ class InputParameters(dict):
         except KeyError:
             self.mode = 'fd'
 
-        try:
-            dtype = r['DataType']
-            if dtype == 'Float':
-                self.dtype = float
-            else:
+        if len(bzk_kc) == 1 and not bzk_kc[0].any():
+            # Gamma point only:
+            if r.get_data_type('Projections')[0] == complex:
                 self.dtype = complex
-        except KeyError:
-            self.dtype = float

@@ -930,11 +930,15 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
 
     def _update(self, spos_ac):
         sdisp_Wc = NewLocalizedFunctionsCollection._update(self, spos_ac)
+
+        if self.gamma:
+            return
+
         n_c = sdisp_Wc.max(0) - sdisp_Wc.min(0)
         N_c = 2 * n_c + 1
         stride_c = np.array([N_c[1] * N_c[2], N_c[2], 1])
         self.x_W = np.dot(sdisp_Wc, stride_c).astype(np.intc)
-        # use neighbor list ...
+        # use a neighbor list instead?
         x1 = np.dot(n_c, stride_c)
         self.sdisp_xc = np.zeros((x1 + 1, 3), int)
         r_x, self.sdisp_xc[:, 2] = divmod(np.arange(x1, 2 * x1 + 1), N_c[2])

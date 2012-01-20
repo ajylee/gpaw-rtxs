@@ -39,8 +39,10 @@ class LCAO:
             vt_G = hamiltonian.vt_sG[kpt.s]
             Vt_xMM = bf.calculate_potential_matrices(vt_G)
 
-        if len(Vt_xMM) == 1:
+        if bf.gamma:
             H_MM = Vt_xMM[0]
+            if wfs.dtype == complex:
+                H_MM = H_MM.astype(complex)
         else:
             k_c = wfs.kd.ibzk_qc[kpt.q]
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]

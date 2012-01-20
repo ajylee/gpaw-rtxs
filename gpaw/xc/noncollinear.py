@@ -282,6 +282,14 @@ class NonCollinearLCAOEigensolver(LCAO):
             gemm(1.0, P_Mi, dH_ii, 0.0, dHP_iM, 'c')
             gemm(1.0, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
 
+    def iterate(self, hamiltonian, wfs):
+        wfs.timer.start('Noncollinear LCAO eigensolver')
+
+        for kpt in wfs.kpt_u:
+            self.iterate_one_k_point(hamiltonian, wfs, kpt)
+
+        wfs.timer.stop('Noncollinear LCAO eigensolver')
+
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         if wfs.bd.comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
