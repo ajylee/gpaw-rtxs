@@ -596,7 +596,6 @@ PyObject* h5o_open(PyObject *self, PyObject *args)
 PyObject* h5o_close(PyObject *self, PyObject *args)
 {
   int oid;
-  const char* name;
   if (!PyArg_ParseTuple(args, "i", &oid))
     return NULL;
 
