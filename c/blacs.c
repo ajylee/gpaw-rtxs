@@ -228,6 +228,12 @@ void pdtran_(int* m, int* n,
              double* beta,
              double* c, int* ic, int* jc, int* descc);
 
+void pztranc_(int* m, int* n,
+	      void* alpha,
+	      void* a, int* ia, int* ja, int* desca,
+	      void* beta,
+	      void* c, int* ic, int* jc, int* descc);
+
 void pdgemm_(char* transa, char* transb, int* m, int* n, int* k,
              double* alpha,
              double* a, int* ia, int* ja, int* desca,
