@@ -43,7 +43,13 @@ def v0D_Coulomb(qG,R):
     return 1. / qG2 * (1 - cos(sqrt(qG2)*R))
 
 
-def calculate_Kc(q_c, Gvec_Gc, acell_cv, bcell_cv, pbc, optical_limit, vcut=None):
+def calculate_Kc(q_c,
+                 Gvec_Gc,
+                 acell_cv, bcell_cv,
+                 pbc,
+                 optical_limit,
+                 vcut=None,
+                 density_cut=None):
     """Symmetric Coulomb kernel"""
     npw = len(Gvec_Gc)
     Kc_G = np.zeros(npw)
@@ -100,38 +106,51 @@ def calculate_Kc(q_c, Gvec_Gc, acell_cv, bcell_cv, pbc, optical_limit, vcut=None
 
 
 def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
-                  bcell_cv, R_av, setups, D_asp):
+                  bcell_cv, R_av, setups, D_asp, functional='ALDA',
+                  density_cut=None):
     """LDA kernel"""
 
     # The soft part
-    assert np.abs(nt_sG[0].shape - nG).sum() == 0
-
-    xc = XC('LDA')
-    
-    fxc_sg = np.zeros_like(nt_sG)
-    xc.calculate_fxc(gd, nt_sG, fxc_sg)
-    fxc_g = fxc_sg[0]
-
+    #assert np.abs(nt_sG[0].shape - nG).sum() == 0
+    if functional == 'ALDA_X':
+        x_only = True
+    else:
+        assert len(nt_sG) == 1
+        x_only = False
+    if x_only:
+        A_x = -(3/4.) * (3/np.pi)**(1/3.)
+        if len(nt_sG) == 1:
+            fxc_sg = (4 / 9.) * A_x * nt_sG**(-2/3.)
+        else:
+            fxc_sg = 2 * (4 / 9.) * A_x * (2*nt_sG)**(-2/3.)
+    else:
+        fxc_sg = np.zeros_like(nt_sG)
+        xc = XC(functional[1:])
+        xc.calculate_fxc(gd, nt_sG, fxc_sg)
+        
+    if density_cut is not None:
+        fxc_sg[np.where(nt_sG*len(nt_sG) < density_cut)] = 0.0
+        
     # FFT fxc(r)
     nG0 = nG[0] * nG[1] * nG[2]
-    tmp_g = np.fft.fftn(fxc_g) * vol / nG0
+    tmp_sg = [np.fft.fftn(fxc_sg[s]) * vol / nG0 for s in range(len(nt_sG))]
 
     r_vg = gd.get_grid_point_coordinates()
-    
-    Kxc_GG = np.zeros((npw, npw), dtype=complex)
-    for iG in range(npw):
-        for jG in range(npw):
-            dG_c = Gvec_Gc[iG] - Gvec_Gc[jG]
-            if (nG / 2 - np.abs(dG_c) > 0).all():
-                index = (dG_c + nG) % nG
-                Kxc_GG[iG, jG] = tmp_g[index[0], index[1], index[2]]
-            else: # not in the fft index
-                dG_v = np.dot(dG_c, bcell_cv)
-                dGr_g = gemmdot(dG_v, r_vg, beta=0.0) 
-                Kxc_GG[iG, jG] = gd.integrate(np.exp(-1j*dGr_g)*fxc_g)
+    Kxc_sGG = np.zeros((len(fxc_sg), npw, npw), dtype=complex)
+    for s in range(len(fxc_sg)):
+        for iG in range(npw):
+            for jG in range(npw):
+                dG_c = Gvec_Gc[iG] - Gvec_Gc[jG]
+                if (nG / 2 - np.abs(dG_c) > 0).all():
+                    index = (dG_c + nG) % nG
+                    Kxc_sGG[s, iG, jG] = tmp_sg[s][index[0], index[1], index[2]]
+                else: # not in the fft index
+                    dG_v = np.dot(dG_c, bcell_cv)
+                    dGr_g = gemmdot(dG_v, r_vg, beta=0.0) 
+                    Kxc_sGG[s, iG, jG] = gd.integrate(np.exp(-1j*dGr_g)*fxc_sg[s])
 
-    KxcPAW_GG = np.zeros_like(Kxc_GG)
     # The PAW part
+    KxcPAW_sGG = np.zeros_like(Kxc_sGG)
     dG_GGv = np.zeros((npw, npw, 3))
     for iG in range(npw):
         for jG in range(npw):
@@ -152,13 +171,13 @@ def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
             B_pqL = setup.xc_correction.B_pqL
             D_sLq = np.inner(D_sp, B_pqL.T)
             nspins = len(D_sp)
-            assert nspins == 1
-            
+                 
             f_sg = rgd.empty(nspins)
             ft_sg = rgd.empty(nspins)
         
             n_sLg = np.dot(D_sLq, n_qg)
             nt_sLg = np.dot(D_sLq, nt_qg)
+            
             # Add core density
             n_sLg[:, 0] += sqrt(4 * pi) / nspins * nc_g
             nt_sLg[:, 0] += sqrt(4 * pi) / nspins * nct_g
@@ -168,20 +187,24 @@ def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                 w = weight_n[n]
                 f_sg[:] = 0.0
                 n_sg = np.dot(Y_L, n_sLg)
-                xc.calculate_fxc(rgd, n_sg, f_sg)
+                if x_only:
+                    f_sg = 2 * (4 / 9.) * A_x * (2*n_sg)**(-2/3.)
+                else:
+                    xc.calculate_fxc(rgd, n_sg, f_sg)
                 
                 ft_sg[:] = 0.0
                 nt_sg = np.dot(Y_L, nt_sLg)
-                xc.calculate_fxc(rgd, nt_sg, ft_sg)
-                # The following loop saves memory compared to the direct calculation below
+                if x_only:
+                    ft_sg = 2 * (4 / 9.) * A_x * (2*nt_sg)**(-2/3.)
+                else:
+                    xc.calculate_fxc(rgd, nt_sg, ft_sg)
+                
                 for i in range(len(rgd.r_g)):
                     coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n]) * rgd.r_g[i])
-                    KxcPAW_GG += w * np.dot(coef_GG, (f_sg[0,i]-ft_sg[0,i]) * dv_g[i]) * coefatoms_GG
-                #coef_GGg = np.exp(-1j * np.outer(np.inner(dG_GGv, R_nv[n]), rgd.r_g)).reshape(npw,npw,rgd.N)
-                #KxcPAW_GG += w * np.dot(coef_GGg, (f_sg[0]-ft_sg[0]) * dv_g) * coefatoms_GG
-    world.sum(KxcPAW_GG)
-    Kxc_GG += KxcPAW_GG
-    
-    return Kxc_GG / vol
+                    KxcPAW_sGG += w * np.dot(coef_GG, (f_sg[0,i]-ft_sg[0,i]) * dv_g[i]) * coefatoms_GG
+    world.sum(KxcPAW_sGG)
+    Kxc_sGG += KxcPAW_sGG
+
+    return Kxc_sGG / vol
                 
 

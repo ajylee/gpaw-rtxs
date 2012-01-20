@@ -195,7 +195,8 @@ tests = [
     'dump_chi0.py',
     'au02_absorption.py',
     'exx_q.py',
-    'rpa_energy.py',
+    'rpa_energy_Si.py',
+    'rpa_energy_H2.py',
     'bse_aluminum.py',
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
@@ -337,7 +338,8 @@ except ImportError:
                 'bse_sym.py',
                 'bse_silicon.py',
                 'aeatom.py',
-                'rpa_energy.py']
+                'rpa_energy_Si.py',
+                'rpa_energy_H2.py']
 
 try:
     import _hdf5

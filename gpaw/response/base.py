@@ -30,6 +30,8 @@ class BASECHI:
                  q=None,
                  eshift=None,
                  ecut=10.,
+                 smooth_cut=None,
+                 density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
@@ -65,13 +67,15 @@ class BASECHI:
         else:
             assert len(ecut) == 3
             self.ecut = np.array(ecut, dtype=float)
+        self.smooth_cut = smooth_cut
+        self.density_cut = density_cut
         self.G_plus_q = G_plus_q
         self.rpad = rpad
         self.optical_limit = optical_limit
         self.eshift = eshift
 
 
-    def initialize(self):
+    def initialize(self, spin=0):
                         
         self.eta /= Hartree
         self.ecut /= Hartree
@@ -113,11 +117,11 @@ class BASECHI:
             self.printtxt('Use eigenvalues from user.')
         except:
             self.printtxt('Use eigenvalues from the calculator.')
-            self.e_kn = np.array([calc.get_eigenvalues(kpt=k)
+            self.e_kn = np.array([calc.get_eigenvalues(kpt=k, spin=spin)
                     for k in range(nibzkpt)]) / Hartree
             self.printtxt('Eigenvalues(k=0) are:')
             print  >> self.txt, self.e_kn[0] * Hartree
-        self.f_kn = np.array([calc.get_occupation_numbers(kpt=k) / kweight_k[k]
+        self.f_kn = np.array([calc.get_occupation_numbers(kpt=k, spin=spin) / kweight_k[k]
                     for k in range(nibzkpt)]) / self.nkpt
 
         self.enoshift_kn = self.e_kn.copy()
@@ -151,7 +155,16 @@ class BASECHI:
                                                                  self.bcell_cv,
                                                                  self.nG,
                                                                  self.ecut)
-            
+        if self.smooth_cut is not None:
+            G_weights = np.ones(self.npw)
+            for iG in range(self.npw):
+                G = np.dot(self.Gvec_Gc[iG] + self.q_c, self.bcell_cv)
+                E = np.dot(G, G) / 2.
+                if E > self.smooth_cut * self.ecut[0]:
+                    x = np.pi*(E/self.ecut[0] - self.smooth_cut) / (1. - self.smooth_cut)
+                    G_weights[iG] = 0.5 * (1. + np.cos(x))
+            self.G_weights = G_weights
+
         # Projectors init
         setups = calc.wfs.setups
         pt = LFC(gd, [setup.pt_j for setup in setups],
@@ -165,8 +178,6 @@ class BASECHI:
         self.print_stuff()
 
         return
-
-
 
     def output_init(self):
 
