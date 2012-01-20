@@ -292,9 +292,8 @@ class KPointDescriptor:
         kplusq_kc = kpts_kc + q_c
 
         # Translate back into the first BZ
-        if self.N_c is not None:
-            kplusq_kc[np.where(kplusq_kc > 0.501)] -= 1.
-            kplusq_kc[np.where(kplusq_kc < -0.499)] += 1.
+        kplusq_kc[np.where(kplusq_kc > 0.501)] -= 1.
+        kplusq_kc[np.where(kplusq_kc < -0.499)] += 1.
 
         # List of k+q indices
         kplusq_k = []
@@ -321,19 +320,29 @@ class KPointDescriptor:
 
     def get_bz_q_points(self):
         """Return the q=k1-k2. q-mesh is always Gamma-centered."""
-        Nk_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)[0]
-        bzq_qc = monkhorst_pack(Nk_c)
+        try:
+            # Regular k-point grid
+            Nk_c = get_monkhorst_pack_size_and_offset(self.bzk_kc)[0]
+            bzq_qc = monkhorst_pack(Nk_c)
 
-        shift_c = []
-        for Nk in Nk_c:
-            if Nk % 2 == 0:
-                shift_c.append(0.5 / Nk)
-            else:
-                shift_c.append(0.)
+            shift_c = []
+            for Nk in Nk_c:
+                if Nk % 2 == 0:
+                    shift_c.append(0.5 / Nk)
+                else:
+                    shift_c.append(0.)
 
-        bzq_qc += shift_c
-        return bzq_qc
-
+            bzq_qc += shift_c
+            return bzq_qc
+        except:
+            # Not regular k-point grid
+            bzq_qc = []
+            for k1 in self.bzk_kc:
+                for k2 in self.bzk_kc:
+                    q = k1 - k2
+                    if not (q > 0.5).any() and not (q <= -0.5).any():
+                        bzq_qc.append(q)
+            return bzq_qc
 
     def get_ibz_q_points(self, bzq_qc, op_scc):
         """Return ibz q points and the corresponding symmetry operations that
