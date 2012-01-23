@@ -40,16 +40,16 @@ class LCAO:
             Vt_xMM = bf.calculate_potential_matrices(vt_G)
 
         if bf.gamma:
+            y = 1.0
             H_MM = Vt_xMM[0]
             if wfs.dtype == complex:
                 H_MM = H_MM.astype(complex)
         else:
+            y = 0.5
             k_c = wfs.kd.ibzk_qc[kpt.q]
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]
             for sdisp_c, Vt_MM in zip(bf.sdisp_xc, Vt_xMM)[1:]:
                 H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
-            wfs.ksl.add_hermitian_conjugate(H_MM)
-            #H_MM += H_MM.T.conj()
 
         wfs.timer.stop('Potential matrix')
 
@@ -68,10 +68,11 @@ class LCAO:
             dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), wfs.dtype)
             # (ATLAS can't handle uninitialized output array)
             gemm(1.0, P_Mi, dH_ii, 0.0, dHP_iM, 'c')
-            gemm(1.0, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
+            gemm(y, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
         wfs.timer.stop('Atomic Hamiltonian')
         wfs.timer.start('Distribute overlap matrix')
-        H_MM = wfs.ksl.distribute_overlap_matrix(H_MM, root)
+        H_MM = wfs.ksl.distribute_overlap_matrix(
+            H_MM, root, add_hermitian_conjugate=(y == 0.5))
         wfs.timer.stop('Distribute overlap matrix')
         H_MM += wfs.T_qMM[kpt.q]
         return H_MM
