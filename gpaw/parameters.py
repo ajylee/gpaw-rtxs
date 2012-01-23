@@ -220,5 +220,5 @@ class InputParameters(dict):
 
         if len(bzk_kc) == 1 and not bzk_kc[0].any():
             # Gamma point only:
-            if r['DataType'] == 'Complex'
+            if r['DataType'] == 'Complex':
                 self.dtype = complex
