@@ -2,11 +2,8 @@
 
 Change log:
 
-version 2:
-
-    Removed 'DataType' attribute.
-
 """
+
 import os
 import os.path
 
@@ -127,7 +124,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 2
+    w['version'] = 1
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -185,6 +182,11 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     nadm = sum([setup.ni * (setup.ni + 1) // 2 for setup in wfs.setups])
     w.dimension('nproj', nproj)
     w.dimension('nadm', nadm)
+
+    if wfs.dtype == float:
+        w['DataType'] = 'Float'
+    else:
+        w['DataType'] = 'Complex'
 
     p = paw.input_parameters
 
