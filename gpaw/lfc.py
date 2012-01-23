@@ -934,7 +934,10 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         if self.gamma:
             return
 
-        n_c = sdisp_Wc.max(0) - sdisp_Wc.min(0)
+        if len(sdisp_Wc) > 0:
+            n_c = sdisp_Wc.max(0) - sdisp_Wc.min(0)
+        else:
+            n_c = np.zeros(3, int)
         N_c = 2 * n_c + 1
         stride_c = np.array([N_c[1] * N_c[2], N_c[2], 1])
         self.x_W = np.dot(sdisp_Wc, stride_c).astype(np.intc)
