@@ -38,6 +38,7 @@ class InputParameters(dict):
             ('parallel',        {'domain':              parsize,
                                  'band':                parsize_bands,
                                  'stridebands':         False,
+                                 'sl_auto':             False,
                                  'sl_default':          sl_default,
                                  'sl_diagonalize':      sl_diagonalize,
                                  'sl_inverse_cholesky': sl_inverse_cholesky,

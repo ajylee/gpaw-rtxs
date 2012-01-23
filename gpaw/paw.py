@@ -514,11 +514,41 @@ class PAW(PAWTextOutput):
             # do k-point analysis here? XXX
             args = (gd, nvalence, setups, bd, dtype, world, kd, self.timer)
 
+
+            if par.parallel['sl_auto']:
+                # Choose scalapack parallelization automatically
+                
+                for key, val in par.parallel.items():
+                    if (key.startswith('sl_') and key != 'sl_auto'
+                        and val is not None):
+                        raise ValueError("Cannot use 'sl_auto' together "
+                                         "with '%s'" % key)
+                max_scalapack_cpus = bd.comm.size * gd.comm.size
+                nprow = max_scalapack_cpus
+                npcol = 1
+                
+                # Get a sort of reasonable number of columns/rows
+                while npcol < nprow and nprow % 2 == 0:
+                    npcol *= 2
+                    nprow //= 2
+                assert npcol * nprow == max_scalapack_cpus
+
+                # ScaLAPACK creates trouble if there aren't at least a few
+                # whole blocks; choose block size so there will always be
+                # several blocks.  This will crash for small test systems,
+                # but so will ScaLAPACK in any case
+                blocksize = min(-(-nbands // 4), 64)
+                sl_default = (nprow, npcol, blocksize)
+                par.parallel['sl_default'] = sl_default
+            else:
+                sl_default = par.parallel['sl_default']
+
+
             if mode == 'lcao':
                 # Layouts used for general diagonalizer
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
-                    sl_lcao = par.parallel['sl_default']
+                    sl_lcao = sl_default
                 lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
                                                gd, bd, dtype,
                                                nao=nao, timer=self.timer)
@@ -536,7 +566,7 @@ class PAW(PAWTextOutput):
                 # Layouts used for diagonalizer
                 sl_diagonalize = par.parallel['sl_diagonalize']
                 if sl_diagonalize is None:
-                    sl_diagonalize = par.parallel['sl_default']
+                    sl_diagonalize = sl_default
                 diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
                                                gd, bd, dtype,
                                                buffer_size=buffer_size,
@@ -545,7 +575,7 @@ class PAW(PAWTextOutput):
                 # Layouts used for orthonormalizer
                 sl_inverse_cholesky = par.parallel['sl_inverse_cholesky']
                 if sl_inverse_cholesky is None:
-                    sl_inverse_cholesky = par.parallel['sl_default']
+                    sl_inverse_cholesky = sl_default
                 if sl_inverse_cholesky != sl_diagonalize:
                     message = 'sl_inverse_cholesky != sl_diagonalize ' \
                         'is not implemented.'
@@ -564,7 +594,7 @@ class PAW(PAWTextOutput):
                 # Layouts used for general diagonalizer (LCAO initialization)
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
-                    sl_lcao = par.parallel['sl_default']
+                    sl_lcao = sl_default
                 initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
                                                gd, lcaobd, dtype,
                                                nao=nao,
