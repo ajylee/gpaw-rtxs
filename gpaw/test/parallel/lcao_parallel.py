@@ -155,6 +155,9 @@ if compiled_with_sl():
     # domain-decomposition = (1, 2, 1)
     del parallel['band']
     parallel['domain'] = (1, 2, 1)
-
     run(**OH_kwargs)
 
+    # spin-polarization = 1,
+    # domain-decomposition = (1, 2, 2)
+    parallel['domain'] = (1, 2, 2)
+    run(**OH_kwargs)
