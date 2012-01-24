@@ -89,18 +89,23 @@ def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
         raise AssertionError(msg)
         
 
-# only kpt-parallelization, this is the reference
+# reference:
+# kpt-parallelization = 8,
+# state-parallelization = 1,
+# domain-decomposition = (1,1,1)
 run()
 
-# kpt-parallelization=2, state-parallelization=2,
-# domain-decomposition=(1,2,1)
+# kpt-parallelization = 2,
+# state-parallelization = 2,
+# domain-decomposition = (1,2,1)
 parallel['band'] = 2
 parallel['domain'] = (1, 2, 1)
 run()
 
 if compiled_with_sl():
-    # kpt-parallelization=2, state-parallelization=2,
-    # domain-decomposition=(1,2,1)
+    # kpt-parallelization = 2,
+    # state-parallelization = 2,
+    # domain-decomposition = (1,2,1)
     # with blacs
     parallel['sl_default'] = (2, 2, 2)
     run()
@@ -120,32 +125,40 @@ Fref_av = None
 OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1, width=0.1)
 
 # reference:
-# kpt-parallelization = 4, spin-polarization = 2,
+# kpt-parallelization = 4,
+# spin-polarization = 2,
+# state-parallelization = 1,
 # domain-decomposition = (1, 1, 1)
 run(**OH_kwargs)
 
-# kpt-parallelization = 2, spin-polarization = 2,
+# kpt-parallelization = 2,
+# spin-polarization = 2,
+# state-parallelization = 1, 
 # domain-decomposition = (1, 2, 1)
 parallel['domain'] = (1, 2, 1)
 run(**OH_kwargs)
 
-# kpt-parallelization = 2, spin-polarization = 2,
+# kpt-parallelization = 2,
+# spin-polarization = 2,
 # state-parallelization = 2,
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
 parallel['band'] = 2
-# run(**OH_kwargs) # test for forces is failing in this case!
+run(**OH_kwargs) # test for forces is failing in this case!
 
 if compiled_with_sl():
-    # kpt-parallelization=2, spin-polarization=2,
-    # state-parallelization = 2
-    # domain-decomposition=(1, 2, 1)
+    # kpt-parallelization = 2,
+    # spin-polarization = 2,
+    # state-parallelization = 2,
+    # domain-decomposition = (1, 2, 1)
     # with blacs
     parallel['domain'] = (1, 2, 1)
     parallel['sl_default'] = (2, 1, 2)
     run(**OH_kwargs)
 
-    # kpt-parallelization=2, state-parallelization=2,
+    # kpt-parallelization = 2,
+    # spin-polarization = 2,
+    # state-parallelization = 2,
     # domain-decomposition = (1, 2, 1)
     # with blacs
     parallel['sl_default'] = (2, 2, 2)
