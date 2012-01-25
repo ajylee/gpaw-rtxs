@@ -7,11 +7,6 @@
 #To append use the form
 #     libraries += ['somelib','otherlib']
 
-# Valid values for scalapack are False, or True:
-# False (the default) - no ScaLapack compiled in
-# True - ScaLapack compiled in
-#scalapack = True
-
 #compiler = 'mpcc'
 #libraries = []
 #libraries += []
@@ -57,3 +52,18 @@
 #platform_id = ''
 
 #hdf5 = True
+
+# Valid values for scalapack are False, or True:
+# False (the default) - no ScaLapack compiled in
+# True - ScaLapack compiled in
+scalapack = True
+
+if scalapack:
+    libraries += ['scalapack-openmpi',
+                  'blacsCinit-openmpi',
+                  'blacsF77init-openmpi',
+                  'blacs-openmpi',
+                  'lapack']
+
+    define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
+    define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
