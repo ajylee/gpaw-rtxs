@@ -365,6 +365,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 for iterator in iterators:
                     iterator.next()
 
+        return sdisp_Wc
+
     def M_to_ai(self, src_xM, dst_axi):
         xshape = src_xM.shape[:-1]
         src_xM = src_xM.reshape(np.prod(xshape), self.Mmax)        
@@ -926,6 +928,28 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         self.Mstart = 0
         self.Mstop = self.Mmax
 
+    def _update(self, spos_ac):
+        sdisp_Wc = NewLocalizedFunctionsCollection._update(self, spos_ac)
+
+        if self.gamma:
+            return
+
+        if len(sdisp_Wc) > 0:
+            n_c = sdisp_Wc.max(0) - sdisp_Wc.min(0)
+        else:
+            n_c = np.zeros(3, int)
+        N_c = 2 * n_c + 1
+        stride_c = np.array([N_c[1] * N_c[2], N_c[2], 1])
+        self.x_W = np.dot(sdisp_Wc, stride_c).astype(np.intc)
+        # use a neighbor list instead?
+        x1 = np.dot(n_c, stride_c)
+        self.sdisp_xc = np.zeros((x1 + 1, 3), int)
+        r_x, self.sdisp_xc[:, 2] = divmod(np.arange(x1, 2 * x1 + 1), N_c[2])
+        self.sdisp_xc.T[:2] = divmod(r_x, N_c[1])
+        self.sdisp_xc -= n_c
+
+        return sdisp_Wc
+
     def set_matrix_distribution(self, Mstart, Mstop):
         assert self.Mmax is not None
         self.Mstart = Mstart
@@ -984,6 +1008,30 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         c_xM = c_xM.reshape(Nx, -1)
         for a_G, c_M in zip(a_xG, c_xM):
             self.lfc.integrate(a_G, c_M, q)
+
+    def calculate_potential_matrices(self, vt_G):
+        """Calculate lower part of potential matrix.
+
+        ::
+
+                      /
+            ~         |     *  _  ~ _        _   _
+            V      =  |  Phi  (r) v(r) Phi  (r) dr    for  mu >= nu
+             mu nu    |     mu            nu
+                      /
+
+        Overwrites the elements of the target matrix Vt_MM. """
+        if self.gamma:
+            Vt_xMM = np.zeros((1, self.Mstop - self.Mstart, self.Mmax))
+            self.lfc.calculate_potential_matrix(vt_G, Vt_xMM[0], -1,
+                                                self.Mstart, self.Mstop)
+        else:
+            Vt_xMM = np.zeros((len(self.sdisp_xc),
+                               self.Mstop - self.Mstart,
+                               self.Mmax))
+            self.lfc.calculate_potential_matrices(vt_G, Vt_xMM, self.x_W,
+                                                  self.Mstart, self.Mstop)
+        return Vt_xMM
 
     def calculate_potential_matrix(self, vt_G, Vt_MM, q):
         """Calculate lower part of potential matrix.

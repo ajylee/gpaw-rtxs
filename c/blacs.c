@@ -66,6 +66,8 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pzheevr_  pzheevr
 #endif // GPAW_MR3
 
+#define   pdtran_  pdtran
+#define   pztranc_ pztranc
 #define   pdgemm_  pdgemm
 #define   pzgemm_  pzgemm
 #define   pdgemv_  pdgemv
@@ -220,6 +222,18 @@ void pzheevr_(char* jobz, char* range,
 #endif // GPAW_MR3
 
 // pblas
+void pdtran_(int* m, int* n,
+             double* alpha,
+             double* a, int* ia, int* ja, int* desca,
+             double* beta,
+             double* c, int* ic, int* jc, int* descc);
+
+void pztranc_(int* m, int* n,
+	      void* alpha,
+	      void* a, int* ia, int* ja, int* desca,
+	      void* beta,
+	      void* c, int* ic, int* jc, int* descc);
+
 void pdgemm_(char* transa, char* transb, int* m, int* n, int* k,
              double* alpha,
              double* a, int* ia, int* ja, int* desca,
@@ -281,6 +295,36 @@ void pztrsm_(char* side, char* uplo, char* trans, char* diag,
 	     int* m, int *n, void* alpha,
 	     void* a, int* ia, int* ja, int* desca,
 	     void* b, int* ib, int* jb, int* descb);
+
+
+PyObject* pblas_tran(PyObject *self, PyObject *args)
+{
+    int m, n;
+    Py_complex alpha;
+    Py_complex beta;
+    PyArrayObject *a, *c;
+    PyArrayObject *desca, *descc;
+  
+    if (!PyArg_ParseTuple(args, "iiDODOOO", &m, &n, &alpha,
+			  &a, &beta, &c,
+			  &desca, &descc))
+        return NULL;
+ 
+    int one = 1;
+    if (c->descr->type_num == PyArray_DOUBLE)
+        pdtran_(&m, &n,
+		&(alpha.real), 
+		DOUBLEP(a), &one, &one, INTP(desca), 
+		&(beta.real),
+		DOUBLEP(c), &one, &one, INTP(descc));
+    else
+        pztranc_(&m, &n,
+		 &alpha, 
+		 (void*)a->data, &one, &one, INTP(desca), 
+		 &beta,
+		 (void*)c->data, &one, &one, INTP(descc));
+    Py_RETURN_NONE;
+}
 
 PyObject* pblas_gemm(PyObject *self, PyObject *args)
 {

@@ -300,6 +300,15 @@ def scalapack_inverse_cholesky(desca, a, uplo):
     if info != 0:
         raise RuntimeError('scalapack_inverse_cholesky error: %d' % info)
 
+def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
+    desca.checkassert(a_MN)
+    descc.checkassert(c_NM)
+    M, N = desca.gshape
+    assert N, M == descc.gshape
+    _gpaw.pblas_tran(N, M, alpha, a_MN, beta, c_NM,
+                     desca.asarray(), descc.asarray())
+
+
 def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                transa='N', transb='N'):
     desca.checkassert(a_MK)
@@ -309,7 +318,7 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     M, Ka = desca.gshape
     Kb, N = descb.gshape
 
-    if transa =='T':
+    if transa == 'T':
         M, Ka = Ka, M
     if transb == 'T':
         Kb, N = N, Kb

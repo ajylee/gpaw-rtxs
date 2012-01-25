@@ -12,7 +12,7 @@ from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k, gemmdot
 from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
     inverse_cholesky
-from gpaw.utilities.scalapack import pblas_simple_gemm
+from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_tran
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
 
@@ -374,7 +374,8 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.gd.comm.broadcast(C_nM, 0)
         self.timer.stop('Send coefs to domains')
 
-    def distribute_overlap_matrix(self, S_qmM, root=0):
+    def distribute_overlap_matrix(self, S_qmM, root=0,
+                                  add_hermitian_conjugate=False):
         # Some MPI implementations need a lot of memory to do large
         # reductions.  To avoid trouble, we do comm.sum on smaller blocks
         # of S (this code is also safe for arrays smaller than blocksize)
@@ -401,6 +402,11 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.timer.start('Distribute overlap matrix')
         for S_mM, S_mm in zip(S_qmM, S_qmm):
             self.mM2mm.redistribute(S_mM, S_mm)
+            if add_hermitian_conjugate:
+                if blockdesc.active:
+                    pblas_tran(1.0, S_mm.copy(), 1.0, S_mm,
+                               blockdesc, blockdesc)
+                
         self.timer.stop('Distribute overlap matrix')
         return S_qmm.reshape(xshape + blockdesc.shape)
 
@@ -541,8 +547,11 @@ class OrbitalLayouts(KohnShamLayouts):
         mem.subnode('eps [M]', self.nao * mem.floatsize)
         mem.subnode('H [MM]', self.nao * self.nao * itemsize)
 
-    def distribute_overlap_matrix(self, S_qMM, root=0):
+    def distribute_overlap_matrix(self, S_qMM, root=0,
+                                  add_hermitian_conjugate=False):
         self.gd.comm.sum(S_qMM, root)
+        if add_hermitian_conjugate:
+            S_qMM += S_qMM.swapaxes(-1, -2).conj()
         return S_qMM
 
     def get_overlap_matrix_shape(self):

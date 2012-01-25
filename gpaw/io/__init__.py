@@ -1,3 +1,9 @@
+"""GPAW I/O
+
+Change log:
+
+"""
+
 import os
 import os.path
 
@@ -177,6 +183,11 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w.dimension('nproj', nproj)
     w.dimension('nadm', nadm)
 
+    if wfs.dtype == float:
+        w['DataType'] = 'Float'
+    else:
+        w['DataType'] = 'Complex'
+
     p = paw.input_parameters
 
     # Write grid-spacing or None if gpts was specified:
@@ -230,11 +241,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['DensityError'] = scf.density_error
     w['EnergyError'] = scf.energy_error
     w['EigenstateError'] = scf.eigenstates_error
-
-    if wfs.dtype == float:
-        w['DataType'] = 'Float'
-    else:
-        w['DataType'] = 'Complex'
 
     # Try to write time and kick strength in time-propagation TDDFT:
     for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'), 
@@ -684,13 +690,6 @@ def read(paw, reader):
     except (AttributeError, KeyError):
         norbitals = None
 
-    # Wave functions and eigenvalues:
-    dtype = r['DataType']
-    if dtype == 'Float' and paw.input_parameters['dtype'] != complex:
-        wfs.dtype = float
-    else:
-        wfs.dtype = complex
-        
     nibzkpts = r.dimension('nibzkpts')
     nbands = r.dimension('nbands')
     nslice = wfs.bd.get_slice()

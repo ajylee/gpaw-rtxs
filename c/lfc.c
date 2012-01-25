@@ -34,6 +34,7 @@ static void lfc_dealloc(LFCObject *self)
 
 
 PyObject* calculate_potential_matrix(LFCObject *self, PyObject *args);
+PyObject* calculate_potential_matrices(LFCObject *self, PyObject *args);
 PyObject* integrate(LFCObject *self, PyObject *args);
 PyObject* derivative(LFCObject *self, PyObject *args);
 PyObject* normalized_derivative(LFCObject *self, PyObject *args);
@@ -55,6 +56,8 @@ PyObject* add_derivative(LFCObject *self, PyObject *args);
 static PyMethodDef lfc_methods[] = {
     {"calculate_potential_matrix",
      (PyCFunction)calculate_potential_matrix, METH_VARARGS, 0},
+    {"calculate_potential_matrices",
+     (PyCFunction)calculate_potential_matrices, METH_VARARGS, 0},
     {"integrate",
      (PyCFunction)integrate, METH_VARARGS, 0},
     {"derivative",
@@ -293,6 +296,73 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
     GRID_LOOP_STOP(lfc, k);
   }
   Py_RETURN_NONE;
+}
+
+PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
+{
+    const PyArrayObject* vt_G_obj;
+    PyArrayObject* Vt_xMM_obj;
+    PyArrayObject* x_W_obj;
+    int Mstart;
+    int Mstop;
+    
+    if (!PyArg_ParseTuple(args, "OOOii", &vt_G_obj, &Vt_xMM_obj, &x_W_obj,
+			  &Mstart, &Mstop))
+        return NULL; 
+
+    const double* vt_G = (const double*)vt_G_obj->data;
+
+    int nM = Vt_xMM_obj->dimensions[2];
+    double dv = lfc->dv;
+    double* work_gm = lfc->work_gm;
+    double* Vt_xMM = (double*)Vt_xMM_obj->data;
+    int* x_W = (int*)x_W_obj->data;
+
+    GRID_LOOP_START(lfc, -1) {
+        for (int i1 = 0; i1 < ni; i1++) {
+	    LFVolume* v1 = volume_i + i1;
+	    int M1 = v1->M;
+	    int nm1 = v1->nm;
+	    int M1p = MAX(M1, Mstart);
+	    int nm1p = MIN(M1 + nm1, Mstop) - M1p;
+	    if (nm1p <= 0)
+	        continue;
+
+	    int x1 = x_W[v1->W];
+	    int gm = M1p - M1;
+	    int gm1 = 0;
+	    const double* A1_gm = v1->A_gm;
+	    for (int G = Ga; G < Gb; G++, gm += nm1 - nm1p) {
+	        double vtdv = vt_G[G] * dv;
+		for (int m1 = 0; m1 < nm1p; m1++, gm1++, gm++)
+		    work_gm[gm1] = vtdv * A1_gm[gm];
+	    }
+	    for (int i2 = 0; i2 < ni; i2++) {
+	        LFVolume* v2 = volume_i + i2;
+		int x = x_W[v2->W] - x1;
+		if (x >= 0) {
+		    int M2 = v2->M;
+		    int nm2 = v2->nm;
+		    const double* A2_gm = v2->A_gm;
+		    double* Vt_mm = (Vt_xMM +
+				     (M1p - Mstart) * nM + M2 +
+				     x * (Mstop - Mstart) * nM);
+		    for (int g = 0; g < nG; g++) {
+		        int gnm1 = g * nm1p;
+			int gnm2 = g * nm2;
+			for (int m1 = 0; m1 < nm1p; m1++) {
+			    int m1nM = m1 * nM;
+			    for (int m2 = 0; m2 < nm2; m2++)
+			        Vt_mm[m2 + m1nM] += (A2_gm[gnm2 + m2] *
+						     work_gm[gnm1 + m1]);
+			}
+		    }
+		}
+	    }
+	}
+    }
+    GRID_LOOP_STOP(lfc, -1);
+    Py_RETURN_NONE;
 }
 
 PyObject* integrate(LFCObject *lfc, PyObject *args)

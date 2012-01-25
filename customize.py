@@ -56,7 +56,7 @@
 # Valid values for scalapack are False, or True:
 # False (the default) - no ScaLapack compiled in
 # True - ScaLapack compiled in
-scalapack = True
+scalapack = False
 
 if scalapack:
     libraries += ['scalapack-openmpi',
