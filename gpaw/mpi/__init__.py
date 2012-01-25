@@ -57,15 +57,7 @@ class _Communicator:
             correspond to their respective index in the subset.
 
         """
-        assert is_contiguous(ranks, int)
-        sranks = np.sort(ranks)
-        # Are all ranks in range?
-        assert 0 <= sranks[0] and sranks[-1] < self.size
-        # No duplicates:
-        for i in range(len(sranks) - 1):
-            assert sranks[i] != sranks[i + 1]
-        assert len(ranks) > 0
-        
+
         comm = self.comm.new_communicator(ranks)
         if comm is None:
             # This cpu is not in the new communicator:

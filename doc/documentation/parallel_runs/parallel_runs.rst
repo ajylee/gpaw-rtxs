@@ -149,11 +149,13 @@ or simply a list of ranks. Thus, you may write::
 
   from gpaw import GPAW
   import gpaw.mpi as mpi
-  import numpy as np
 
   # Create a calculator using ranks 0, 3 and 4 from the mpi world communicator
-  comm = mpi.world.new_communicator(np.array([0, 3, 4]))
-  calc = GPAW(communicator=comm)
+  ranks = [0, 3, 4]
+  comm = mpi.world.new_communicator(ranks)
+  if mpi.world.rank in ranks:
+      calc = GPAW(communicator=comm)
+      ...
 
 Be sure to specify different output files to each calculator,
 otherwise their outputs will be mixed up.

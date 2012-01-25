@@ -19,7 +19,7 @@ images = [initial]
 
 for i in range(3):
 
-    ranks = np.arange(i * n, (i + 1) * n)
+    ranks = range(i * n, (i + 1) * n)
     image = initial.copy()
 
     if rank in ranks:

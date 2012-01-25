@@ -88,6 +88,7 @@ def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
         raise AssertionError(msg)
         
 # reference:
+# state-parallelization = 1,
 # domain-decomposition = (1, 2, 2)
 run()
 
@@ -104,6 +105,7 @@ if compiled_with_sl():
     parallel['sl_default'] = (2, 2, 2)
     run()
 
+    # state-parallelization = 1, 
     # domain-decomposition = (1, 2, 2)
     # with blacs
     del parallel['band']
@@ -134,10 +136,12 @@ OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1, width=0.1)
 parallel['domain'] = (1, 2, 1)
 
 # reference:
-# spin-polarization = 2
+# spin-polarization = 2,
+# state-parallelization = 1,
 # domain-decomposition = (1, 2, 1)
 run(**OH_kwargs)
 
+# spin-polarization = 1,
 # state-parallelization= 2,
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
@@ -145,19 +149,22 @@ parallel['band'] = 2
 run(**OH_kwargs)
 
 if compiled_with_sl():
-    # state-parallelization= 2,
+    # spin-polarization = 2, 
+    # state-parallelization = 2,
     # domain-decomposition = (1, 1, 1)
     # with blacs
     parallel['sl_default'] = (2, 1, 2)
     run(**OH_kwargs)
 
     # spin-polarization = 2,
+    # state-parallelization = 1,
     # domain-decomposition = (1, 2, 1)
     del parallel['band']
     parallel['domain'] = (1, 2, 1)
     run(**OH_kwargs)
 
     # spin-polarization = 1,
+    # state-parallelization = 1,
     # domain-decomposition = (1, 2, 2)
     parallel['domain'] = (1, 2, 2)
     run(**OH_kwargs)
