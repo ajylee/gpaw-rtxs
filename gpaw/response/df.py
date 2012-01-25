@@ -56,7 +56,7 @@ class DF(CHI):
 
         tmp_GG = np.eye(self.npw, self.npw)
         dm_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype = complex)
-
+        
         if xc == 'RPA':
             self.printtxt('Use RPA.')
             for iw in range(self.Nw_local):
@@ -73,6 +73,7 @@ class DF(CHI):
                 dm_wGG[iw] = tmp_GG - self.Kc_GG * A_wGG[iw]                
 
         if self.nspins == 2:
+            del self.e_kn
             self.ecut *= Hartree
             self.initialize(spin=1)
             self.calculate(spin=1)

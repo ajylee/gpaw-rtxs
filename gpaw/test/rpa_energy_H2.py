@@ -1,4 +1,5 @@
 from ase import *
+from ase.structure import molecule
 from ase.units import Ha, Bohr
 from gpaw import *
 from gpaw.xc.hybrid import HybridXC
