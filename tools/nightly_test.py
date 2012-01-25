@@ -9,8 +9,8 @@ import tempfile
 
 def send_email(subject, filename='/dev/null'):
     assert os.system(
-        #'mail -s "%s" gpaw-developers@listserv.fysik.dtu.dk < %s' %
-        'mail -s "%s" jensj@fysik.dtu.dk < %s' %
+        'mail -s "%s" gpaw-developers@listserv.fysik.dtu.dk < %s' %
+        #'mail -s "%s" jensj@fysik.dtu.dk < %s' %
         (subject, filename)) == 0
 
 def fail(msg, filename='/dev/null'):
