@@ -65,10 +65,18 @@ class DipoleCorrector:
         cell boundaries and beyond.
         """
         # This implementation is not particularly economical memory-wise
-        if not gd.orthogonal:
-            raise ValueError('Dipole correction requires orthorhombic cell')
         
         c = self.c
+        
+        # Right now the dipole correction must be along one coordinate
+        # axis and orthogonal to the two others.  The two others need not
+        # be orthogonal to each other.
+        for c1 in range(3):
+            if c1 != c:
+                if np.vdot(gd.cell_cv[c], gd.cell_cv[c1]) > 1e-12:
+                    raise ValueError('Dipole correction axis must be '
+                                     'orthogonal to the two other axes.')
+        
         moment = gd.calculate_dipole_moment(rhot_g)[c]
         if abs(moment) < 1e-12:
             return gd.zeros(), gd.zeros()
