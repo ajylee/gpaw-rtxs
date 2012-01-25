@@ -267,8 +267,6 @@ class MatrixOperator:
         dtype = self.dtype
         if self.work1_xG is None:
             self.allocate_work_arrays()
-        else:
-            assert self.work1_xG.dtype == dtype
 
         J = self.nblocks
         N = self.bd.mynbands
