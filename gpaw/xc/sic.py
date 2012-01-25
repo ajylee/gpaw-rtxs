@@ -1,8 +1,38 @@
+# Copyright (C) 2009-2012 P. Kluepfel and the CoMPaS group 
+# Please see the accompanying LICENSE file for further information.
+#
+# ============================================================================
+#                         IMPORTANT INFORMATION
+# ============================================================================
+# The SIC module is developed by the CoMPaS Group, currently
+# affiliated with the Science Institute of the University of Iceland.
+#
+# The last updates of our contribution to the GPAW code took place
+# 01.11.2011 and a minor update on 16.01.2012. Since then there is no active 
+# developement in the original GPAW repositories, but of course we continued 
+# work in our development version.
+#
+# If you are interested in running self-interaction corrected DFT
+# calculations we strongly recommend you to read the LICENSE file carefully
+# (especially regarding the FITNESS FOR A PARTICULAR PURPOSE of THIS version
+# of the code). In case of questions, a persistent interest in running SIC 
+# calculations or if you want to support the necessary further development 
+# of SIC and the theory of orbital-density dependent energy functionals 
+# in GPAW you can reach the developers at:
+#
+#     peter-Dot-kluepfel-At-gmail-Dot-com
+#
+# For further information see:
+#
+#     http://compas.hinet.info
+#
+# ============================================================================
 """Perdew-Zunger SIC to DFT functionals.
 
 Self-consistent minimization of self-interaction corrected
 functionals (Perdew-Zunger).
 """
+
 
 import sys
 from math import pi, sqrt, cos, sin, log10, exp, atan2
@@ -163,8 +193,9 @@ class SIC(XCFunctional):
     
     def initialize(self, density, hamiltonian, wfs, occ=None):
         
-        assert wfs.gamma
-        
+	assert wfs.gamma
+	assert not wfs.gd.pbc_c.any()
+
         self.wfs = wfs
         self.dtype = float
         self.xc.initialize(density, hamiltonian, wfs, occ)

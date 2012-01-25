@@ -21,7 +21,7 @@ class CHI(BASECHI):
 
         nband: int
             Number of bands.
-        wmax: float
+        wmax: floadent
             Maximum energy for spectrum.
         dw: float
             Frequency interval.
@@ -44,6 +44,8 @@ class CHI(BASECHI):
                  q=None,
                  eshift=None,
                  ecut=10.,
+                 smooth_cut=None,
+                 density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
@@ -58,7 +60,8 @@ class CHI(BASECHI):
                  kcommsize=None):
 
         BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
-                         eshift=eshift, ecut=ecut, G_plus_q=G_plus_q, eta=eta,
+                         eshift=eshift, ecut=ecut, smooth_cut=smooth_cut,
+                         density_cut=density_cut, G_plus_q=G_plus_q, eta=eta,
                          rpad=rpad, ftol=ftol, txt=txt,
                          optical_limit=optical_limit)
         
@@ -72,8 +75,8 @@ class CHI(BASECHI):
             self.comm = world
         self.chi0_wGG = None
 
-
-    def initialize(self, do_Kxc=False, simple_version=False):
+        
+    def initialize(self, do_Kxc=False, simple_version=False, spin=0):
 
         self.printtxt('')
         self.printtxt('-----------------------------------------')
@@ -81,7 +84,7 @@ class CHI(BASECHI):
         self.starttime = time()
         self.printtxt(ctime())
 
-        BASECHI.initialize(self)
+        BASECHI.initialize(self, spin=spin)
 
         # Frequency init
         self.dw = None
@@ -140,13 +143,13 @@ class CHI(BASECHI):
         # Calculate Coulomb kernel
         self.Kc_GG = calculate_Kc(self.q_c, self.Gvec_Gc, self.acell_cv,
                                   self.bcell_cv, self.calc.atoms.pbc, self.optical_limit, self.vcut)
-
+            
         # Calculate ALDA kernel (not used in chi0)
         R_av = calc.atoms.positions / Bohr
         if self.xc == 'RPA': #type(self.w_w[0]) is float:
             self.Kxc_GG = np.zeros((self.npw, self.npw))
             self.printtxt('RPA calculation.')
-        elif self.xc == 'ALDA':
+        elif self.xc == 'ALDA' or self.xc == 'ALDA_X':
             nt_sg = calc.density.nt_sG
             if (self.rpad > 1).any() or (self.pbc - True).any():
                 nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
@@ -162,12 +165,16 @@ class CHI(BASECHI):
                                         self.nG, self.vol,
                                         self.bcell_cv, R_av,
                                         calc.wfs.setups,
-                                        calc.density.D_asp)
+                                        calc.density.D_asp,
+                                        functional=self.xc,
+                                        density_cut=self.density_cut)
 
-            self.printtxt('Finished ALDA kernel ! ')
+            self.printtxt('Finished %s kernel ! ' % self.xc)
+
+
 #        else:
 #            raise ValueError('%s Not implemented !' %(self.xc))
-        
+                
         return
 
 
@@ -243,7 +250,7 @@ class CHI(BASECHI):
                     psitold_g = self.get_wavefunction(ibzkpt2, m, check_focc, spin=spin)
                     t_get_wfs += time() - t1
 
-                    if check_focc:
+                    if check_focc:                            
                         psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k])
                         if (self.rpad > 1).any() or (self.pbc - True).any():
                             psit2_g = self.pad(psit2_g_tmp)
@@ -289,6 +296,11 @@ class CHI(BASECHI):
                                        - 1. / (w - e_kn[ibzkpt1, n] + e_kn[ibzkpt2, m] + 1j * self.eta) )
                                 C =  (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) * coef 
                                 axpy(C, rho_GG, chi0_wGG[iw])
+                            #if abs(e_kn[ibzkpt1, n]-e_kn[ibzkpt2, m]) < 0.001:
+                            #    print k, m, n, self.qq_v
+                            #    print e_kn[ibzkpt1, n]-e_kn[ibzkpt2, m]
+                            #    print abs(tmp)#np.diag(rho_GG)[:4].real
+                            #    print 
                         else:
                             focc = f_kn[ibzkpt1,n] - f_kn[ibzkpt2,m]
                             w0 = e_kn[ibzkpt2,m] - e_kn[ibzkpt1,n]
@@ -374,6 +386,10 @@ class CHI(BASECHI):
         
         self.chi0_wGG = chi0_wGG / self.vol
 
+        if self.smooth_cut is not None:
+            for iw in range(self.Nw_local):
+                self.chi0_wGG[iw] *= np.outer(self.G_weights, self.G_weights)
+            
         self.printtxt('')
         self.printtxt('Finished chi0 !')
 

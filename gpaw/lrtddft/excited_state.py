@@ -10,7 +10,10 @@ class ExcitedState(Calculator):
         self.lrtddft = lrtddft
         self.calculator = self.lrtddft.calculator
         self.atoms = self.calculator.get_atoms()
-        self.index = index
+        if type(index) == type(1):
+            self.index = UnconstraintIndex(index)
+        else:
+            self.index = index
         self.d = d
         if txt is None:
             self.txt = self.lrtddft.txt
@@ -29,7 +32,9 @@ class ExcitedState(Calculator):
         lr = self.lrtddft
         self.lrtddft.forced_update()
         self.lrtddft.diagonalize()
-        self.energy = E0 + self.lrtddft[self.index].energy * Hartree
+        index = self.index.apply(self.lrtddft)
+        print >> self.txt, type(self.index), 'index=', index
+        self.energy = E0 + self.lrtddft[index].energy * Hartree
 
     def get_forces(self, atoms):
         """Get finite-difference forces"""
@@ -46,3 +51,41 @@ class ExcitedState(Calculator):
     def get_stress(self, atoms):
         """Return the stress for the current state of the Atoms."""
         raise NotImplementedError
+
+class UnconstraintIndex:
+    def __init__(self, index):
+        assert(type(index) == type(1))
+        self.index = index
+    def apply(self, *argv):
+        return self.index
+
+class MinimalOSIndex:
+    """
+    Constraint on minimal oscillator strength.
+
+    direction:
+        None: averaged (default)
+        0, 1, 2: x, y, z
+    """
+    def __init__(self, fmin=0.02, direction=None):
+        self.fmin = fmin
+        self.direction = direction
+
+    def apply(self, lrtddft):
+        index = None
+        i = 0
+        fmax = 0.
+        while i < len(lrtddft):
+            ex = lrtddft[i]
+            idir = 0
+            if self.direction is not None:
+                idir = 1 + self.direction
+            f = ex.get_oscillator_strength()[idir]
+            fmax = max(f, fmax)
+            if f > self.fmin:
+                return i
+            i += 1
+        error = 'The intensity constraint |f| > ' + str(self.fmin) + ' '
+        error += 'can not be satisfied (max(f) = ' + str(fmax) + ').'
+        raise RuntimeError(error)
+        

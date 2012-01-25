@@ -137,6 +137,7 @@ class MatrixOperator:
         if ngroups == 1 and J == 1:
             self.work1_xG = self.gd.zeros(mynbands, dtype)
         else:
+            print self.gd, self.X, dtype,ngroups,J
             self.work1_xG = self.gd.zeros(self.X, dtype)
             self.work2_xG = self.gd.zeros(self.X, dtype)
             if ngroups > 1:
@@ -268,7 +269,7 @@ class MatrixOperator:
         if self.work1_xG is None:
             self.allocate_work_arrays()
         else:
-            assert self.work1_xG.dtype == dtype
+            pass#assert self.work1_xG.dtype == dtype
 
         J = self.nblocks
         N = self.bd.mynbands

@@ -24,22 +24,25 @@
 #define XC_GGA_X_PBE_R        102 /* Perdew, Burke & Ernzerhof exchange (revised)   */
 #define XC_GGA_X_PBE_SOL      116 /* Perdew, Burke & Ernzerhof exchange (solids)    */
 #define XC_GGA_X_XPBE         123 /* xPBE reparametrization by Xu & Goddard         */
+#define XC_GGA_X_OPTPBE       124 /* PBE reparametrization for optPBE-vdW           */
 
 static inline void 
 func(const XC(gga_type) *p, FLOAT x, FLOAT *f, FLOAT *dfdx, FLOAT *ldfdx, FLOAT *d2fdx2)
 {
-  static const FLOAT kappa[4] = {
+  static const FLOAT kappa[5] = {
     0.8040,  /* original PBE */
     1.245,   /* PBE R */
     0.8040,  /* PBE sol */
-    0.91954  /* xPBE */
+    0.91954, /* xPBE */
+    1.04804  /* optPBE */
   };
 
-  static const FLOAT mu[4] = {
+  static const FLOAT mu[5] = {
     0.2195149727645171,  /* PBE: mu = beta*pi^2/3, beta = 0.066725 */
     0.2195149727645171,  /* PBE rev: as PBE */
     10.0/81.0,           /* PBE sol */
-    0.23214              /* xPBE */
+    0.23214,             /* xPBE */
+    0.175519             /* optPBE */
   };
 
   FLOAT ss, f0, df0, d2f0;
@@ -49,6 +52,7 @@ func(const XC(gga_type) *p, FLOAT x, FLOAT *f, FLOAT *dfdx, FLOAT *ldfdx, FLOAT 
   case XC_GGA_X_PBE_R:   func = 1; break;
   case XC_GGA_X_PBE_SOL: func = 2; break;
   case XC_GGA_X_XPBE:    func = 3; break;
+  case XC_GGA_X_OPTPBE:  func = 4; break;
   default:               func = 0; /* original PBE */
   }
 
@@ -115,6 +119,17 @@ const XC(func_info_type) XC(func_info_gga_x_xpbe) = {
   "Extended PBE by Xu & Goddard III",
   XC_FAMILY_GGA,
   "X Xu and WA Goddard III, J. Chem. Phys. 121, 4068 (2004)",
+  XC_PROVIDES_EXC | XC_PROVIDES_VXC | XC_PROVIDES_FXC,
+  NULL, NULL, NULL,
+  work_gga_x
+};
+
+const XC(func_info_type) XC(func_info_gga_x_optpbe) = {
+  XC_GGA_X_OPTPBE,
+  XC_EXCHANGE,
+  "Reparametrized PBE for optPBE-vdW",
+  XC_FAMILY_GGA,
+  "J Klimes, DR Bowler, and A Michaelides, J. Phys.: Condens. Matter 22, 022201 (2010)",
   XC_PROVIDES_EXC | XC_PROVIDES_VXC | XC_PROVIDES_FXC,
   NULL, NULL, NULL,
   work_gga_x

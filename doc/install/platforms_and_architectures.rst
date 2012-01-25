@@ -84,6 +84,7 @@ Linux:
    Linux/supernova
    Linux/uranus
    Linux/vsc.univie
+   Linux/odyssey
 
 MacOSX:
 

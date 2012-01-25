@@ -15,6 +15,8 @@ class DF(CHI):
                  q=None,
                  eshift=None,
                  ecut=10.,
+                 smooth_cut=None,
+                 density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
                  rpad=np.array([1,1,1]),
@@ -30,7 +32,8 @@ class DF(CHI):
                  kcommsize=None):
 
         CHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
-                     ecut=ecut, G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
+                     ecut=ecut, smooth_cut=smooth_cut, density_cut=density_cut,
+                     G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
                      full_response=full_response, optical_limit=optical_limit,
                      comm=comm, kcommsize=kcommsize)
@@ -50,7 +53,7 @@ class DF(CHI):
             self.calculate()
         else:
             pass # read from file and re-initializing .... need to be implemented
-                       
+
         tmp_GG = np.eye(self.npw, self.npw)
         dm_wGG = np.zeros((self.Nw_local, self.npw, self.npw), dtype = complex)
 
@@ -63,20 +66,15 @@ class DF(CHI):
             # E_LDA = 1 - v_c chi0 (1-fxc chi0)^-1
             # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4
             A_wGG = self.chi0_wGG.copy()
-            for iw in range(self.Nw_local): 
-                A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_GG, self.chi0_wGG[iw])))
+            for iw in range(self.Nw_local):
+                A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_GG[0], self.chi0_wGG[iw])))
     
             for iw in range(self.Nw_local):
                 dm_wGG[iw] = tmp_GG - self.Kc_GG * A_wGG[iw]                
 
         if self.nspins == 2:
-            nibzkpt = self.ibzk_kc.shape[0]
-            kweight_k = self.calc.get_k_point_weights()
-            self.e_kn = np.array([self.calc.get_eigenvalues(kpt=k, spin=1)
-                                  for k in range(nibzkpt)]) / Hartree
-            self.f_kn = np.array([self.calc.get_occupation_numbers(kpt=k, spin=1) /
-                                  kweight_k[k]
-                                  for k in range(nibzkpt)]) / self.nkpt
+            self.ecut *= Hartree
+            self.initialize(spin=1)
             self.calculate(spin=1)
 
             for iw in range(self.Nw_local):
@@ -152,13 +150,13 @@ class DF(CHI):
             if xc == 'RPA':
                 self.df1_w = df1_w
                 self.df2_w = df2_w
-            elif xc=='ALDA':
+            elif xc=='ALDA' or xc=='ALDA_X':
                 self.df3_w = df1_w
                 self.df4_w = df2_w                
 
         if xc == 'RPA':
             return self.df1_w, self.df2_w
-        elif xc == 'ALDA':
+        elif xc == 'ALDA' or xc=='ALDA_X':
             return self.df3_w, self.df4_w
 
 
@@ -299,6 +297,9 @@ class DF(CHI):
         df1, df2 = self.get_dielectric_function(xc='RPA')
         if self.xc == 'ALDA':
             df3, df4 = self.get_dielectric_function(xc='ALDA')
+        if self.xc is 'ALDA_X':
+            df3, df4 = self.get_dielectric_function(xc='ALDA_X')
+
         Nw = df1.shape[0]
 
         if self.xc == 'Bootstrap':
