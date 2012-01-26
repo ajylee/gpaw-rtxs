@@ -241,7 +241,7 @@ class WaveFunctions(EmptyWaveFunctions):
             for a in my_atom_indices:
                 ni = self.setups[a].ni
                 for kpt in self.kpt_u:
-                    kpt.P_ani[a] = np.empty((self.mynbands, ni), self.dtype)
+                    kpt.P_ani[a] = np.empty((self.bd.mynbands, ni), self.dtype)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)

@@ -97,13 +97,14 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.Q_G.nbytes
     
-    def zeros(self, x=(), dtype=float):
+    def zeros(self, x=(), dtype=None):
         a_xG = self.empty(x, dtype)
         a_xG.fill(0.0)
         return a_xG
     
-    def empty(self, x=(), dtype=float):
-        assert dtype == self.dtype
+    def empty(self, x=(), dtype=None):
+        if dtype is not None:
+            assert dtype == self.dtype
         if isinstance(x, int):
             x = (x,)
         shape = x + self.Q_G.shape
@@ -365,17 +366,17 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 emikr_R = np.exp(-2j * pi *
                                   np.dot(np.indices(N_c).T, k_c / N_c).T)
 
-            psit_nG = self.pd.empty(self.bd.mynbands, self.dtype)
+            psit_nG = self.pd.empty(self.bd.mynbands)
             for n, psit_R in enumerate(kpt.psit_nG):
                 psit_nG[n] = self.pd.fft(psit_R * emikr_R)
             kpt.psit_nG = psit_nG
 
-    def s(self):
+    def s(self, q):
         n = len(self.pd)
         N = self.pd.tmp_R.size
         S_GG = np.zeros((n, n), complex)
         S_GG.ravel()[::n + 1] = self.pd.gd.dv / N
-        f_IG = self.pt.expand()
+        f_IG = self.pt.expand(q)
         nI = len(f_IG)
         dS_II = np.zeros((nI, nI))
         I1 = 0
@@ -387,28 +388,47 @@ class PWWaveFunctions(FDPWWaveFunctions):
         S_GG += np.dot(f_IG.T.conj(), np.dot(dS_II, f_IG))
         return S_GG
         
-    def h(self, ham):
+    def h(self, ham, q=-1, s=0):
+        assert self.dtype == complex
         n = len(self.pd)
         N = self.pd.tmp_R.size
         H_GG = np.zeros((n, n), complex)
-        H_GG.ravel()[::n + 1] = 0.5 * self.pd.gd.dv / N * self.pd.G2_qG[0]
+        H_GG.ravel()[::n + 1] = 0.5 * self.pd.gd.dv / N * self.pd.G2_qG[q]
         for G in range(len(self.pd)):
-            x_G = self.pd.zeros(dtype=complex)
+            x_G = self.pd.zeros()
             x_G[G] = 1.0
             H_GG[G] += (self.pd.gd.dv  / N *
-                        self.pd.fft(ham.vt_sG[0] * self.pd.ifft(x_G)))
-        f_IG = self.pt.expand()
+                        self.pd.fft(ham.vt_sG[s] * self.pd.ifft(x_G)))
+        f_IG = self.pt.expand(q)
         nI = len(f_IG)
         dH_II = np.zeros((nI, nI))
         I1 = 0
         for a in self.pt.my_atom_indices:
-            dH_ii = unpack(ham.dH_asp[a][0])
+            dH_ii = unpack(ham.dH_asp[a][s])
             I2 = I1 + len(dH_ii)
             dH_II[I1:I2, I1:I2] = dH_ii / N**2
             I1 = I2
         H_GG += np.dot(f_IG.T.conj(), np.dot(dH_II, f_IG))
         return H_GG
 
+    def diagonalize_full_hamiltonian(self, ham):
+        from scipy.linalg import eigh
+
+        nbands = len(self.pd)
+        self.bd.mynbands = nbands
+        self.bd.nbands = nbands
+        self.allocate_arrays_for_projections(self.pt.my_atom_indices)
+
+        q = -1
+        for kpt in self.kpt_u:
+            if kpt.q != q:
+                q = kpt.q
+                S_GG = self.s(kpt.q)
+            H_GG = self.h(ham, kpt.q, kpt.s)
+            kpt.eps_n, psit_Gn = eigh(H_GG, S_GG, overwrite_a=True)
+            kpt.psit_nG = psit_Gn.T.copy()
+            self.pt.integrate(kpt.psit_nG, kpt.P_ani)
+        
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
         self.pd.estimate_memory(mem.subnode('PW-descriptor'))
@@ -531,7 +551,7 @@ class PWLFC(BaseLFC):
         self.nI = I2
 
     def expand(self, q=-1):
-        f_IG = self.pd.empty(self.nI, self.pd.dtype)
+        f_IG = self.pd.empty(self.nI)
         for a, j, i1, i2, I1, I2 in self:
             l, f_qG = self.lf_aj[a][j]
             f_IG[I1:I2] = (self.emiGR_Ga[:, a] * f_qG[q] * (-1.0j)**l *
