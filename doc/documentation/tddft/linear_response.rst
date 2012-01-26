@@ -169,20 +169,23 @@ Quick reference
 
 Parameters for LrTDDFT:
 
-===============  ==============  ===================  ========================================
-keyword          type            default value        description
-===============  ==============  ===================  ========================================
-``calculator``   ``GPAW``                             Calculator object of ground state
-                                                      calculation
-``filename``     ``string``                           read the state of LrTDDFT calculation 
-                                                      (i.e. omega matrix, excitations)
-                                                      from ``filename``  
-``istart``       ``int``         0                    first occupied state to consider
-``jend``         ``int``         number of bands      last unoccupied state to consider
-``nspins``       ``int``         1                    number of excited state spins, i.e.
-                                                      singlet-triplet transitions are 
-                                                      calculated with ``nspins=2``. Effective
-                                                      only if ground state is spin-compensated
-``xc``           ``string``      xc of calculator     Exchange-correlation for LrTDDFT, can 
-                                                      differ from ground state value 
-===============  ==============  ===================  ========================================
+================  ==============  ===================  ========================================
+keyword           type            default value        description
+================  ==============  ===================  ========================================
+``calculator``    ``GPAW``                             Calculator object of ground state
+                                                       calculation
+``filename``      ``string``                           read the state of LrTDDFT calculation 
+                                                       (i.e. omega matrix, excitations)
+                                                       from ``filename``  
+``istart``        ``int``         0                    first occupied state to consider
+``jend``          ``int``         number of bands      last unoccupied state to consider
+``energy_range``  ``float``       None                 Energy range to consider in the involved
+                                                       Kohn-Sham orbitals (replaces [istart,jend])
+``nspins``        ``int``         1                    number of excited state spins, i.e.
+                                                       singlet-triplet transitions are 
+                                                       calculated with ``nspins=2``. Effective
+                                                       only if ground state is spin-compensated
+``xc``            ``string``      xc of calculator     Exchange-correlation for LrTDDFT, can 
+                                                       differ from ground state value 
+``eps``           ``float``       0.001                Minimal occupation difference for a transition
+================  ==============  ===================  ========================================
