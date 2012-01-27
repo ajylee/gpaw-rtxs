@@ -139,7 +139,7 @@ class FDWFS(FDWaveFunctions):
             P_In = all_P_ni.T.copy()
         else:
             nproj = sum([setup.ni for setup in self.setups])
-            P_In = np.empty((nproj, self.nbands), self.pt.dtype)
+            P_In = np.empty((nproj, self.bd.nbands), self.pt.dtype)
         self.world.broadcast(P_In, 0)
         return P_In
         
