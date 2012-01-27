@@ -32,7 +32,7 @@ source /home/camp/modulefiles.sh&& \
 module load NUMPY&& \
 module load open64/4.2.3-0 && \
 python setup.py --remove-default-flags --customize=\
-doc/install/Linux/Niflheim/el5-opteron-open64-goto2-1.13-acml-4.4.0.py \
+doc/install/Linux/Niflheim/el5-opteron-open64-acml-4.4.0-acml-4.4.0-hdf-SL-2.0.1.py \
 build_ext" | ssh fjorm bash""")
 
 cmd("""wget --no-check-certificate --quiet \
