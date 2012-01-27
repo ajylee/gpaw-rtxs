@@ -105,7 +105,7 @@ class GPAW(PAW):
 
     def get_number_of_bands(self):
         """Return the number of bands."""
-        return self.wfs.nbands
+        return self.wfs.bd.nbands
   
     def get_xc_functional(self):
         """Return the XC-functional identifier.
@@ -295,7 +295,7 @@ class GPAW(PAW):
             width = 0.1
 
         w_k = self.wfs.weight_k
-        Nb = self.wfs.nbands
+        Nb = self.wfs.bd.nbands
         energies = np.empty(len(w_k) * Nb)
         weights  = np.empty(len(w_k) * Nb)
         x = 0
@@ -396,7 +396,7 @@ class GPAW(PAW):
         if broadcast:
             if self.wfs.world.rank != 0:
                 assert eps_n is None
-                eps_n = np.empty(self.wfs.nbands)
+                eps_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(eps_n, 0)
         if eps_n is not None:
             return eps_n * Hartree
@@ -407,7 +407,7 @@ class GPAW(PAW):
         if broadcast:
             if self.wfs.world.rank != 0:
                 assert f_n is None
-                f_n = np.empty(self.wfs.nbands)
+                f_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(f_n, 0)
         return f_n
     
@@ -507,7 +507,7 @@ class GPAW(PAW):
         """
 
         if nbands is None:
-            nbands = self.wfs.nbands
+            nbands = self.wfs.bd.nbands
             
         P_ani = self.wfs.kpt_u[u].P_ani
         P1_ani = self.wfs.kpt_u[u1].P_ani
@@ -567,7 +567,7 @@ class GPAW(PAW):
 
         nkpts = len(wfs.kd.ibzk_kc)
         nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
-        f_kni = np.zeros((nkpts, wfs.nbands, nbf), wfs.dtype)
+        f_kni = np.zeros((nkpts, wfs.bd.nbands, nbf), wfs.dtype)
 
         spos_ac = self.atoms.get_scaled_positions() % 1.0
         spos_xc = []
@@ -588,7 +588,7 @@ class GPAW(PAW):
 
         assert wfs.gd.comm.size == 1
         k = 0
-        f_ani = lf.dict(wfs.nbands)
+        f_ani = lf.dict(wfs.bd.nbands)
         for kpt in wfs.kpt_u:
             if kpt.s != spin:
                 continue
@@ -670,7 +670,7 @@ class GPAW(PAW):
         from gpaw.io import read_wave_function
         for u, kpt in enumerate(self.wfs.kpt_u):
             #kpt = self.kpt_u[u]
-            kpt.psit_nG = self.wfs.gd.empty(self.wfs.nbands, self.wfs.dtype)
+            kpt.psit_nG = self.wfs.gd.empty(self.wfs.bd.nbands, self.wfs.dtype)
             # Read band by band to save memory
             s = kpt.s
             k = kpt.k

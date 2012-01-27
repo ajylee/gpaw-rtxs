@@ -54,7 +54,7 @@ class Wannier:
         if pad:
             return calc.wfs.gd.zero_pad(self.get_function(calc, n, False))
         psit_nG = calc.wfs.kpt_u[self.spin].psit_nG[:]
-        psit_nG = psit_nG.reshape((calc.wfs.nbands, -1))
+        psit_nG = psit_nG.reshape((calc.wfs.bd.nbands, -1))
         return np.dot(self.U_nn[:, n],
                        psit_nG).reshape(calc.wfs.gd.n_c) / Bohr**1.5
 

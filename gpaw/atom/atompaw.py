@@ -95,9 +95,9 @@ class AtomEigensolver:
             i1 += 2 * l1 + 1
 
         for kpt in wfs.kpt_u:
-            kpt.eps_n = np.empty(wfs.nbands)
-            kpt.psit_nG = self.gd.empty(wfs.nbands)
-            kpt.P_ani = {0: np.zeros((wfs.nbands, len(dS_ii)))}
+            kpt.eps_n = np.empty(wfs.bd.nbands)
+            kpt.psit_nG = self.gd.empty(wfs.bd.nbands)
+            kpt.P_ani = {0: np.zeros((wfs.bd.nbands, len(dS_ii)))}
         
         self.initialized = True
 

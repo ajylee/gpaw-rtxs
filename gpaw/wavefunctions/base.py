@@ -59,8 +59,8 @@ class WaveFunctions(EmptyWaveFunctions):
         self.nspins = kd.nspins
         self.nvalence = nvalence
         self.bd = bd
-        self.nbands = self.bd.nbands #XXX
-        self.mynbands = self.bd.mynbands #XXX
+        #self.nbands = self.bd.nbands #XXX
+        #self.mynbands = self.bd.mynbands #XXX
         self.dtype = dtype
         self.world = world
         self.kd = kd
@@ -211,7 +211,7 @@ class WaveFunctions(EmptyWaveFunctions):
             for a in my_incoming_atom_indices:
                 # Get matrix from old domain:
                 ni = self.setups[a].ni
-                P_uni = np.empty((mynks, self.mynbands, ni), self.dtype)
+                P_uni = np.empty((mynks, self.bd.mynbands, ni), self.dtype)
                 requests.append(self.gd.comm.receive(P_uni, self.rank_a[a],
                                                      tag=a, block=False))
                 for myu, kpt in enumerate(self.kpt_u):
@@ -288,7 +288,8 @@ class WaveFunctions(EmptyWaveFunctions):
             if subset is not None:
                 a_nx = a_nx[subset]
 
-            b_nx = np.zeros((self.nbands,) + a_nx.shape[1:], dtype=a_nx.dtype)
+            b_nx = np.zeros((self.bd.nbands,) + a_nx.shape[1:],
+                            dtype=a_nx.dtype)
             self.kpt_comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
 
@@ -342,7 +343,7 @@ class WaveFunctions(EmptyWaveFunctions):
             if kpt_rank == 0:
                 P_ani = self.kpt_u[u].P_ani
             mynu = len(self.kpt_u)
-            all_P_ni = np.empty((self.nbands, nproj), self.dtype)
+            all_P_ni = np.empty((self.bd.nbands, nproj), self.dtype)
             for band_rank in range(self.band_comm.size):
                 nslice = self.bd.get_slice(band_rank)
                 i = 0
@@ -351,7 +352,7 @@ class WaveFunctions(EmptyWaveFunctions):
                     if kpt_rank == 0 and band_rank == 0 and a in P_ani:
                         P_ni = P_ani[a]
                     else:
-                        P_ni = np.empty((self.mynbands, ni), self.dtype)
+                        P_ni = np.empty((self.bd.mynbands, ni), self.dtype)
                         world_rank = (self.rank_a[a] +
                                       kpt_rank * self.gd.comm.size *
                                       self.band_comm.size +

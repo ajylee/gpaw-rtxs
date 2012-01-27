@@ -65,7 +65,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         nq = len(self.kd.ibzk_qc)
         nao = self.setups.nao
-        mynbands = self.mynbands
+        mynbands = self.bd.mynbands
         
         Mstop = self.ksl.Mstop
         Mstart = self.ksl.Mstart
@@ -514,7 +514,7 @@ class LCAOWaveFunctions(WaveFunctions):
         nao = self.setups.nao
         ni_total = sum([setup.ni for setup in self.setups])
         itemsize = mem.itemsize[self.dtype]
-        mem.subnode('C [qnM]', nq * self.mynbands * nao * itemsize)
+        mem.subnode('C [qnM]', nq * self.bd.mynbands * nao * itemsize)
         nM1, nM2 = self.ksl.get_overlap_matrix_shape()
         mem.subnode('S, T [2 x qmm]', 2 * nq * nM1 * nM2 * itemsize)
         mem.subnode('P [aqMi]', nq * nao * ni_total // self.gd.comm.size)

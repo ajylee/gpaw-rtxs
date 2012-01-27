@@ -193,11 +193,11 @@ class MolecularOrbital:
             epsF = [epsF, epsF]
 
         if self.nos == None:
-            self.nos = wfs.nbands
+            self.nos = wfs.bd.nbands
             
         c_un = []
         for u, kpt in enumerate(wfs.kpt_u):
-            Porb_n = np.zeros(wfs.nbands, dtype=complex)
+            Porb_n = np.zeros(wfs.bd.nbands, dtype=complex)
             for a, P_ni in kpt.P_ani.items():
                 if a in self.w.keys():
                     for i in range(len(self.w[a])):
@@ -206,7 +206,7 @@ class MolecularOrbital:
 
             # Starting from KS orbitals with largest overlap,
             # fill in the expansion coeffients between Estart and Eend
-            c_n = np.zeros(wfs.nbands, dtype=complex)
+            c_n = np.zeros(wfs.bd.nbands, dtype=complex)
             nos = 0
             bandpriority = np.argsort(abs(Porb_n)**2)[::-1]
 
@@ -295,8 +295,8 @@ class AEOrbital:
         elif not self.fixmom:
             epsF = [epsF, epsF]
 
-        if self.nos == None:
-            self.nos = wfs.nbands
+        if self.nos is None:
+            self.nos = wfs.bd.nbands
         
         # Check dimension of lists
         if len(self.wf_u) == len(wfs.kpt_u):
@@ -317,7 +317,7 @@ class AEOrbital:
 
             # Correction to obtain inner product of AE wavefunctions
             for a, p_i in p_uai[u].items():
-                for n in range(wfs.nbands):
+                for n in range(wfs.bd.nbands):
                     for i in range(len(p_i)):
                         for j in range(len(p_i)):
                             Porb_n[n] += (kpt.P_ani[a][n][i].conj() *
@@ -331,7 +331,7 @@ class AEOrbital:
 
             # Starting from KS orbitals with largest overlap,
             # fill in the expansion coeffients
-            c_n = np.zeros(wfs.nbands, dtype=complex)
+            c_n = np.zeros(wfs.bd.nbands, dtype=complex)
             nos = 0
             bandpriority = np.argsort(abs(Porb_n)**2)[::-1]
 

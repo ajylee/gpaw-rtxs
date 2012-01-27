@@ -80,7 +80,7 @@ class FDPWWaveFunctions(WaveFunctions):
         if 0:
             self.timer.start('Random wavefunction initialization')
             for kpt in self.kpt_u:
-                kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
+                kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)
                 if extra_parameters.get('sic'):
                     kpt.W_nn = np.zeros((self.nbands, self.nbands),
                                         dtype=self.dtype)
@@ -115,16 +115,16 @@ class FDPWWaveFunctions(WaveFunctions):
 
         self.timer.start('LCAO to grid')
         for kpt in self.kpt_u:
-            kpt.psit_nG = self.gd.zeros(self.mynbands, self.dtype)
+            kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)
             if extra_parameters.get('sic'):
-                kpt.W_nn = np.zeros((self.nbands, self.nbands),
+                kpt.W_nn = np.zeros((self.bd.nbands, self.bd.nbands),
                                     dtype=self.dtype)
             basis_functions.lcao_to_grid(kpt.C_nM, 
                                          kpt.psit_nG[:lcaobd.mynbands], kpt.q)
             kpt.C_nM = None
         self.timer.stop('LCAO to grid')
 
-        if self.mynbands > lcaobd.mynbands:
+        if self.bd.mynbands > lcaobd.mynbands:
             # Add extra states.  If the number of atomic orbitals is
             # less than the desired number of bands, then extra random
             # wave functions are added.
@@ -139,9 +139,9 @@ class FDPWWaveFunctions(WaveFunctions):
         # from the file to memory:
         for kpt in self.kpt_u:
             file_nG = kpt.psit_nG
-            kpt.psit_nG = self.gd.empty(self.mynbands, self.dtype)
+            kpt.psit_nG = self.gd.empty(self.bd.mynbands, self.dtype)
             if extra_parameters.get('sic'):
-                kpt.W_nn = np.zeros((self.nbands, self.nbands),
+                kpt.W_nn = np.zeros((self.bd.nbands, self.bd.nbands),
                                     dtype=self.dtype)
             # Read band by band to save memory
             for n, psit_G in enumerate(kpt.psit_nG):
@@ -156,7 +156,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         gpts = self.gd.N_c[0]*self.gd.N_c[1]*self.gd.N_c[2]
         
-        if self.nbands < gpts/64:
+        if self.bd.nbands < gpts/64:
             gd1 = self.gd.coarsen()
             gd2 = gd1.coarsen()
 
@@ -185,7 +185,7 @@ class FDPWWaveFunctions(WaveFunctions):
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
             np.random.set_state(old_state)
         
-        elif gpts/64 <= self.nbands < gpts/8:
+        elif gpts/64 <= self.bd.nbands < gpts/8:
             gd1 = self.gd.coarsen()
 
             psit_G1 = gd1.empty(dtype=self.dtype)
@@ -303,7 +303,7 @@ class FDPWWaveFunctions(WaveFunctions):
         else:
             for s in range(self.nspins):
                 for k in range(self.nibzkpts):
-                    for n in range(self.nbands):
+                    for n in range(self.bd.nbands):
                         psit_G = self.get_wave_function_array(n, k, s)
                         if master:
                             writer.fill(psit_G, s, k, n)
@@ -311,10 +311,10 @@ class FDPWWaveFunctions(WaveFunctions):
     def estimate_memory(self, mem):
         gridbytes = self.wd.bytecount(self.dtype)
         mem.subnode('Arrays psit_nG', 
-                    len(self.kpt_u) * self.mynbands * gridbytes)
+                    len(self.kpt_u) * self.bd.mynbands * gridbytes)
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self.wd,
-                                         self.dtype, self.mynbands,
-                                         self.nbands)
+                                         self.dtype, self.bd.mynbands,
+                                         self.bd.nbands)
         self.pt.estimate_memory(mem.subnode('Projectors'))
         self.matrixoperator.estimate_memory(mem.subnode('Overlap op'),
                                             self.dtype)

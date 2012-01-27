@@ -40,7 +40,7 @@ class OccupationNumbers:
         # Allocate:
         for kpt in wfs.kpt_u:
             if kpt.f_n is None:
-                kpt.f_n = np.empty(wfs.mynbands)
+                kpt.f_n = wfs.bd.empty()
 
         # Allow subclasses to adjust nvalence:
         self.set_number_of_electrons(wfs)
@@ -280,7 +280,7 @@ class ZeroKelvin(OccupationNumbers):
         fermilevels = np.zeros(2)
         for kpt in wfs.kpt_u:
             eps_n = wfs.bd.collect(kpt.eps_n)
-            f_n = np.empty(wfs.nbands)
+            f_n = wfs.bd.empty(global_array=True)
             sign = 1 - kpt.s * 2
             ne = 0.5 * (self.nvalence + sign * self.magmom)
             homo, lumo = occupy(f_n, eps_n, ne)
@@ -296,7 +296,7 @@ class ZeroKelvin(OccupationNumbers):
         for kpt in wfs.kpt_u:
             eps_n = wfs.bd.collect(kpt.eps_n)
             if wfs.bd.comm.rank == 0:
-                f_n = np.empty(wfs.nbands)
+                f_n = wfs.bd.empty(global_array=True)
                 homo, lumo = occupy(f_n, eps_n,
                                     0.5 * self.nvalence * wfs.ncomp *
                                     kpt.weight, kpt.weight)
@@ -317,23 +317,24 @@ class ZeroKelvin(OccupationNumbers):
     def spin_polarized(self, wfs):
         eps_un = [wfs.bd.collect(kpt.eps_n) for kpt in wfs.kpt_u]
         self.fermilevel = np.nan
+        nbands = wfs.bd.nbands
         if wfs.bd.comm.rank == 0:
             if wfs.kpt_comm.size == 2:
                 if wfs.kpt_comm.rank == 1:
                     wfs.kpt_comm.send(eps_un[0], 0)
                 else:
-                    eps_sn = [eps_un[0], np.empty(wfs.nbands)]
+                    eps_sn = [eps_un[0], np.empty(nbands)]
                     wfs.kpt_comm.receive(eps_sn[1], 1)
             else:
                 eps_sn = eps_un
 
             if wfs.kpt_comm.rank == 0:
                 eps_n = np.ravel(eps_sn)
-                f_n = np.empty(wfs.nbands * 2)
+                f_n = np.empty(nbands * 2)
                 nsorted = eps_n.argsort()
                 self.homo, self.lumo = occupy(f_n, eps_n[nsorted],
                                               self.nvalence)
-                f_sn = f_n[nsorted.argsort()].reshape((2, wfs.nbands))
+                f_sn = f_n[nsorted.argsort()].reshape((2, nbands))
                 self.magmom = f_sn[0].sum() - f_sn[1].sum()
                 self.fermilevel = 0.5 * (self.homo + self.lumo)
 
@@ -341,7 +342,7 @@ class ZeroKelvin(OccupationNumbers):
                 if wfs.kpt_comm.rank == 0:
                     wfs.kpt_comm.send(f_sn[1], 1)
                 else:
-                    f_sn = [None, np.empty(wfs.nbands)]
+                    f_sn = [None, np.empty(nbands)]
                     wfs.kpt_comm.receive(f_sn[1], 0)
         else:
             f_sn = [None, None]
@@ -380,7 +381,7 @@ class SmoothDistribution(ZeroKelvin):
         return string
 
     def calculate_occupation_numbers(self, wfs):
-        if self.width == 0 or self.nvalence == wfs.nbands * 2 // wfs.ncomp:
+        if self.width == 0 or self.nvalence == wfs.bd.nbands * 2 // wfs.ncomp:
             ZeroKelvin.calculate_occupation_numbers(self, wfs)
             return
 
@@ -448,7 +449,7 @@ class SmoothDistribution(ZeroKelvin):
 
         kd = wfs.kd
         
-        myeps_un = np.empty((kd.mynks, wfs.nbands))
+        myeps_un = np.empty((kd.mynks, wfs.bd.nbands))
         for u, kpt in enumerate(wfs.kpt_u):
             myeps_un[u] = wfs.bd.collect(kpt.eps_n)
         
@@ -456,7 +457,7 @@ class SmoothDistribution(ZeroKelvin):
             eps_skn = kd.collect(myeps_un, broadcast=False)
             if kd.comm.rank == 0:
                 eps_n = eps_skn.ravel()
-                w_skn = np.empty((kd.nspins, kd.nibzkpts, wfs.nbands))
+                w_skn = np.empty((kd.nspins, kd.nibzkpts, wfs.bd.nbands))
                 w_skn[:] = (2.0 / wfs.nspins / wfs.ncomp *
                             kd.weight_k[:, np.newaxis])
                 w_n = w_skn.ravel()

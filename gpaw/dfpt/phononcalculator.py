@@ -111,8 +111,8 @@ class PhononCalculator:
 
         # Number of occupied bands
         nvalence = self.calc.wfs.nvalence
-        nbands = nvalence/2 + nvalence%2
-        assert nbands <= self.calc.wfs.nbands
+        nbands = nvalence / 2 + nvalence % 2
+        assert nbands <= self.calc.wfs.bd.nbands
 
         # Extract other useful objects
         # Ground-state k-point descriptor - used for the k-points in the
@@ -128,7 +128,8 @@ class PhononCalculator:
         wfs = WaveFunctions(nbands, kpt_u, setups, kd_gs, gd, dtype=dtype_gs)
 
         # Linear response calculator
-        self.response_calc = ResponseCalculator(self.calc, wfs, dtype=self.dtype)
+        self.response_calc = ResponseCalculator(self.calc, wfs,
+                                                dtype=self.dtype)
         
         # Phonon perturbation
         self.perturbation = PhononPerturbation(self.calc, self.kd,

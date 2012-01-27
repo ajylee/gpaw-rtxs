@@ -427,7 +427,7 @@ class RPACorrelation:
         print >> self.txt, 'Valence electrons              :   %s' \
               % self.setups.nvalence
         print >> self.txt, 'Number of Bands                :   %s' \
-              % self.calc.wfs.nbands
+              % self.calc.wfs.bd.nbands
         print >> self.txt, 'Number of Converged Bands      :   %s' \
               % self.calc.input_parameters['convergence']['bands']
         print >> self.txt, 'Number of Spins                :   %s' \

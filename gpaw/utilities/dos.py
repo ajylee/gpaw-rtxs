@@ -100,7 +100,7 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     wfs = paw.wfs
     w_k = wfs.weight_k
     nk = len(w_k)
-    nb = wfs.nbands
+    nb = wfs.bd.nbands
 
     if a < 0:
         # Allow list-style negative indices; we'll need the positive a for the
@@ -153,7 +153,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
 
     w_k = paw.wfs.weight_k
     nk = len(w_k)
-    nb = paw.wfs.nbands
+    nb = paw.wfs.bd.nbands
     ns = paw.wfs.nspins
     
     P_kn = np.zeros((nk, nb), np.complex)
@@ -254,7 +254,7 @@ def raw_wignerseitz_LDOS(paw, a, spin):
 
     w_k = wfs.weight_k
     nk = len(w_k)
-    nb = wfs.nbands
+    nb = wfs.bd.nbands
 
     energies = np.empty(nb * nk)
     weights = np.empty(nb * nk)
@@ -290,7 +290,7 @@ class RawLDOS:
         """Return the s,p,d weights for each state"""
         wfs = self.paw.wfs
         nibzkpts = len(wfs.ibzk_kc)
-        spd = np.zeros((wfs.nspins, nibzkpts, wfs.nbands, 3))
+        spd = np.zeros((wfs.nspins, nibzkpts, wfs.bd.nbands, 3))
 
         if hasattr(atom, '__iter__'):
             # atom is a list of atom indicies 
@@ -375,7 +375,7 @@ class RawLDOS:
                     if e_n is None:
                         continue
                     w = wfs.weight_k[k]
-                    for n in range(wfs.nbands):
+                    for n in range(wfs.bd.nbands):
                         sum = 0.0
                         print >> f, '%10.5f %6.4f %2d %5d' % (e_n[n], f_n[n], 
                                                               s, k), 
@@ -465,7 +465,7 @@ class RawLDOS:
                         w = wfs.kpt_u[k].weight
                         e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
                                                        broadcast=True)
-                        for n in range(wfs.nbands):
+                        for n in range(wfs.bd.nbands):
                             w_i = w * gauss.get(e_n[n] - e)
                             for key in ldbe:
                                 val[key] += w_i * ldbe[key][s, k, n]

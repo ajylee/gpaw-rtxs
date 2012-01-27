@@ -110,7 +110,7 @@ class StaticOverlapMonitor:
 
             for a, P_ni in P_ani.items():
                 sP_i = self.P_aui[a][u]
-                for n in range(wfs.nbands):
+                for n in range(wfs.bd.nbands):
                     for i in range(len(P_ni[0])):
                         for j in range(len(P_ni[0])):
                             Porb_n[n] += (P_ni[n][i].conj() *

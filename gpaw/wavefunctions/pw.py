@@ -371,6 +371,22 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 psit_nG[n] = self.pd.fft(psit_R * emikr_R)
             kpt.psit_nG = psit_nG
 
+    def _get_wave_function_array(self, u, n):
+        return self.pd.ifft(self.kpt_u[u].psit_nG[n])
+
+    def write_wave_functions(self, writer):
+        if self.world.rank == 0:
+            writer.dimension('nplanewaves', len(self.pd))
+            writer.add('PseudoWaveFunctions',
+                       ('nspins', 'nibzkpts', 'nbands', 'nplanewaves'),
+                       dtype=complex)
+
+        for s in range(self.nspins):
+            for k in range(self.nibzkpts):
+                psit_nG = self.collect_array('psit_nG', k, s)
+                if self.world.rank == 0:
+                    writer.fill(psit_nG, s, k)
+
     def s(self, q):
         n = len(self.pd)
         N = self.pd.tmp_R.size
@@ -397,7 +413,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for G in range(len(self.pd)):
             x_G = self.pd.zeros()
             x_G[G] = 1.0
-            H_GG[G] += (self.pd.gd.dv  / N *
+            H_GG[G] += (self.pd.gd.dv / N *
                         self.pd.fft(ham.vt_sG[s] * self.pd.ifft(x_G)))
         f_IG = self.pt.expand(q)
         nI = len(f_IG)
@@ -411,12 +427,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
         H_GG += np.dot(f_IG.T.conj(), np.dot(dH_II, f_IG))
         return H_GG
 
-    def diagonalize_full_hamiltonian(self, ham):
+    def diagonalize_full_hamiltonian(self, ham, atoms):
         from scipy.linalg import eigh
 
         nbands = len(self.pd)
         self.bd.mynbands = nbands
         self.bd.nbands = nbands
+        self.pt.set_positions(atoms.get_scaled_positions())
+        self.kpt_u[0].P_ani = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
         q = -1
@@ -428,6 +446,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.eps_n, psit_Gn = eigh(H_GG, S_GG, overwrite_a=True)
             kpt.psit_nG = psit_Gn.T.copy()
             self.pt.integrate(kpt.psit_nG, kpt.P_ani)
+            f_n = np.zeros_like(kpt.eps_n)
+            f_n[:len(kpt.f_n)] = kpt.f_n
+            kpt.f_n = f_n
         
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)

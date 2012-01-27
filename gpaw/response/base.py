@@ -92,7 +92,7 @@ class BASECHI:
 
         # band init
         if self.nbands is None:
-            self.nbands = calc.wfs.nbands
+            self.nbands = calc.wfs.bd.nbands
         self.nvalence = calc.wfs.nvalence
 
         # cell init

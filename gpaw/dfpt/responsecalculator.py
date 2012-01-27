@@ -125,8 +125,8 @@ class ResponseCalculator:
         
         # Number of occupied bands
         nvalence = calc.wfs.nvalence
-        self.nbands = nvalence/2 + nvalence%2
-        assert self.nbands <= calc.wfs.nbands
+        self.nbands = nvalence / 2 + nvalence % 2
+        assert self.nbands <= calc.wfs.bd.nbands
                                   
         self.initialized = False
 

@@ -186,7 +186,7 @@ class ExpandYl(AngularIntegral):
         else:
             krange = kpoints
         if not bands:
-            nrange = range(calculator.wfs.nbands)
+            nrange = range(calculator.wfs.bd.nbands)
         else:
             nrange = bands
 

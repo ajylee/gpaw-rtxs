@@ -201,7 +201,7 @@ class SIC(XCFunctional):
         self.xc.initialize(density, hamiltonian, wfs, occ)
         self.kpt_comm = wfs.kpt_comm
         self.nspins = wfs.nspins
-        self.nbands = wfs.nbands
+        self.nbands = wfs.bd.nbands
         
         if self.finegrid:
             self.finegd = density.finegd

@@ -71,16 +71,16 @@ class XAS:
         # xas, xes or all modes
         if mode == "xas":
             n_start = nocc
-            n_end = wfs.nbands  
-            n =  wfs.nbands - nocc
+            n_end = wfs.bd.nbands  
+            n =  wfs.bd.nbands - nocc
         elif mode == "xes":
             n_start = 0
             n_end = nocc  
             n = nocc
         elif mode == "all":
             n_start = 0
-            n_end = wfs.nbands 
-            n = wfs.nbands
+            n_end = wfs.bd.nbands 
+            n = wfs.bd.nbands
         else:
             raise RuntimeError(
                 "wrong keyword for 'mode', use 'xas', 'xes' or 'all'")

@@ -77,7 +77,7 @@ class ExteriorElectronDensity:
         
         print >> out, '#; n   k s   weight      energy         occ  eed_weight'
         for kpt in wfs.kpt_u:
-            for n in range(wfs.nbands):
+            for n in range(wfs.bd.nbands):
                 print  >> out, '%4d %3d %1d %8.5f  %10.5f  %10.5f  %10.5f' % \
                     (n, kpt.k, kpt.s, kpt.weight,
                      kpt.eps_n[n] * Hartree,

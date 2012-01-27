@@ -30,7 +30,7 @@ def get_vxc(paw, spin=0, U=None):
     paw.hamiltonian.xc.get_energy_and_potential(nt_g, vxct_g)
     vxct_G = gd.empty()
     paw.hamiltonian.restrict(vxct_g, vxct_G)
-    Vxc_nn = np.zeros((paw.wfs.nbands, paw.wfs.nbands))
+    Vxc_nn = np.zeros((paw.wfs.bd.nbands, paw.wfs.bd.nbands))
 
     # Apply pseudo part
     r2k(.5 * gd.dv, psit_nG, vxct_G * psit_nG, .0, Vxc_nn) # lower triangle
@@ -217,7 +217,7 @@ class HF:
     def __init__(self, paw):
         paw.initialize_positions()
         self.nspins       = paw.wfs.nspins
-        self.nbands       = paw.wfs.nbands
+        self.nbands       = paw.wfs.bd.nbands
         self.restrict     = paw.hamiltonian.restrict
         self.pair_density = PairDensity(paw.density, paw.atoms, finegrid=True)
         self.dv           = paw.wfs.gd.dv

@@ -576,8 +576,6 @@ def dscf_collapse_orbitals(paw, nbands_max='occupied', f_tol=1e-4,
 
     # Change various parameters related to new number of bands
     paw.wfs.bd = BandDescriptor(nbands_max, bd.comm, bd.strided)
-    paw.wfs.mynbands = paw.wfs.bd.mynbands
-    paw.wfs.nbands = paw.wfs.bd.nbands
     if paw.wfs.eigensolver:
         paw.wfs.eigensolver.initialized = False
     del bd

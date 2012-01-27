@@ -114,7 +114,7 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
     
     
     # Calculate projections
-    V_qnM = np.zeros((nq, calc.wfs.nbands, nao), dtype)
+    V_qnM = np.zeros((nq, calc.wfs.bd.nbands, nao), dtype)
     for kpt in calc.wfs.kpt_u:
         if kpt.s != spin:
             continue

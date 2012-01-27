@@ -12,7 +12,7 @@ from gpaw.test import equal
 ## top of the valence band.
 def band_gab(calc):
     ef = calc.get_fermi_level()
-    Nb = calc.wfs.nbands
+    Nb = calc.wfs.bd.nbands
     w_k = calc.wfs.weight_k
     x = 0
     nspin=calc.get_number_of_spins()

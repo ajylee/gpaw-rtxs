@@ -253,7 +253,9 @@ class PAWTextOutput:
           cc['density'])
         t('Integral of Absolute Eigenstate Change: %g eV^2' %
           cc['eigenstates'])
-        t('Number of Bands in Calculation:         %i' % self.wfs.nbands)
+        t('Number of Atoms: %d' % len(self.wfs.setups))
+        t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
+        t('Number of Bands in Calculation:         %i' % self.wfs.bd.nbands)
         t('Bands to Converge:                      ', end='')
         if cc['bands'] == 'occupied':
             t('Occupied States Only')
@@ -464,7 +466,7 @@ def eigenvalue_string(paw, comment=None):
         eps_n = paw.get_eigenvalues(kpt=0, spin=0)
         f_n = paw.get_occupation_numbers(kpt=0, spin=0)
         if paw.wfs.world.rank == 0:
-            for n in range(paw.wfs.nbands):
+            for n in range(paw.wfs.bd.nbands):
                 s += ('%4d   %10.5f  %10.5f\n' % (n, eps_n[n], f_n[n]))
     else:
         s += comment + '                 Up                     Down\n'
@@ -474,7 +476,7 @@ def eigenvalue_string(paw, comment=None):
         fa_n = paw.get_occupation_numbers(kpt=0, spin=0, broadcast=False)
         fb_n = paw.get_occupation_numbers(kpt=0, spin=1, broadcast=False)
         if paw.wfs.world.rank == 0:
-            for n in range(paw.wfs.nbands):
+            for n in range(paw.wfs.bd.nbands):
                 s += (' %4d  %11.5f  %9.5f  %11.5f  %9.5f\n' %
                       (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
     return s

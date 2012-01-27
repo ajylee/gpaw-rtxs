@@ -27,8 +27,8 @@ class Eigensolver:
         self.bd = wfs.bd
         self.gd = wfs.wd
         self.ksl = wfs.diagksl
-        self.nbands = wfs.nbands
-        self.mynbands = wfs.mynbands
+        self.nbands = wfs.bd.nbands
+        self.mynbands = wfs.bd.mynbands
         self.operator = wfs.matrixoperator
 
         if self.mynbands != self.nbands or self.operator.nblocks != 1:

@@ -464,7 +464,7 @@ def H_coulomb_val_core(paw, u=0):
         ij   //       --          |r - r'|
                       k
     """
-    H_nn = np.zeros((paw.wfs.nbands, paw.wfs.nbands), dtype=paw.wfs.dtype)
+    H_nn = np.zeros((paw.wfs.bd.nbands, paw.wfs.bd.nbands), dtype=paw.wfs.dtype)
     for a, P_ni in paw.wfs.kpt_u[u].P_ani.items():
         X_ii = unpack(paw.wfs.setups[a].X_p)
         H_nn += np.dot(P_ni.conj(), np.dot(X_ii, P_ni.T))

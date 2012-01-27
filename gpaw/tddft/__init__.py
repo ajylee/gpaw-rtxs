@@ -222,7 +222,7 @@ class TDDFT(GPAW):
                 if wfs.band_comm.size > 1:
                     self.text('Parallelization Over bands on %d Processors' %
                               wfs.band_comm.size)
-            self.text('States per processor = ', wfs.mynbands)
+            self.text('States per processor = ', wfs.bd.mynbands)
 
         self.hpsit = None
         self.eps_tmp = None
