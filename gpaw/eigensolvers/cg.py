@@ -71,14 +71,15 @@ class CG(Eigensolver):
             Htpsit_G = self.Htpsit_nG[n]
             gamma_old = 1.0
             phi_old_G[:] = 0.0
-            error = self.gd.comm.sum(np.vdot(R_G, R_G).real)
+            error = np.real(self.gd.integrate(R_G, R_G))
             for nit in range(niter):
-                if (error * self.gd.dv * Hartree**2 <
-                    self.tolerance / self.nbands):
-                    # print >> self.f, "cg:iters", n, nit
+                if (error * Hartree**2 < self.tolerance / self.nbands):
                     break
 
-                pR_G = self.preconditioner(R_G, kpt)
+                ekin = self.preconditioner.calculate_kinetic_energy(
+                    kpt.psit_nG[n:n + 1], kpt)
+
+                pR_G = self.preconditioner(R_nG[n:n + 1], kpt, ekin)
 
                 # New search direction
                 gamma = self.gd.comm.sum(np.vdot(pR_G, R_G).real)
@@ -94,7 +95,8 @@ class CG(Eigensolver):
                 self.timer.start('CG: orthonormalize')
                 for nn in range(self.nbands):
                     self.timer.start('CG: overlap')
-                    overlap = dotc(kpt.psit_nG[nn], phi_G) * self.gd.dv
+                    overlap = self.gd.integrate(kpt.psit_nG[nn], phi_G,
+                                                global_integral=False)
                     self.timer.stop('CG: overlap')
                     self.timer.start('CG: overlap2')
                     for a, P2_i in P2_ai.items():
@@ -109,7 +111,7 @@ class CG(Eigensolver):
                         P_i = kpt.P_ani[a][nn]
                         P2_i -= P_i * overlap
 
-                norm = np.vdot(phi_G, phi_G) * self.gd.dv
+                norm = self.gd.integrate(phi_G, phi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():
                     dO_ii = wfs.setups[a].dO_ii
                     norm += np.vdot(P2_i, np.inner(dO_ii, P2_i))
@@ -121,10 +123,11 @@ class CG(Eigensolver):
 
                 # find optimum linear combination of psit_G and phi_G
                 an = kpt.eps_n[n]
-                wfs.kin.apply(phi_G, Htphi_G, kpt.phase_cd)
-                Htphi_G += phi_G * vt_G
-                b = np.vdot(phi_G, Htpsit_G) * self.gd.dv
-                c = np.vdot(phi_G, Htphi_G) * self.gd.dv
+                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian,
+                                             phi_G[np.newaxis],
+                                             Htphi_G[np.newaxis])
+                b = self.gd.integrate(phi_G, Htpsit_G, global_integral=False)
+                c = self.gd.integrate(phi_G, Htphi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():
                     P_i = kpt.P_ani[a][n]
                     dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
@@ -168,7 +171,7 @@ class CG(Eigensolver):
                         coef_i[:] = (dot(P_i, dH_ii) -
                                      dot(P_i * kpt.eps_n[n], dO_ii))
                     wfs.pt.add(R_G, coef_ai, kpt.q)
-                    error_new = self.gd.comm.sum(np.vdot(R_G, R_G).real)
+                    error_new = np.real(self.gd.integrate(R_G, R_G))
                     if error_new / error < 0.30:
                         # print >> self.f, "cg:iters", n, nit+1
                         break
@@ -189,4 +192,4 @@ class CG(Eigensolver):
             #   print >> self.f, "cg:iters", n, nit+1
 
         self.timer.stop('CG')
-        return total_error * self.gd.dv
+        return total_error
