@@ -427,10 +427,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
         H_GG += np.dot(f_IG.T.conj(), np.dot(dH_II, f_IG))
         return H_GG
 
-    def diagonalize_full_hamiltonian(self, ham, atoms):
+    def diagonalize_full_hamiltonian(self, ham, atoms, nbands=None):
         from scipy.linalg import eigh
 
-        nbands = len(self.pd)
+        if nbands is None:
+            nbands = len(self.pd)
         self.bd.mynbands = nbands
         self.bd.nbands = nbands
         self.pt.set_positions(atoms.get_scaled_positions())
@@ -443,8 +444,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 q = kpt.q
                 S_GG = self.s(kpt.q)
             H_GG = self.h(ham, kpt.q, kpt.s)
-            kpt.eps_n, psit_Gn = eigh(H_GG, S_GG, overwrite_a=True)
-            kpt.psit_nG = psit_Gn.T.copy()
+            epstmp_n, psit_Gn = eigh(H_GG, S_GG, overwrite_a=True)
+            kpt.eps_n = epstmp_n[:nbands].copy()
+            kpt.psit_nG = psit_Gn[:, :nbands].T.copy()
             self.pt.integrate(kpt.psit_nG, kpt.P_ani)
             f_n = np.zeros_like(kpt.eps_n)
             f_n[:len(kpt.f_n)] = kpt.f_n
