@@ -142,7 +142,13 @@ class PAWTextOutput:
         t = self.text
         p = self.input_parameters
 
-        for setup in self.wfs.setups.setups.values():
+        # Write PAW setup information in order of appearance:
+        ids = set()
+        for id in self.wfs.setups.id_a:
+            if id in ids:
+                continue
+            ids.add(id)
+            setup = self.wfs.setups.setups[id]
             setup.print_info(self.text)
             basis_descr = setup.get_basis_description()
             t(basis_descr)
