@@ -129,6 +129,7 @@ jsm        Jess Stausholm-Møller      jsm:phys,au,dk
 jussie     Jussi Enkovaara            jussi,enkovaara:csc,fi
 juya       Jun Yan                    juya:fysik,dtu,dk
 kelkkane   Andre Kelkkanen            kelkkane:fysik,dtu,dk
+kiran      Kirsten Andersen           kiran:fysik,dtu,dk
 kkaa       Kristen Kaasbjerg          kkaa:fysik,dtu,dk
 ksaha      Kamal Saha                 ?
 kuismam    Mikael Kuisma              mikael,kuisma:tut,fi
