@@ -422,7 +422,7 @@ class BlacsDescriptor(MatrixDescriptor):
                 Mstop = min(Mstart + mb, M)
                 Nstop = min(Nstart + nb, N)
                 block = array_mn[myMstart:myMstart + mb,
-                                 myNstart:myNstart + mb]
+                                 myNstart:myNstart + nb]
                 
                 yield Mstart, Mstop, Nstart, Nstop, block
 
