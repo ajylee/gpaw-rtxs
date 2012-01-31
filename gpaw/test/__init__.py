@@ -100,6 +100,7 @@ tests = [
     'pw/reallfc.py',
     'pw/bulk.py',
     'pw/slab.py',
+    'pw/fulldiag.py',
     'coulomb.py',
     'timing.py',
     'maxrss.py',
@@ -315,6 +316,9 @@ if mpi.size != 4:
 
 if mpi.size == 1 or not compiled_with_sl():
     exclude += ['parallel/submatrix_redist.py']
+
+if not compiled_with_sl():
+    exclude += ['pw/fulldiag.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']

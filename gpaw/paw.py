@@ -543,7 +543,6 @@ class PAW(PAWTextOutput):
             else:
                 sl_default = par.parallel['sl_default']
 
-
             if mode == 'lcao':
                 # Layouts used for general diagonalizer
                 sl_lcao = par.parallel['sl_lcao']

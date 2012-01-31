@@ -407,8 +407,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             S_GG = md.zeros(dtype=complex)
             G1, G2 = md.my_blocks(S_GG).next()[:2]
 
-        H_GG[G1:G2].ravel()[::n + 1] = (0.5 * self.pd.gd.dv / N *
-                                        self.pd.G2_qG[q, G1:G2])
+        H_GG.ravel()[G1::n + 1] = (0.5 * self.pd.gd.dv / N *
+                                   self.pd.G2_qG[q, G1:G2])
 
         for G in range(G1, G2):
             x_G = self.pd.zeros()
@@ -416,7 +416,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             H_GG[G - G1] += (self.pd.gd.dv / N *
                              self.pd.fft(ham.vt_sG[s] * self.pd.ifft(x_G)))
 
-        S_GG[G1:G2].ravel()[::n + 1] = self.pd.gd.dv / N
+        S_GG.ravel()[G1::n + 1] = self.pd.gd.dv / N
 
         f_IG = self.pt.expand(q)
         nI = len(f_IG)
@@ -441,7 +441,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                      scalapack=None):
         
         from scipy.linalg import eigh
-        from gpaw.blacs import BlacsGrid, BlacsDescriptor
+        from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
         from gpaw.matrix_descriptor import MatrixDescriptor
         from gpaw.band_descriptor import BandDescriptor
 
@@ -450,29 +450,55 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if nbands is None:
             nbands = npw
 
-        self.bd = BandDescriptor(nbands, self.bd.comm)
+        self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
         if scalapack:
             nprow, npcol, b = scalapack
-            bg = BlacsGrid(self.bd.comm, nprow, npcol)
-            mynpw = -(-npw // self.bd.comm.size)
+            bg = BlacsGrid(bd.comm, bd.comm.size, 1)
+            mynpw = -(-npw // bd.comm.size)
             md = BlacsDescriptor(bg, npw, npw, mynpw, npw)
+
+            bg2 = BlacsGrid(bd.comm, nprow, npcol)
+            md2 = BlacsDescriptor(bg2, npw, npw, b, b)
+            assert nprow == npcol
         else:
-            md = MatrixDescriptor(npw, npw)
+            md = md2 = MatrixDescriptor(npw, npw)
+            nprow = npcol = 1
 
         self.pt.set_positions(atoms.get_scaled_positions())
         self.kpt_u[0].P_ani = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
         eps_n = np.empty(npw)
-        myslice = self.bd.get_slice()
+        myslice = bd.get_slice()
 
         for kpt in self.kpt_u:
             H_GG, S_GG = self.hs(ham, kpt.q, kpt.s, md)
-            psit_nG = md.empty(dtype=complex)
-            md.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
+            if scalapack:
+                r = Redistributor(bd.comm, md, md2)
+                H_gg = md2.empty(dtype=complex)
+                S_gg = md2.empty(dtype=complex)
+                r.redistribute(H_GG, H_gg)
+                r.redistribute(S_GG, S_gg)
+            else:
+                H_gg = H_GG
+                S_gg = S_GG
+
+            psit_ng = md2.empty(dtype=complex)
+            md2.general_diagonalize_dc(H_gg, S_gg, psit_ng, eps_n)
+
+            if nprow * npcol < bd.comm.size:
+                bd.comm.broadcast(eps_n, 0)
             kpt.eps_n = eps_n[myslice].copy()
-            kpt.psit_nG = psit_nG[myslice].copy()
+
+            if scalapack:
+                r = Redistributor(bd.comm, md2, md)
+                psit_nG = md.empty(dtype=complex)
+                r.redistribute(psit_ng, psit_nG)
+            else:
+                psit_nG = psit_ng
+
+            kpt.psit_nG = psit_nG[:bd.mynbands].copy()
             self.pt.integrate(kpt.psit_nG, kpt.P_ani)
             f_n = np.zeros_like(kpt.eps_n)
             f_n[:len(kpt.f_n)] = kpt.f_n
