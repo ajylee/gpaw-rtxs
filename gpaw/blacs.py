@@ -289,7 +289,7 @@ class BlacsDescriptor(MatrixDescriptor):
     implementation probably works.
 
     """
-    def __init__(self, blacsgrid, M, N, mb, nb, rsrc, csrc):
+    def __init__(self, blacsgrid, M, N, mb, nb, rsrc=0, csrc=0):
         assert M > 0
         assert N > 0
         assert 1 <= mb
