@@ -821,6 +821,11 @@ class PAW(PAWTextOutput):
 
             self.calculate()
 
+    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None):
+        self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
+                                              self.occupations, self.txt,
+                                              nbands, scalapack)
+
     def check_atoms(self):
         """Check that atoms objects are identical on all processors."""
         if not mpi.compare_atoms(self.atoms, comm=self.wfs.world):

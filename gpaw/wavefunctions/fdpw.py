@@ -279,35 +279,6 @@ class FDPWWaveFunctions(WaveFunctions):
             raise RuntimeError('This calculator has no wave functions!')
         return psit_nG[n][:] # dereference possible tar-file content
 
-    def write_wave_functions(self, writer):
-        master = (self.world.rank == 0) 
-        parallel = (self.world.size > 1)
-
-        if hasattr(writer, 'hdf5'):
-            hdf5 = True
-        else:
-            hdf5 = False
-
-        if master or hdf5:
-            writer.add('PseudoWaveFunctions',
-                       ('nspins', 'nibzkpts', 'nbands',
-                        'ngptsx', 'ngptsy', 'ngptsz'),
-                       dtype=self.dtype)
-
-        if hdf5:
-            for kpt in self.kpt_u:
-                indices = [kpt.s, kpt.k]
-                indices.append(self.bd.get_slice())
-                indices += self.gd.get_slice()
-                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
-        else:
-            for s in range(self.nspins):
-                for k in range(self.nibzkpts):
-                    for n in range(self.bd.nbands):
-                        psit_G = self.get_wave_function_array(n, k, s)
-                        if master:
-                            writer.fill(psit_G, s, k, n)
-
     def estimate_memory(self, mem):
         gridbytes = self.wd.bytecount(self.dtype)
         mem.subnode('Arrays psit_nG', 

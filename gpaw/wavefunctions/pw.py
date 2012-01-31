@@ -309,7 +309,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, timer):
-        self.ecut =  ecut / units.Hartree
+        self.ecut =  ecut
         self.fftwflags = fftwflags
 
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
@@ -374,83 +374,111 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def _get_wave_function_array(self, u, n):
         return self.pd.ifft(self.kpt_u[u].psit_nG[n])
 
-    def write_wave_functions(self, writer):
-        if self.world.rank == 0:
-            writer.dimension('nplanewaves', len(self.pd))
-            writer.add('PseudoWaveFunctions',
-                       ('nspins', 'nibzkpts', 'nbands', 'nplanewaves'),
-                       dtype=complex)
+    def write(self, writer, write_wave_functions=False):
+        writer['Mode'] = 'pw'
+        writer['PlaneWaveCutoff'] = self.ecut
+
+        if not write_wave_functions:
+            return
+
+        writer.dimension('nplanewaves', len(self.pd))
+        writer.add('PseudoWaveFunctions',
+                   ('nspins', 'nibzkpts', 'nbands', 'nplanewaves'),
+                   dtype=complex)
 
         for s in range(self.nspins):
             for k in range(self.nibzkpts):
                 psit_nG = self.collect_array('psit_nG', k, s)
-                if self.world.rank == 0:
-                    writer.fill(psit_nG, s, k)
+                writer.fill(psit_nG, s, k)
 
-    def s(self, q):
-        n = len(self.pd)
-        N = self.pd.tmp_R.size
-        S_GG = np.zeros((n, n), complex)
-        S_GG.ravel()[::n + 1] = self.pd.gd.dv / N
-        f_IG = self.pt.expand(q)
-        nI = len(f_IG)
-        dS_II = np.zeros((nI, nI))
-        I1 = 0
-        for a in self.pt.my_atom_indices:
-            dS_ii = self.setups[a].dO_ii
-            I2 = I1 + len(dS_ii)
-            dS_II[I1:I2, I1:I2] = dS_ii / N**2
-            I1 = I2
-        S_GG += np.dot(f_IG.T.conj(), np.dot(dS_II, f_IG))
-        return S_GG
-        
-    def h(self, ham, q=-1, s=0):
+    def hs(self, ham, q=-1, s=0, md=None):
         assert self.dtype == complex
+
         n = len(self.pd)
         N = self.pd.tmp_R.size
-        H_GG = np.zeros((n, n), complex)
-        H_GG.ravel()[::n + 1] = 0.5 * self.pd.gd.dv / N * self.pd.G2_qG[q]
-        for G in range(len(self.pd)):
+
+        if md is None:
+            H_GG = np.zeros((n, n), complex)
+            S_GG = np.zeros((n, n), complex)
+            G1 = 0
+            G2 = n
+        else:
+            H_GG = md.zeros(dtype=complex)
+            S_GG = md.zeros(dtype=complex)
+            G1, G2 = md.my_blocks(S_GG).next()[:2]
+
+        H_GG[G1:G2].ravel()[::n + 1] = (0.5 * self.pd.gd.dv / N *
+                                        self.pd.G2_qG[q, G1:G2])
+
+        for G in range(G1, G2):
             x_G = self.pd.zeros()
             x_G[G] = 1.0
-            H_GG[G] += (self.pd.gd.dv / N *
-                        self.pd.fft(ham.vt_sG[s] * self.pd.ifft(x_G)))
+            H_GG[G - G1] += (self.pd.gd.dv / N *
+                             self.pd.fft(ham.vt_sG[s] * self.pd.ifft(x_G)))
+
+        S_GG[G1:G2].ravel()[::n + 1] = self.pd.gd.dv / N
+
         f_IG = self.pt.expand(q)
         nI = len(f_IG)
         dH_II = np.zeros((nI, nI))
+        dS_II = np.zeros((nI, nI))
         I1 = 0
         for a in self.pt.my_atom_indices:
             dH_ii = unpack(ham.dH_asp[a][s])
-            I2 = I1 + len(dH_ii)
+            dS_ii = self.setups[a].dO_ii
+            I2 = I1 + len(dS_ii)
             dH_II[I1:I2, I1:I2] = dH_ii / N**2
+            dS_II[I1:I2, I1:I2] = dS_ii / N**2
             I1 = I2
-        H_GG += np.dot(f_IG.T.conj(), np.dot(dH_II, f_IG))
-        return H_GG
 
-    def diagonalize_full_hamiltonian(self, ham, atoms, nbands=None):
+        H_GG += np.dot(f_IG.T[G1:G2].conj(), np.dot(dH_II, f_IG))
+        S_GG += np.dot(f_IG.T[G1:G2].conj(), np.dot(dS_II, f_IG))
+        
+        return H_GG, S_GG
+        
+    def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
+                                     nbands=None,
+                                     scalapack=None):
+        
         from scipy.linalg import eigh
+        from gpaw.blacs import BlacsGrid, BlacsDescriptor
+        from gpaw.matrix_descriptor import MatrixDescriptor
+        from gpaw.band_descriptor import BandDescriptor
+
+        npw = len(self.pd)
 
         if nbands is None:
-            nbands = len(self.pd)
-        self.bd.mynbands = nbands
-        self.bd.nbands = nbands
+            nbands = npw
+
+        self.bd = BandDescriptor(nbands, self.bd.comm)
+
+        if scalapack:
+            nprow, npcol, b = scalapack
+            bg = BlacsGrid(self.bd.comm, nprow, npcol)
+            mynpw = -(-npw // self.bd.comm.size)
+            md = BlacsDescriptor(bg, npw, npw, mynpw, npw)
+        else:
+            md = MatrixDescriptor(npw, npw)
+
         self.pt.set_positions(atoms.get_scaled_positions())
         self.kpt_u[0].P_ani = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
-        q = -1
+        eps_n = np.empty(npw)
+        myslice = self.bd.get_slice()
+
         for kpt in self.kpt_u:
-            if kpt.q != q:
-                q = kpt.q
-                S_GG = self.s(kpt.q)
-            H_GG = self.h(ham, kpt.q, kpt.s)
-            epstmp_n, psit_Gn = eigh(H_GG, S_GG, overwrite_a=True)
-            kpt.eps_n = epstmp_n[:nbands].copy()
-            kpt.psit_nG = psit_Gn[:, :nbands].T.copy()
+            H_GG, S_GG = self.hs(ham, kpt.q, kpt.s, md)
+            psit_nG = md.empty(dtype=complex)
+            md.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
+            kpt.eps_n = eps_n[myslice].copy()
+            kpt.psit_nG = psit_nG[myslice].copy()
             self.pt.integrate(kpt.psit_nG, kpt.P_ani)
             f_n = np.zeros_like(kpt.eps_n)
             f_n[:len(kpt.f_n)] = kpt.f_n
-            kpt.f_n = f_n
+            kpt.f_n = None
+
+        occupations.calculate(self)
         
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
@@ -657,7 +685,7 @@ class PW:
         fftwflags: int
             Flags for making FFTW plan (default is FFTW_MEASURE)."""
 
-        self.ecut = ecut
+        self.ecut = ecut / units.Hartree
         self.fftwflags = fftwflags
 
     def __call__(self, diagksl, orthoksl, initksl, *args):

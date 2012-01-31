@@ -155,5 +155,30 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.kd = kd
         self.kpt_u = kpt_u
 
+    def write(self, writer, write_wave_functions=False):
+        writer['Mode'] = 'fd'
+
+        if not write_wave_functions:
+            return
+
+        writer.add('PseudoWaveFunctions',
+                   ('nspins', 'nibzkpts', 'nbands',
+                    'ngptsx', 'ngptsy', 'ngptsz'),
+                   dtype=self.dtype)
+
+        if hasattr(writer, 'hdf5'):
+            parallel = (self.world.size > 1)
+            for kpt in self.kpt_u:
+                indices = [kpt.s, kpt.k]
+                indices.append(self.bd.get_slice())
+                indices += self.gd.get_slice()
+                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
+        else:
+            for s in range(self.nspins):
+                for k in range(self.nibzkpts):
+                    for n in range(self.bd.nbands):
+                        psit_G = self.get_wave_function_array(n, k, s)
+                        writer.fill(psit_G, s, k, n)
+
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)

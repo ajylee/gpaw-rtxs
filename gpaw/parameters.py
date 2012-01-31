@@ -6,6 +6,7 @@ from ase.dft.kpoints import monkhorst_pack
 import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
+from gpaw.wavefunctions.pw import PW
 from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
                  sl_inverse_cholesky, sl_lcao, buffer_size
 
@@ -219,6 +220,9 @@ class InputParameters(dict):
         except KeyError:
             self.mode = 'fd'
 
+        if self.mode == 'pw':
+            self.mode = PW(ecut=r['PlaneWaveCutoff'] * Hartree)
+            
         if len(bzk_kc) == 1 and not bzk_kc[0].any():
             # Gamma point only:
             if r['DataType'] == 'Complex':

@@ -489,18 +489,21 @@ class LCAOWaveFunctions(WaveFunctions):
         
         self.lazyloader = LazyLoader(hamiltonian, spos_ac)
         
-    def write_wave_functions(self, writer):
-        if self.world.rank == 0:
-            writer.dimension('nbasis', self.setups.nao)
-            writer.add('WaveFunctionCoefficients',
-                       ('nspins', 'nibzkpts', 'nbands', 'nbasis'),
-                       dtype=self.dtype)
+    def write(self, writer, write_wave_functions=False):
+        writer['Mode'] = 'lcao'
+        
+        if not write_wave_functions:
+            return
+   
+        writer.dimension('nbasis', self.setups.nao)
+        writer.add('WaveFunctionCoefficients',
+                   ('nspins', 'nibzkpts', 'nbands', 'nbasis'),
+                   dtype=self.dtype)
 
         for s in range(self.nspins):
             for k in range(self.nibzkpts):
                 C_nM = self.collect_array('C_nM', k, s)
-                if self.world.rank == 0:
-                    writer.fill(C_nM, s, k)
+                writer.fill(C_nM, s, k)
 
     def read_coefficients(self, reader):
         for kpt in self.kpt_u:

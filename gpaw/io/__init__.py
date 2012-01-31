@@ -252,8 +252,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             else:
                 w[name] = value
 
-    w['Mode'] = p.mode
-    
     # Write fingerprint (md5-digest) for all setups:
     for setup in wfs.setups.setups.values():
         key = atomic_names[setup.Z] + 'Fingerprint'
@@ -448,11 +446,12 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     hamiltonian.xc.write(w, natoms)
 
-    if mode == 'all':
+    if mode in ['', 'all']:
         timer.start('Pseudo-wavefunctions')
-        wfs.write_wave_functions(w)
+        wfs.write(w, write_wave_functions=(mode == 'all'))
         timer.stop('Pseudo-wavefunctions')
     elif mode != '':
+        w['Mode'] = 'fd'
         # Write the wave functions as seperate files
 
         # check if we need subdirs and have to create them
