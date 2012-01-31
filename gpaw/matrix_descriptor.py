@@ -2,6 +2,8 @@
 import numpy as np
 
 from gpaw import debug
+from gpaw.utilities.lapack import general_diagonalize
+
 
 class MatrixDescriptor:
     """Class representing a 2D matrix shape.  Base class for parallel
@@ -46,6 +48,14 @@ class MatrixDescriptor:
                 msg = ('%s-descriptor incompatible with %s-matrix' %
                        (self.shape, a_mn.shape))
             raise AssertionError(msg)
+
+    def general_diagonalize_dc(self, H_mm, S_mm, C_mm, eps_M,
+                               UL='L'):
+        general_diagonalize(H_mm, eps_M, S_mm)
+        C_mm[:] = H_mm
+
+    def my_blocks(self, array_mn):
+        yield (0, self.shape[0], 0, self.shape[1], array_mn)
 
     def estimate_memory(self, mem, dtype):
         """Handled by subclass."""
