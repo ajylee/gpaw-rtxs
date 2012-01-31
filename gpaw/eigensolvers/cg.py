@@ -124,8 +124,9 @@ class CG(Eigensolver):
                 # find optimum linear combination of psit_G and phi_G
                 an = kpt.eps_n[n]
                 wfs.apply_pseudo_hamiltonian(kpt, hamiltonian,
-                                             phi_G[np.newaxis],
-                                             Htphi_G[np.newaxis])
+                                             phi_G.reshape((1,) + phi_G.shape),
+                                             Htphi_G.reshape((1,) +
+                                                             Htphi_G.shape))
                 b = self.gd.integrate(phi_G, Htpsit_G, global_integral=False)
                 c = self.gd.integrate(phi_G, Htphi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():
