@@ -1,4 +1,5 @@
 from ase.structure import molecule
+from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 from gpaw.mpi import world
 
