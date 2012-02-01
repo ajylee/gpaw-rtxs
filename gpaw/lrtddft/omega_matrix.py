@@ -99,7 +99,6 @@ class OmegaMatrix:
                                wfs, self.paw.occupations)
 
             # check derivativeLevel
-            print "******** derivativeLevel is", derivativeLevel
             if derivativeLevel is None:
                 derivativeLevel= \
                     self.xc.get_functional().get_max_derivative_level()
