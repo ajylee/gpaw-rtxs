@@ -461,6 +461,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
             md2 = BlacsDescriptor(bg2, npw, npw, b, b)
             assert nprow == npcol
+
+            md3 = BlacsDescriptor(bg, npw, npw, bd.mynbands, npw)
         else:
             md = md2 = MatrixDescriptor(npw, npw)
             nprow = npcol = 1
@@ -492,8 +494,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.eps_n = eps_n[myslice].copy()
 
             if scalapack:
-                r = Redistributor(bd.comm, md2, md)
-                psit_nG = md.empty(dtype=complex)
+                r = Redistributor(bd.comm, md2, md3)
+                psit_nG = md3.empty(dtype=complex)
                 r.redistribute(psit_ng, psit_nG)
             else:
                 psit_nG = psit_ng
