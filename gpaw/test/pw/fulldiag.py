@@ -9,7 +9,6 @@ a = Atoms('H2',
 
 a.calc = GPAW(mode='pw',
               nbands=8,
-              parallel={'band': world.size},
               dtype=complex,
               basis='dzp', txt=None)
 
@@ -29,7 +28,7 @@ a.calc.diagonalize_full_hamiltonian(nbands=120, scalapack=scalapack)
 w2 = a.calc.get_pseudo_wave_function(0)
 e2 = a.calc.get_eigenvalues()
 
-calc = GPAW('H2', txt=None, parallel={'band': world.size})
+calc = GPAW('H2', txt=None)
 calc.diagonalize_full_hamiltonian(nbands=120, scalapack=scalapack)
 w3 = calc.get_pseudo_wave_function(0)
 e3 = calc.get_eigenvalues()

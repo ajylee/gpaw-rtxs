@@ -15,6 +15,9 @@ from gpaw.utilities import unpack, _fact as fac
 from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.density import Density
 from gpaw.hamiltonian import Hamiltonian
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
+from gpaw.matrix_descriptor import MatrixDescriptor
+from gpaw.band_descriptor import BandDescriptor
 
 
 class PWDescriptor:
@@ -439,12 +442,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
                                      nbands=None,
                                      scalapack=None):
-        
-        from scipy.linalg import eigh
-        from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
-        from gpaw.matrix_descriptor import MatrixDescriptor
-        from gpaw.band_descriptor import BandDescriptor
-
         npw = len(self.pd)
 
         if nbands is None:

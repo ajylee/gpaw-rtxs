@@ -468,29 +468,23 @@ class PAW(PAWTextOutput):
                 par.maxiter, par.fixdensity,
                 niter_fixdensity)
 
-        parsize, parsize_bands = par.parallel['domain'], par.parallel['band']
-
-        if parsize_bands is None:
-            parsize_bands = 1
-
-        # TODO delete/restructure so all checks are in BandDescriptor
-        if nbands % parsize_bands != 0:
-            raise RuntimeError('Cannot distribute %d bands to %d processors' %
-                               (nbands, parsize_bands))
+        parsize_domain = par.parallel['domain']
+        parsize_bands = par.parallel['band']
 
         mode = par.mode
         if mode == 'pw':
             mode = PW()
-            
+
         if isinstance(mode, PW):
             pbc_c = np.ones(3, bool)
 
         if not self.wfs:
-            if parsize == 'domain only':  # XXX this was silly!
-                parsize = world.size
+            if parsize_domain == 'domain only':  # XXX this was silly!
+                parsize_domain = world.size
 
-            domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(parsize,
-                parsize_bands, nspins, kd.nibzkpts, world, par.idiotproof)
+            domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
+                parsize_domain, parsize_bands,
+                nspins, kd.nibzkpts, world, par.idiotproof, mode)
 
             kd.set_communicator(kpt_comm)
 
@@ -509,11 +503,10 @@ class PAW(PAWTextOutput):
 
             # Construct grid descriptor for coarse grids for wave functions:
             gd = self.grid_descriptor_class(N_c, cell_cv, pbc_c,
-                                            domain_comm, parsize)
+                                            domain_comm, parsize_domain)
 
             # do k-point analysis here? XXX
             args = (gd, nvalence, setups, bd, dtype, world, kd, self.timer)
-
 
             if par.parallel['sl_auto']:
                 # Choose scalapack parallelization automatically
