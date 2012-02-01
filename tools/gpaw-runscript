@@ -601,23 +601,25 @@ for key in env:
 if set['mail'] is None and os.environ.has_key('GPAW_MAIL'):
     set['mail'] = str(os.environ['GPAW_MAIL'])
 
+parameter_ext = ''
+if 'parameters' in set:
+     parameter_ext += '_' + set['parameters'].replace(' ','')
+
 # set output files
 if set['out'] is None:
-    set['out'] = set['script']+".out"
+    set['out'] = set['script'] + parameter_ext + ".out"
 if set['err'] is None:
-    set['err'] = set['script']+".err"
+    set['err'] = set['script'] + parameter_ext + ".err"
 
 # get the name from current working directory
 if set['wd'] is None:
     set['wd'] = os.getcwd()
 if set['name'] is None:
     name = os.getcwd().split('/')[-1]
-    # avoid binning with a number
+    # avoid beginning with a number
     if name[0].isdigit():
-        name = 'j' + name
-    if 'parameters' in set:
-        name += set['parameters'].replace(' ','')
-    set['name'] = name 
+        name = 'j' + name 
+    set['name'] = name + parameter_ext 
 
 RunScript(set,env)
 
