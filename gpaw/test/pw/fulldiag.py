@@ -13,6 +13,9 @@ a.calc = GPAW(mode='pw',
               basis='dzp', txt=None)
 
 a.get_potential_energy()
+w1 = a.calc.get_pseudo_wave_function(0)
+e1 = a.calc.get_eigenvalues()
+
 a.calc.write('H2')
 
 if world.size == 1:
@@ -20,9 +23,6 @@ if world.size == 1:
 else:
     mb = {2: 1, 4: 2, 8: 2}[world.size]
     scalapack = (mb, mb, 32)
-
-w1 = a.calc.get_pseudo_wave_function(0)
-e1 = a.calc.get_eigenvalues()
 
 a.calc.diagonalize_full_hamiltonian(nbands=120, scalapack=scalapack)
 w2 = a.calc.get_pseudo_wave_function(0)

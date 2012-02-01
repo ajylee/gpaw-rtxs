@@ -9,7 +9,7 @@ a = 2.65
 bulk = Atoms('Li', cell=(a, a, 3 * a), pbc=True)
 k = 4
 calc = GPAW(mode=PW(200),
-            parallel={'band': min(world.size, 4), 'domain': 1},
+            parallel={'band': min(world.size, 4)},
             idiotproof=0,
             kpts=(k, k, 1))
 bulk.set_calculator(calc)

@@ -3,12 +3,10 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 from gpaw.test import equal
-from gpaw.mpi import world
 
 bulk = Atoms('Li', pbc=True)
 k = 4
-calc = GPAW(mode=PW(200), kpts=(k, k, k),
-            parallel={'band': 1 + world.size // 8})
+calc = GPAW(mode=PW(200), kpts=(k, k, k))
 bulk.set_calculator(calc)
 e = []
 niter = []
