@@ -262,6 +262,8 @@ tests = [
     'parallel/blacsdist.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
+    'parallel/scalapack_mpirecv_crash.py',
+    'parallel/scalapack_pdlasrt_hang.py',
     'parallel/realspace_blacs.py',
     'parallel/lcao_projections.py',
     #'dscf_forces.py',
@@ -314,6 +316,8 @@ if mpi.size < 4:
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
     exclude += ['parallel/fd_parallel.py']
+    exclude += ['parallel/scalapack_mpirecv_crash.py']
+    exclude += ['parallel/scalapack_pdlasrt_hang.py']
 
 if mpi.size == 1 or not compiled_with_sl():
     exclude += ['parallel/submatrix_redist.py']
