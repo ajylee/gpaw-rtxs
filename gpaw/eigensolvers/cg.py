@@ -115,7 +115,7 @@ class CG(Eigensolver):
                 for a, P2_i in P2_ai.items():
                     dO_ii = wfs.setups[a].dO_ii
                     norm += np.vdot(P2_i, np.inner(dO_ii, P2_i))
-                norm = self.gd.comm.sum(np.real(norm))
+                norm = self.gd.comm.sum(np.real(norm).item())
                 phi_G /= sqrt(norm)
                 for P2_i in P2_ai.values():
                     P2_i /= sqrt(norm)
@@ -134,8 +134,8 @@ class CG(Eigensolver):
                     dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
                     b += dot(P2_i, dot(dH_ii, P_i.conj()))
                     c += dot(P2_i, dot(dH_ii, P2_i.conj()))
-                b = self.gd.comm.sum(b.real)
-                c = self.gd.comm.sum(c.real)
+                b = self.gd.comm.sum(np.real(b).item())
+                c = self.gd.comm.sum(np.real(c).item())
 
                 theta = 0.5 * atan2(2 * b, an - c)
                 enew = (an * cos(theta)**2 +
