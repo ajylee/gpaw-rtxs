@@ -62,7 +62,7 @@ class PWDescriptor:
         G2_Q = (G_Qv**2).sum(axis=1)
 
         # Map from vectors inside sphere to fft grid:
-        mask_Q = G2_Q <= 2 * ecut
+        mask_Q = (G2_Q <= 2 * ecut)
         if self.dtype == float:
             mask_Q &= ((i_Qc[:, 2] > 0) |
                        (i_Qc[:, 1] > 0) |
@@ -375,7 +375,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.psit_nG = psit_nG
 
     def _get_wave_function_array(self, u, n):
-        return self.pd.ifft(self.kpt_u[u].psit_nG[n])
+        kpt = self.kpt_u[u]
+        if self.kd.gamma:
+            return self.pd.ifft(kpt.psit_nG[n])
+        else:
+            N_c = self.gd.N_c
+            k_c = self.kd.ibzk_kc[kpt.k]
+            eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+            return self.pd.ifft(kpt.psit_nG[n]) * eikr_R
 
     def write(self, writer, write_wave_functions=False):
         writer['Mode'] = 'pw'
