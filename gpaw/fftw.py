@@ -17,6 +17,26 @@ FFTW_PATIENT = 32
 FFTW_EXHAUSTIVE = 8
 
 
+def check_fft_size(n):
+    """Check if n is an efficient fft size.
+
+    Efficient means that n can be factored into small primes (2, 3, 5, 7)."""
+
+    if n == 1:
+        return True
+    for x in [2, 3, 5, 7]:
+        if n % x == 0:
+            return check_fft_size(n // x)
+    return False
+
+
+def get_efficient_fft_size(n):
+    """Return the smalles efficient fft size greater than or equal to n."""
+    while not check_fft_size(n):
+        n += 1
+    return n
+
+
 class FFTPlan:
     """FFTW3 3d transform."""
     def __init__(self, in_R, out_R, sign, flags=FFTW_MEASURE):
