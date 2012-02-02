@@ -30,7 +30,8 @@ h = 0.2        # grid spacing
 a = h * G      # side length of box
 
 # Set up communicators:
-domain_comm, kpt_comm, band_comm = distribute_cpus(parsize=D, parsize_bands=B, \
+domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain=D,
+                                                   parsize_bands=B,
                                                    nspins=1, nibzkpts=2)
 assert world.size == D*B*kpt_comm.size
 

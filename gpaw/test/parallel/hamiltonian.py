@@ -44,7 +44,8 @@ a = h * G      # side length of box
 assert np.prod(D) * B == world.size, 'D=%s, B=%d, W=%d' % (D,B,world.size)
 
 # Set up communicators:
-domain_comm, kpt_comm, band_comm = distribute_cpus(parsize=D, parsize_bands=B, \
+domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain=D,
+                                                   parsize_bands=B,
                                                    nspins=1, nibzkpts=1)
 assert kpt_comm.size == 1
 if world.rank == 0:
