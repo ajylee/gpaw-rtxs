@@ -613,7 +613,7 @@ def distribute_cpus(parsize_domain, parsize_bands,
             parsize_bands = 1
 
         if parsize_domain is not None:
-            if type(parsize) is int:
+            if type(parsize_domain) is int:
                 ndomains = parsize_domain
             else:
                 ndomains = (parsize_domain[0] *
