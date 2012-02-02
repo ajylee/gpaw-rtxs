@@ -180,6 +180,9 @@ class VDWFunctional(GGA):
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer = wfs.timer
 
+    def get_Ecnl(self):
+        return self.Ecnl
+
     def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
         GGA.calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
 
@@ -255,7 +258,9 @@ class VDWFunctional(GGA):
 
         Ecnl = self.calculate_6d_integral(n_g, q0_g, a2_g, e_LDAc_g, v_LDAc_g,
                                           v_g, deda2_g)
-        return Ecnl + dEcnl    
+        Ecnl += dEcnl
+        self.Ecnl = Ecnl
+        return Ecnl
 
     def read_table(self):
         name = ('phi-%.3f-%.3f-%.3f-%d-%d.pckl' %
