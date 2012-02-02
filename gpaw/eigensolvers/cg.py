@@ -115,7 +115,7 @@ class CG(Eigensolver):
                 for a, P2_i in P2_ai.items():
                     dO_ii = wfs.setups[a].dO_ii
                     norm += np.vdot(P2_i, np.inner(dO_ii, P2_i))
-                norm = self.gd.comm.sum(norm.real)
+                norm = self.gd.comm.sum(np.real(norm))
                 phi_G /= sqrt(norm)
                 for P2_i in P2_ai.values():
                     P2_i /= sqrt(norm)
