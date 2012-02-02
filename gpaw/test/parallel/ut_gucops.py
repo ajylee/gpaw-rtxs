@@ -86,10 +86,10 @@ class UTDomainParallelSetup(TestCase):
         self.ibzk_kv = kpoint_convert(cell_cv, skpts_kc=self.ibzk_kc)
 
         # Parse parallelization parameters and create suitable communicators.
-        #parsize, parsize_bands = create_parsize_minbands(self.nbands, world.size)
-        parsize, parsize_bands = world.size//gcd(world.size, self.nibzkpts), 1
+        #parsize_domain, parsize_bands = create_parsize_minbands(self.nbands, world.size)
+        parsize_domain, parsize_bands = world.size//gcd(world.size, self.nibzkpts), 1
         assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize,
+        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
             parsize_bands, self.nspins, self.nibzkpts)
 
         # Set up band descriptor:
@@ -98,7 +98,7 @@ class UTDomainParallelSetup(TestCase):
         # Set up grid descriptor:
         N_c = np.round(np.sum(cell_cv**2, axis=1)**0.5 / self.h)
         N_c += 4-N_c % 4 # makes domain decomposition easier
-        self.gd = GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize)
+        self.gd = GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
         self.assertEqual(self.gamma, np.all(~self.gd.pbc_c))
 
         # What to do about kpoints?

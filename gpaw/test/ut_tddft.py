@@ -47,8 +47,8 @@ class UTGroundStateSetup(TestCase):
         for virtvar in []:
             assert getattr(self,virtvar) is not None, 'Virtual "%s"!' % virtvar
 
-        parsize, parsize_bands = create_parsize_maxbands(self.nbands, world.size)
-        self.parallel = {'domain': parsize, 'band': parsize_bands}
+        parsize_domain, parsize_bands = create_parsize_maxbands(self.nbands, world.size)
+        self.parallel = {'domain': parsize_domain, 'band': parsize_bands}
 
         self.atoms = molecule('Na2')
         self.atoms.center(vacuum=4.0)

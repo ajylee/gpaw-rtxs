@@ -4,7 +4,7 @@ from gpaw.transport.tools import aa1d, interpolate_array, \
                           collect_atomic_matrices, distribute_atomic_matrices
 from gpaw.transport.io import Transport_IO
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw import parsize
+from gpaw import parsize_domain
 from gpaw.domain import decompose_domain
 ''' 
      ---------------------------------------
@@ -47,11 +47,11 @@ class Side:
 	cell_cv = data['cell_cv']
 	pbc_c = data['pbc_c']
 	#parsize_c = data['parsize_c']
-        if type(parsize) is int:
+        if type(parsize_domain) is int:
             parsize_c = None
-            assert parsize == self.domain_comm.size
+            assert parsize_domain == self.domain_comm.size
         else:
-            parsize_c = parsize
+            parsize_c = parsize_domain
         if parsize_c is None:
             parsize_c = decompose_domain(N_c, self.domain_comm.size)
         parsize_c = np.array(parsize_c)

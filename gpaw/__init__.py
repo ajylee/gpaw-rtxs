@@ -50,7 +50,7 @@ debug = False
 trace = False
 dry_run = 0
 memory_estimate_depth = 2
-parsize = None
+parsize_domain = None
 parsize_bands = None
 sl_default = None
 sl_diagonalize = None
@@ -80,11 +80,11 @@ while len(sys.argv) > i:
         if len(arg.split('=')) == 2:
             memory_estimate_depth = int(arg.split('=')[1])
     elif arg.startswith('--domain-decomposition='):
-        parsize = [int(n) for n in arg.split('=')[1].split(',')]
-        if len(parsize) == 1:
-            parsize = parsize[0]
+        parsize_domain = [int(n) for n in arg.split('=')[1].split(',')]
+        if len(parsize_domain) == 1:
+            parsize_domain = parsize_domain[0]
         else:
-            assert len(parsize) == 3
+            assert len(parsize_domain) == 3
     elif arg.startswith('--state-parallelization='):
         parsize_bands = int(arg.split('=')[1])
     elif arg.startswith('--sl_default='):

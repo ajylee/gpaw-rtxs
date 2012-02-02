@@ -7,7 +7,7 @@ import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw.wavefunctions.pw import PW
-from gpaw import parsize, parsize_bands, sl_default, sl_diagonalize, \
+from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
                  sl_inverse_cholesky, sl_lcao, buffer_size
 
 
@@ -36,7 +36,7 @@ class InputParameters(dict):
             ('random',          False),
             ('dtype',           None),
             ('maxiter',         120),
-            ('parallel',        {'domain':              parsize,
+            ('parallel',        {'domain':              parsize_domain,
                                  'band':                parsize_bands,
                                  'stridebands':         False,
                                  'sl_auto':             False,
@@ -45,9 +45,9 @@ class InputParameters(dict):
                                  'sl_inverse_cholesky': sl_inverse_cholesky,
                                  'sl_lcao':             sl_lcao,
                                  'buffer_size':         buffer_size}),
-            ('parsize',         None),
-            ('parsize_bands',   None),
-            ('parstride_bands', False),
+            ('parsize',         None), #don't use this
+            ('parsize_bands',   None), #don't use this
+            ('parstride_bands', False), #don't use this
             ('external',        None),  # eV
             ('verbose',         0),
             ('eigensolver',     None),

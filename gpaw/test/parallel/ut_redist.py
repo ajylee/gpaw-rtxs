@@ -92,9 +92,9 @@ class UTDomainParallelSetup(TestCase):
             self.dtype = complex
             
         # Create communicators
-        parsize, parsize_bands = self.get_parsizes()
+        parsize_domain, parsize_bands = self.get_parsizes()
         assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize,
+        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
             parsize_bands, self.nspins, self.kd.nibzkpts)
 
         self.kd.set_communicator(kpt_comm)
@@ -103,7 +103,7 @@ class UTDomainParallelSetup(TestCase):
         self.bd = BandDescriptor(self.nbands, band_comm)
 
         # Set up grid descriptor:
-        self.gd = GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize)
+        self.gd = GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
 
         # Set up kpoint/spin descriptor (to be removed):
         self.kd_old = KPointDescriptorOld(self.nspins, self.kd.nibzkpts,
@@ -115,14 +115,14 @@ class UTDomainParallelSetup(TestCase):
 
     def get_parsizes(self):
         # Careful, overwriting imported GPAW params may cause amnesia in Python.
-        from gpaw import parsize, parsize_bands
+        from gpaw import parsize_domain, parsize_bands
 
         # D: number of domains
         # B: number of band groups
-        if parsize is None:
+        if parsize_domain is None:
             D = min(world.size, 2)
         else:
-            D = parsize
+            D = parsize_domain
         assert world.size % D == 0
         if parsize_bands is None:
             B = world.size // D

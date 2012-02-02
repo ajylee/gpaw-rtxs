@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from gpaw import debug, parsize, parsize_bands
+from gpaw import debug, parsize_domain, parsize_bands
 from gpaw import mpi
 from gpaw.utilities.blas import axpy
 

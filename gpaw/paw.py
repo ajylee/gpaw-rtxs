@@ -496,8 +496,8 @@ class PAW(PAWTextOutput):
                 # Domain decomposition has changed, so we need to
                 # reinitialize density and hamiltonian:
                 if par.fixdensity:
-                    raise RuntimeError("I'm confused - please specify parsize."
-                                       )
+                    raise RuntimeError("Density reinitialization conflict "
+                        "with 'fixdensity' - specify domain decomposition.")
                 self.density = None
                 self.hamiltonian = None
 

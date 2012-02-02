@@ -154,7 +154,7 @@ Deprecated keywords (in favour of the ``parallel`` keyword) include:
 keyword            type       default value        description
 =================  =========  ===================  ============================
 ``parsize``        *seq*                           Parallel
-                                                   :ref:`manual_parsize`
+                                                   :ref:`manual_parsize_domain`
 ``parsize_bands``  ``int``    ``1``                :ref:`manual_parsize_bands`
 =================  =========  ===================  ============================
 
@@ -813,7 +813,7 @@ argument                         description
                                  the ``domain`` argument in the
                                  :ref:`parallel <manual_parallel>` keyword,
                                  with tuples specified as ``nx,ny,nz``.
-                                 See :ref:`manual_parsize` for details.
+                                 See :ref:`manual_parsize_domain` for details.
 ``--state-parallelization=nbg``
                                  Specify the parallelization over Kohn-Sham
                                  orbitals with ``nbg`` as a positive integer.

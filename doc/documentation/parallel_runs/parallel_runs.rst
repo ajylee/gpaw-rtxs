@@ -193,7 +193,7 @@ The default value corresponds to this Python dictionary::
 In words:
 
 * The ``'domain'`` value specifies either an integer ``n``, or specifically a tuple
-  ``(nx,ny,nz)`` of 3 integers, for :ref:`domain decomposition <manual_parsize>`.
+  ``(nx,ny,nz)`` of 3 integers, for :ref:`domain decomposition <manual_parsize_domain>`.
   If not specified (i.e. ``None``), the calculator will try to determine the best
   domain parallelization size based on number of kpoints, spins etc.
 
@@ -234,7 +234,7 @@ In words:
    specifically state otherwise.
 
 
-.. _manual_parsize:
+.. _manual_parsize_domain:
 
 Domain decomposition
 --------------------

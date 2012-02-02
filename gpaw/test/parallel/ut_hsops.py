@@ -67,9 +67,9 @@ class UTBandParallelSetup(TestCase):
         for virtvar in ['dtype','parstride_bands']:
             assert getattr(self,virtvar) is not None, 'Virtual "%s"!' % virtvar
 
-        parsize, parsize_bands = create_parsize_maxbands(self.nbands, world.size)
-        assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize,
+        parsize_domain, parsize_bands = create_parsize_maxbands(self.nbands, world.size)
+        assert self.nbands % parsize_bands == 0
+        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
             parsize_bands, self.nspins, self.nibzkpts)
 
         # Set up band descriptor:
@@ -79,7 +79,7 @@ class UTBandParallelSetup(TestCase):
         res, ngpts = shapeopt(100, self.G**3, 3, 0.2)
         cell_c = self.h * np.array(ngpts)
         pbc_c = (True, False, True)
-        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize)
+        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize_domain)
 
         # Create Kohn-Sham layouts for these band and grid descriptors:
         self.ksl = self.create_kohn_sham_layouts()

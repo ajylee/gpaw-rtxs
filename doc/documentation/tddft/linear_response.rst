@@ -59,7 +59,7 @@ alternatively one can also restrict the number of transitions by their energy::
 
 Note, that parallelization over spin does not work here. As a workaround,
 domain decomposition only (``parallel={'domain': world.size}``, 
-see :ref:`manual_parsize`) 
+see :ref:`manual_parsize_domain`) 
 has to be used for spin polarised 
 calculations in parallel.
 

@@ -1,7 +1,7 @@
 from time import time
 import sys
 import numpy as np
-from gpaw import parsize, parsize_bands
+from gpaw import parsize_domain, parsize_bands
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kohnsham_layouts import BandLayouts
@@ -26,12 +26,12 @@ except (IndexError, ValueError):
 # B: number of band groups
 # D: number of domains
 if parsize_bands is None:
-    if parsize is None:
+    if parsize_domain is None:
         B = gcd(N, world.size)
         D = world.size // B
     else:
-        B = world.size // np.prod(parsize)
-        D = parsize
+        B = world.size // np.prod(parsize_domain)
+        D = parsize_domain
 else:
     B = parsize_bands
     D = world.size // B

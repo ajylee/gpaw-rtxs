@@ -69,10 +69,10 @@ class UTKPointParallelSetup(TestCase):
         assert p.usesymm == None
         self.nibzkpts = len(bzk_kc)
 
-        #parsize, parsize_bands = create_parsize_minbands(self.nbands, world.size)
-        parsize, parsize_bands = 1, 1 #XXX
+        #parsize_domain, parsize_bands = create_parsize_minbands(self.nbands, world.size)
+        parsize_domain, parsize_bands = 1, 1 #XXX
         assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize,
+        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
             parsize_bands, self.nspins, self.nibzkpts)
 
         # Set up band descriptor:
@@ -82,7 +82,7 @@ class UTKPointParallelSetup(TestCase):
         res, ngpts = shapeopt(300, self.G**3, 3, 0.2)
         cell_c = self.h * np.array(ngpts)
         pbc_c = (True, False, True)
-        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize)
+        self.gd = GridDescriptor(ngpts, cell_c, pbc_c, domain_comm, parsize_domain)
 
         # Create randomized gas-like atomic configuration
         self.atoms = create_random_atoms(self.gd)
@@ -103,7 +103,7 @@ class UTKPointParallelSetup(TestCase):
 
     def get_parsizes(self): #XXX NO LONGER IN UT_HSOPS?!?
         # Careful, overwriting imported GPAW params may cause amnesia in Python.
-        from gpaw import parsize, parsize_bands
+        from gpaw import parsize_domain, parsize_bands
 
         # Choose the largest possible parallelization over kpoint/spins
         test_parsize_ks_pairs = gcd(self.nspins*self.nibzkpts, world.size)
@@ -113,9 +113,9 @@ class UTKPointParallelSetup(TestCase):
         test_parsize_bands = parsize_bands or gcd(self.nbands, remsize)
 
         # If parsize_bands is not set, choose as few domains as possible
-        test_parsize = parsize or (remsize//test_parsize_bands)
+        test_parsize_domain = parsize_domain or (remsize//test_parsize_bands)
 
-        return test_parsize, test_parsize_bands
+        return test_parsize_domain, test_parsize_bands
 
     # =================================
 

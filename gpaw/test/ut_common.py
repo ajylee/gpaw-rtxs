@@ -114,22 +114,22 @@ def create_random_atoms(gd, nmolecules=10, name='H2O', mindist=4.5 / Bohr):
 # -------------------------------------------------------------------
 
 from gpaw.utilities import gcd
-from gpaw import parsize, parsize_bands
+from gpaw import parsize_domain, parsize_bands
 
 def create_parsize_maxbands(nbands, world_size):
     """Safely parse command line parallel arguments for band parallel case."""
     # D: number of domains
     # B: number of band groups   
     if parsize_bands is None:
-        if parsize is None:
+        if parsize_domain is None:
             B = gcd(nbands, world_size) # largest possible
             D = world_size // B
         else:
-            D = parsize
+            D = parsize_domain
             B = gcd(nbands, world_size // np.prod(D))
     else:
         B = parsize_bands
-        D = parsize or world_size // B
+        D = parsize_domain or world_size // B
     return D, B
 
 def create_parsize_minbands(nbands, world_size):
