@@ -38,6 +38,7 @@ from gpaw.output import PAWTextOutput
 from gpaw.scf import SCFLoop
 from gpaw.forces import ForceCalculator
 from gpaw.utilities import h2gpts
+from gpaw.fftw import get_efficient_fft_size
 
 
 class PAW(PAWTextOutput):
@@ -334,8 +335,7 @@ class PAW(PAWTextOutput):
 
         natoms = len(atoms)
 
-        pos_av = atoms.get_positions() / Bohr
-        cell_cv = atoms.get_cell()
+        cell_cv = atoms.get_cell() / Bohr
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
@@ -388,17 +388,31 @@ class PAW(PAWTextOutput):
         else:
             assert par.occupations is None
       
+        mode = par.mode
+
+        if mode == 'pw':
+            mode = PW()
+
+        real_space = not isinstance(mode, PW)
+
         if par.gpts is not None and par.h is None:
             N_c = np.array(par.gpts)
         else:
             if par.h is None:
-                self.text('Using default value for grid spacing.')
-                h = 0.2
+                if real_space:
+                    self.text('Using default value for grid spacing.')
+                    h = 0.2 / Bohr
+                else:
+                    h = np.pi / (4 * mode.ecut)**0.5
             else:
-                h = par.h
-            N_c = h2gpts(h, cell_cv)
+                h = par.h / Bohr
 
-        cell_cv /= Bohr
+            if 1:#real_space:
+                N_c = h2gpts(h, cell_cv, 4)
+            else:
+                # Need to test this a bit more ...
+                N_c = h2gpts(h, cell_cv, 1)
+                N_c = np.array([get_efficient_fft_size(N) for N in N_c])
 
         if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
@@ -418,7 +432,7 @@ class PAW(PAWTextOutput):
         nbands = par.nbands
         if nbands is None:
             nbands = nao
-        elif nbands > nao and par.mode == 'lcao':
+        elif nbands > nao and mode == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: ' +
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
@@ -455,7 +469,7 @@ class PAW(PAWTextOutput):
 
         cc = par.convergence
 
-        if par.mode == 'lcao':
+        if mode == 'lcao':
             niter_fixdensity = 0
         else:
             niter_fixdensity = None
@@ -470,10 +484,6 @@ class PAW(PAWTextOutput):
 
         parsize_domain = par.parallel['domain']
         parsize_bands = par.parallel['band']
-
-        mode = par.mode
-        if mode == 'pw':
-            mode = PW()
 
         if isinstance(mode, PW):
             pbc_c = np.ones(3, bool)
@@ -626,8 +636,6 @@ class PAW(PAWTextOutput):
             if isinstance(xc, SIC):
                 eigensolver.blocksize = 1
             self.wfs.set_eigensolver(eigensolver)
-
-        real_space = not isinstance(mode, PW)
 
         if self.density is None:
             gd = self.wfs.gd

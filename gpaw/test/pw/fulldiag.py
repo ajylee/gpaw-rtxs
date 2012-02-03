@@ -43,5 +43,5 @@ for w in [w2, w3, w4]:
     assert abs(abs(w[1, 2, 3]) - abs(w[1, 2, 3])) < 1e-10
 
 for e in [e2, e3, e4]:
-    assert abs(e[1] - e1[1]) < 1e-10
+    assert abs(e[1] - e1[1]) < 1e-9
     assert abs(e[-1] - e2[-1]) < 1e-10

@@ -2,6 +2,8 @@
 
 Change log:
 
+Version 2:
+    GridPoints array added when gpts is used.
 """
 
 import os
@@ -124,7 +126,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 1
+    w['version'] = 2
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -190,15 +192,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     p = paw.input_parameters
 
-    # Write grid-spacing or None if gpts was specified:
-    if p.gpts is None:
-        if p.h is None:
-            h = 0.2 / Bohr
-        else:
-            h = p.h / Bohr
+    if p.gpts is not None:
+        w.add('GridPoints', ('3'), p.gpts, write=master)
+
+    if p.h is None:
+        w['GridSpacing'] = repr(None)
     else:
-        h = repr(None)
-    w['GridSpacing'] = h
+        w['GridSpacing'] = p.h / Bohr
 
     # Write various parameters:
     (w['KohnShamStencil'],

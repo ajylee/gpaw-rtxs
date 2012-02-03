@@ -31,4 +31,4 @@ for mode in ['fd', 'pw']:
     dens.calculate_pseudo_charge()
     ham.update(dens)
     e2 = ham.get_energy(hydrogen.calc.occupations) - ham.Ekin
-    equal(y, (e1 - e2) / (2 * x), 5e-7)
+    equal(y, (e1 - e2) / (2 * x), 8e-7)

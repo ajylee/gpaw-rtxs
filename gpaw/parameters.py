@@ -98,8 +98,6 @@ class InputParameters(dict):
 
         r = reader
 
-        master = (reader.comm.rank == 0) # read only on root of reader.comm
-
         version = r['version']
         
         assert version >= 0.3
@@ -124,19 +122,26 @@ class InputParameters(dict):
         except KeyError:
             pass
 
-        if version >= 0.9:
+        if version >= 2:
             h = r['GridSpacing']
+            if h is not None:
+                self.h = Bohr * h
+            if r.has_array('GridPoints'):
+                self.gpts = r.get('GridPoints')
         else:
-            h = None
+            if version >= 0.9:
+                h = r['GridSpacing']
+            else:
+                h = None
 
-        gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
-                (r.dimension('ngptsy') + 1) // 2 * 2,
-                (r.dimension('ngptsz') + 1) // 2 * 2)
+            gpts = ((r.dimension('ngptsx') + 1) // 2 * 2,
+                    (r.dimension('ngptsy') + 1) // 2 * 2,
+                    (r.dimension('ngptsz') + 1) // 2 * 2)
 
-        if h is None:
-            self.gpts = gpts
-        else:
-            self.h = Bohr * h
+            if h is None:
+                self.gpts = gpts
+            else:
+                self.h = Bohr * h
 
         self.lmax = r['MaximumAngularMomentum']
         self.setups = r['SetupTypes']
