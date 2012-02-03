@@ -16,7 +16,7 @@ from gpaw.xc.kernel import XCNull
 from gpaw.xc.functional import XCFunctional
 from gpaw.utilities import hartree, pack, unpack2, packed_index, logfile
 from gpaw.lfc import LFC
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.wavefunctions.pw import PWDescriptor, PWWaveFunctions
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kpoint import KPoint as KPoint0
 
@@ -176,6 +176,7 @@ class HybridXC(XCFunctional):
         self.gd = density.gd
         self.kd = wfs.kd
         self.bd = wfs.bd
+        self.wfs = wfs
 
         self.world = wfs.world
 
@@ -222,8 +223,6 @@ class HybridXC(XCFunctional):
                         [setup.ghat_l for setup in density.setups],
                         KPointDescriptor(self.bzk_kc), dtype=complex)
         
-        self.interpolator = density.interpolator
-
         self.log('Value of alpha parameter:', self.alpha)
         self.log('Cutoff energy:', self.ecut, 'Hartree')
         self.log('%d x %d x %d k-points' % tuple(self.kd.N_c))
@@ -349,7 +348,8 @@ class HybridXC(XCFunctional):
         k2_c = self.kd.bzk_kc[k]
         k12_c = k1_c - k2_c
         N_c = self.gd.N_c
-        eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k12_c / N_c).T)
+        eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
+        eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k2_c / N_c).T)
 
         for q, k_c in enumerate(self.bzk_kc):
             if abs(k_c + k12_c).max() < 1e-9:
@@ -369,10 +369,10 @@ class HybridXC(XCFunctional):
         fcut = 1e-10
         is_ibz2 = abs(k2_c - self.kd.ibzk_kc[kpt2.k]).max() < 1e-9
         
-        for n1, psit1_R in enumerate(kpt1.psit_nG):
+        for n1 in range(self.bd.nbands):
             f1 = kpt1.f_n[n1]
             e1 = kpt1.eps_n[n1]
-            for n2, psit2_R in enumerate(kpt2.psit_nG):
+            for n2 in range(self.bd.nbands):
                 if same:
                     assert is_ibz2
                     if n2 > n1:
@@ -411,8 +411,9 @@ class HybridXC(XCFunctional):
                     continue
                 
                 t0 = time()
-                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0, k)
-                nt_G = self.pwd.fft(nt_R * eikr_R) / N
+                nt_R = self.calculate_pair_density(n1, n2, kpt1, kpt2, q0, k,
+                                                   eik1r_R, eik2r_R)
+                nt_G = self.pwd.fft(nt_R) / N
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol / Gpk2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
@@ -462,9 +463,17 @@ class HybridXC(XCFunctional):
             exx += self.hybrid * setup.ExxC
         return exx
 
-    def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, k):
-        psit2_G = self.kd.transform_wave_function(kpt2.psit_nG[n2], k)
-        nt_G = kpt1.psit_nG[n1].conj() * psit2_G
+    def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, k,
+                               eik1r_R, eik2r_R):
+        if isinstance(self.wfs, PWWaveFunctions):
+            psit1_R = self.wfs.pd.ifft(kpt1.psit_nG[n1]) * eik1r_R
+            psit2_R = self.wfs.pd.ifft(kpt2.psit_nG[n2]) * eik2r_R
+        else:
+            psit1_R = kpt1.psit_nG[n1]
+            psit2_R = kpt2.psit_nG[n2]
+
+        psit2_R = self.kd.transform_wave_function(psit2_R, k)
+        nt_R = psit1_R.conj() * psit2_R
 
         s = self.kd.sym_k[k]
         time_reversal = self.kd.time_reversal_k[k]
@@ -487,5 +496,5 @@ class HybridXC(XCFunctional):
             D_p = pack(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
-        self.ghat.add(nt_G, Q_aL, q)
-        return nt_G
+        self.ghat.add(nt_R, Q_aL, q)
+        return nt_R * eik1r_R / eik2r_R
