@@ -264,7 +264,7 @@ tests = [
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
     'parallel/scalapack_mpirecv_crash.py',
-    'parallel/scalapack_pdlasrt_hang.py',
+    #'parallel/scalapack_pdlasrt_hang.py',
     'parallel/realspace_blacs.py',
     'parallel/lcao_projections.py',
     #'dscf_forces.py',
