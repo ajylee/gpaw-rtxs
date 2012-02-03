@@ -106,6 +106,8 @@ class BEEVDWFunctional(FFTVDWFunctional):
             soft_corr = True
             t,x,o,ccoefs = self.load_xc_pars('BEEF-vdW')
             xcoefs = np.append(t,np.append(o,x))
+            self.t,self.x,self.o,self.c = t,x,o,ccoefs
+            self.nl_type = 2
         else:
             raise KeyError('Unknown BEEVDW functional: %s', bee)
 
@@ -124,3 +126,113 @@ class BEEVDWFunctional(FFTVDWFunctional):
             return t,x,o,c
         else:
             raise KeyError('Unknown XC name: %s', name)
+
+
+class beef_ensemble():
+    def __init__(self,calc=None,exch=None,corr=None):
+        """
+        BEEF ensemble error estimation
+        Supported XC functionals: BEEF-vdW
+        calc : calculator object
+        exch : array of exchange basis function contributions
+               to the total energy
+        corr : array of correlation basis function contributions
+               to the total energy
+        If exch and corr are not provided, they are calculated automatically.
+        """
+        self.calc = calc
+        self.exch = exch
+        self.corr = corr
+        if self.calc is None:
+            raise KeyError('calculator not specified')
+
+        # which functional?
+        self.xc = self.calc.get_xc_functional()
+        if self.xc in ['BEEF-vdW','BEEF-1']:
+            self.bee = BEEVDWFunctional('BEEF-vdW')
+            self.nl_type = self.bee.nl_type
+            self.t = self.bee.t
+            self.x = self.bee.x
+            self.o = self.bee.o
+            self.c = self.bee.c
+        else:
+            raise NotImplementedError('xc = %s not implemented' % self.xc)
+
+    def get_ensemble_energies(self,ensemble_size=25000):
+        """
+        ensemble_size : int
+        """
+        if self.exch is None:
+            x = self.beef_energy_contribs_x()
+        else:
+            x = self.exch
+        if self.corr is None:
+            c = self.beef_energy_contribs_c()
+        else:
+            c = self.corr
+        assert len(x) == 30
+        assert len(c) == 2
+
+        basis_constribs = np.append(x,c)
+        ensemble_coefs = self.get_ensemble_coefs(ensemble_size)
+        de = np.dot(ensemble_coefs,basis_constribs)
+        return de
+
+    def get_ensemble_coefs(self, ensemble_size):
+        """
+        ensemble_size : int
+        """
+        if self.xc in ['BEEF-vdW','BEEF-1']:
+            from beefvdw_pars import uiOmega
+
+            N = ensemble_size
+            assert np.shape(uiOmega) == (31,31)
+            Wo,Vo = np.linalg.eig(uiOmega)
+        
+            for j in range(N):
+                np.random.seed(j)
+                RandV = np.random.randn(31)
+                coefs_i = (np.dot(np.dot(Vo,np.diag(np.sqrt(Wo))),RandV)[:])
+                if j == 0:
+                    ensemble_coefs = coefs_i
+                else:
+                    ensemble_coefs = np.vstack((ensemble_coefs,coefs_i))
+            PBEc_ens = -ensemble_coefs[:,30]
+            ensemble_coefs = (np.vstack((ensemble_coefs.T,PBEc_ens))).T
+        else:
+            raise NotImplementedError('xc = %s not implemented' % self.xc)
+        return ensemble_coefs
+
+    def beef_energy_contribs_x(self):
+        """ exchange contribs"""
+        from gpaw.xc import XC
+        from gpaw.xc.kernel import XCNull
+
+        e_dft = self.calc.get_potential_energy()
+        xc_null = XC(XCNull())
+        e_0 = e_dft + self.calc.get_xc_difference(xc_null)
+        e_pbe = e_dft + self.calc.get_xc_difference('GGA_C_PBE') - e_0
+
+        exch = np.zeros(len(self.o))
+        for p in self.o:
+            pars = [self.t[0],self.t[1],p,1.0]
+            bee = XC('BEE2', pars)
+            exch[p] = e_dft + self.calc.get_xc_difference(bee) - e_0 - e_pbe
+            del bee
+        return exch
+
+    def beef_energy_contribs_c(self):
+        """ correlation contribs"""
+        from gpaw.xc import XC
+        from gpaw.xc.kernel import XCNull
+        from ase.units import Hartree
+
+        # LDA and PBE
+        e_dft = self.calc.get_potential_energy()
+        xc_null = XC(XCNull())
+        e_0 = e_dft + self.calc.get_xc_difference(xc_null)
+        e_lda = e_dft + self.calc.get_xc_difference('LDA_C_PW') - e_0
+        e_pbe = e_dft + self.calc.get_xc_difference('GGA_C_PBE') - e_0
+        corr = np.array([e_lda, e_pbe])
+        return corr
+
