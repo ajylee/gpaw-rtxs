@@ -470,7 +470,7 @@ class Redistributor:
         self.srcdescriptor = srcdescriptor
         self.dstdescriptor = dstdescriptor
     
-    def redistribute(self, src_mn, dst_mn,
+    def redistribute(self, src_mn, dst_mn=None,
                      subM=None, subN=None,
                      ia=0, ja=0, ib=0, jb=0, uplo='G'):
         """Redistribute src_mn into dst_mn.
@@ -485,18 +485,22 @@ class Redistributor:
         index (i, j) of the origin of the submatrix inside the source
         and destination (a, b) matrices."""
         
+        srcdescriptor = self.srcdescriptor
+        dstdescriptor = self.dstdescriptor
+        dtype = src_mn.dtype
+
+        if dst_mn is None:
+            dst_mn = dstdescriptor.empty(dtype=dtype)
+
         # self.supercomm must be a supercommunicator of the communicators
         # corresponding to the context of srcmatrix as well as dstmatrix.
         # We should verify this somehow.
-        dtype = src_mn.dtype
         assert dtype == dst_mn.dtype
         assert dtype == float or dtype == complex
         
         # Check to make sure the submatrix of the source
         # matrix will fit into the destination matrix
         # plus standard BLACS matrix checks.
-        srcdescriptor = self.srcdescriptor
-        dstdescriptor = self.dstdescriptor
         srcdescriptor.checkassert(src_mn)
         dstdescriptor.checkassert(dst_mn)
 
@@ -518,6 +522,7 @@ class Redistributor:
                                subN, subM,
                                ja + 1, ia + 1, jb + 1, ib + 1, # 1-indexing
                                self.supercomm_bg.context, uplo)
+        return dst_mn
 
 
 def parallelprint(comm, obj):
