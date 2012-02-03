@@ -482,16 +482,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
             H_GG, S_GG = self.hs(ham, kpt.q, kpt.s, md)
             if scalapack:
                 r = Redistributor(bd.comm, md, md2)
-                H_gg = md2.empty(dtype=complex)
-                S_gg = md2.empty(dtype=complex)
-                r.redistribute(H_GG, H_gg)
-                r.redistribute(S_GG, S_gg)
-            else:
-                H_gg = H_GG
-                S_gg = S_GG
+                H_GG = r.redistribute(H_GG)
+                S_GG = r.redistribute(S_GG)
 
-            psit_ng = md2.empty(dtype=complex)
-            md2.general_diagonalize_dc(H_gg, S_gg, psit_ng, eps_n)
+            psit_nG = md2.empty(dtype=complex)
+            md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
+            del H_GG, S_GG
 
             if nprow * npcol < bd.comm.size:
                 bd.comm.broadcast(eps_n, 0)
@@ -499,13 +495,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             if scalapack:
                 r = Redistributor(bd.comm, md2, md3)
-                psit_nG = md3.empty(dtype=complex)
-                r.redistribute(psit_ng, psit_nG)
-            else:
-                psit_nG = psit_ng
+                psit_nG = r.redistribute(psit_nG)
 
             kpt.psit_nG = psit_nG[:bd.mynbands].copy()
+            del psit_nG
+
             self.pt.integrate(kpt.psit_nG, kpt.P_ani)
+
             f_n = np.zeros_like(kpt.eps_n)
             f_n[:len(kpt.f_n)] = kpt.f_n
             kpt.f_n = None
