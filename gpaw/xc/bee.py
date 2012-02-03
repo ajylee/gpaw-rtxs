@@ -128,7 +128,7 @@ class BEEVDWFunctional(FFTVDWFunctional):
             raise KeyError('Unknown XC name: %s', name)
 
 
-class beef_ensemble():
+class beef_ensemble:
     def __init__(self,calc=None,exch=None,corr=None):
         """
         BEEF ensemble error estimation
