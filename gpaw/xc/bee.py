@@ -8,8 +8,15 @@ from gpaw import debug
 
 
 class BEE1(XCKernel):
+    """GGA exchange expanded in a PBE-like basis."""
     def __init__(self, parameters=None):
-        """GGA exchange expanded in a PBE-like basis"""
+        """BEE1.
+
+        parameters : array
+            [thetas,coefs] for the basis expansion.
+
+        """
+
         if parameters is None:
             self.name = 'BEE1'
             parameters = [0.0, 1.0]
@@ -21,20 +28,24 @@ class BEE1(XCKernel):
 
 
 class BEE2(XCKernel):
+    """GGA exchange expanded in Legendre polynomials."""
     def __init__(self, parameters=None):
-        """GGA exchange expanded in Legendre polynomials.
-           Parameters: [transformation,0.0,orders,coefs].
-           transformation is a positive float.
-           orders and coefs must be lists of equal length.""" 
+        """BEE2.
+
+        parameters: array
+            [transformation,0.0,[orders],[coefs]].
+
+        """
+
         if parameters is None:
             # LDA exchange
             t = [1.0, 0.0]
             coefs = [1.0]
             orders = [0.0]
-            parameters = np.append(t, np.append(orders,coefs))
+            parameters = np.append(t, np.append(orders, coefs))
         else:
             assert len(parameters) > 2
-            assert np.mod(len(parameters),2) == 0
+            assert np.mod(len(parameters), 2) == 0
             assert parameters[1] == 0.0
 
         parameters = np.array(parameters, dtype=float).ravel()
@@ -44,7 +55,23 @@ class BEE2(XCKernel):
 
 
 class BEEVDWKernel(XCKernel):
+    """Kernel for BEEVDW functionals."""
     def __init__(self, bee, xcoefs, ldac, pbec):
+        """BEEVDW kernel.
+
+        parameters:
+
+        bee : str
+            choose BEE1 or BEE2 exchange basis expansion.
+        xcoefs : array
+            coefficients for exchange.
+        ldac : float
+            coefficient for LDA correlation.
+        pbec : float
+            coefficient for PBE correlation.
+
+        """
+
         if bee is 'BEE1':
             self.BEE = BEE1(xcoefs)
         elif bee is 'BEE2':
@@ -59,7 +86,7 @@ class BEEVDWKernel(XCKernel):
 
         self.type = 'GGA'
         self.name = 'BEEVDW'
-        
+
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg=None, dedsigma_xg=None,
                   tau_sg=None, dedtau_sg=None):
@@ -68,7 +95,7 @@ class BEEVDWKernel(XCKernel):
                                  tau_sg, dedtau_sg)
 
         self.BEE.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-        
+
         e0_g = np.empty_like(e_g)
         dedn0_sg = np.empty_like(dedn_sg)
         dedsigma0_xg = np.empty_like(dedsigma_xg)
@@ -82,31 +109,48 @@ class BEEVDWKernel(XCKernel):
             if kernel.type == 'GGA':
                 dedsigma_xg += coef * dedsigma0_xg
 
-            
+
 class BEEVDWFunctional(FFTVDWFunctional):
+    """Base class for BEEVDW functionals."""
     def __init__(self, bee='BEE1', xcoefs=(0.0, 1.0),
                  ccoefs=(0.0, 1.0, 0.0), t=4.0, orders=None,
                  **kwargs):
+        """BEEVDW functionals.
+
+        parameters:
+
+        bee : str
+            choose BEE1 or BEE2 exchange basis expansion.
+        xcoefs : array-like
+            coefficients for exchange.
+        ccoefs : array-like
+            LDA, PBE, nonlocal correlation coefficients
+        t : float
+            transformation for BEE2 exchange
+        orders : array
+            orders of Legendre polynomials for BEE2 exchange
+
+        """
 
         if bee is 'BEE1':
             name = 'BEE1VDW'
-            Zab  = -0.8491
+            Zab = -0.8491
             soft_corr = False
         elif bee is 'BEE2':
             name = 'BEE2VDW'
-            Zab  = -1.887
+            Zab = -1.887
             soft_corr = False
             if orders is None:
                 orders = range(len(xcoefs))
-            xcoefs = np.append([t,0.0],np.append(orders,xcoefs))
+            xcoefs = np.append([t, 0.0], np.append(orders, xcoefs))
         elif bee == 'BEEF-vdW':
-            bee  = 'BEE2'
+            bee = 'BEE2'
             name = 'BEEF-vdW'
-            Zab  = -1.887
+            Zab = -1.887
             soft_corr = True
-            t,x,o,ccoefs = self.load_xc_pars('BEEF-vdW')
-            xcoefs = np.append(t,np.append(o,x))
-            self.t,self.x,self.o,self.c = t,x,o,ccoefs
+            t, x, o, ccoefs = self.load_xc_pars('BEEF-vdW')
+            xcoefs = np.append(t, np.append(o, x))
+            self.t, self.x, self.o, self.c = t, x, o, ccoefs
             self.nl_type = 2
         else:
             raise KeyError('Unknown BEEVDW functional: %s', bee)
@@ -122,33 +166,39 @@ class BEEVDWFunctional(FFTVDWFunctional):
 
     def load_xc_pars(self, name):
         if name == 'BEEF-vdW':
-            from beefvdw_pars import t,x,o,c
-            return t,x,o,c
+            from beefvdw_pars import t, x, o, c
+            return t, x, o, c
         else:
             raise KeyError('Unknown XC name: %s', name)
 
 
-class beef_ensemble:
-    def __init__(self,calc=None,exch=None,corr=None):
+class BEEF_Ensemble:
+    """BEEF ensemble error estimation."""
+    def __init__(self, calc=None, exch=None, corr=None):
+        """BEEF ensemble
+
+        parameters:
+
+        calc : object
+            Calculator holding a selfconsistent BEEF electron density.
+        exch : array
+            Exchange basis function contributions to the total energy.
+            Defaults to None.
+        corr : array
+            Correlation basis function contributions to the total energy.
+            Defaults to None.
+
         """
-        BEEF ensemble error estimation
-        Supported XC functionals: BEEF-vdW
-        calc : calculator object
-        exch : array of exchange basis function contributions
-               to the total energy
-        corr : array of correlation basis function contributions
-               to the total energy
-        If exch and corr are not provided, they are calculated automatically.
-        """
+
         self.calc = calc
         self.exch = exch
         self.corr = corr
         if self.calc is None:
             raise KeyError('calculator not specified')
 
-        # which functional?
+        # determine functional and read parameters
         self.xc = self.calc.get_xc_functional()
-        if self.xc in ['BEEF-vdW','BEEF-1']:
+        if self.xc in ['BEEF-vdW', 'BEEF-1']:
             self.bee = BEEVDWFunctional('BEEF-vdW')
             self.nl_type = self.bee.nl_type
             self.t = self.bee.t
@@ -158,10 +208,9 @@ class beef_ensemble:
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
 
-    def get_ensemble_energies(self,ensemble_size=25000):
-        """
-        ensemble_size : int
-        """
+    def get_ensemble_energies(self, ensemble_size=25000):
+        """Returns an array of ensemble total energies"""
+
         if self.exch is None:
             x = self.beef_energy_contribs_x()
         else:
@@ -173,38 +222,37 @@ class beef_ensemble:
         assert len(x) == 30
         assert len(c) == 2
 
-        basis_constribs = np.append(x,c)
+        basis_constribs = np.append(x, c)
         ensemble_coefs = self.get_ensemble_coefs(ensemble_size)
-        de = np.dot(ensemble_coefs,basis_constribs)
+        de = np.dot(ensemble_coefs, basis_constribs)
         return de
 
     def get_ensemble_coefs(self, ensemble_size):
-        """
-        ensemble_size : int
-        """
-        if self.xc in ['BEEF-vdW','BEEF-1']:
+        """Pertubation coefficients of BEEF ensemble functionals."""
+
+        if self.xc in ['BEEF-vdW', 'BEEF-1']:
             from beefvdw_pars import uiOmega
 
             N = ensemble_size
-            assert np.shape(uiOmega) == (31,31)
-            Wo,Vo = np.linalg.eig(uiOmega)
-        
+            assert np.shape(uiOmega) == (31, 31)
+            Wo, Vo = np.linalg.eig(uiOmega)
+
             for j in range(N):
                 np.random.seed(j)
                 RandV = np.random.randn(31)
-                coefs_i = (np.dot(np.dot(Vo,np.diag(np.sqrt(Wo))),RandV)[:])
+                coefs_i = (np.dot(np.dot(Vo, np.diag(np.sqrt(Wo))), RandV)[:])
                 if j == 0:
                     ensemble_coefs = coefs_i
                 else:
-                    ensemble_coefs = np.vstack((ensemble_coefs,coefs_i))
-            PBEc_ens = -ensemble_coefs[:,30]
-            ensemble_coefs = (np.vstack((ensemble_coefs.T,PBEc_ens))).T
+                    ensemble_coefs = np.vstack((ensemble_coefs, coefs_i))
+            PBEc_ens = -ensemble_coefs[:, 30]
+            ensemble_coefs = (np.vstack((ensemble_coefs.T, PBEc_ens))).T
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
         return ensemble_coefs
 
     def beef_energy_contribs_x(self):
-        """ exchange contribs"""
+        """Legendre polynomial exchange contributions to Etot"""
         from gpaw.xc import XC
         from gpaw.xc.kernel import XCNull
 
@@ -215,19 +263,17 @@ class beef_ensemble:
 
         exch = np.zeros(len(self.o))
         for p in self.o:
-            pars = [self.t[0],self.t[1],p,1.0]
+            pars = [self.t[0], self.t[1], p, 1.0]
             bee = XC('BEE2', pars)
             exch[p] = e_dft + self.calc.get_xc_difference(bee) - e_0 - e_pbe
             del bee
         return exch
 
     def beef_energy_contribs_c(self):
-        """ correlation contribs"""
+        """LDA and PBE correlation contributions to Etot"""
         from gpaw.xc import XC
         from gpaw.xc.kernel import XCNull
-        from ase.units import Hartree
 
-        # LDA and PBE
         e_dft = self.calc.get_potential_energy()
         xc_null = XC(XCNull())
         e_0 = e_dft + self.calc.get_xc_difference(xc_null)
@@ -235,4 +281,3 @@ class beef_ensemble:
         e_pbe = e_dft + self.calc.get_xc_difference('GGA_C_PBE') - e_0
         corr = np.array([e_lda, e_pbe])
         return corr
-
