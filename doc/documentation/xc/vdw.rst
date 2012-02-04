@@ -1,105 +1,184 @@
 .. _vdw:
 
 =============
-van der Waals
+vdW-DF and BEEF-vdW
 =============
 
-There is one method of including van der Waals forces in GPAW
-[#vdW-DF]_, [#vdW-DF2]_, [#vdW-DF3]_. This method is implemented in
-two different versions. The differences are related to how a six
-dimentional integral is calculated where one method (real space
-method) solves this integral in real space, while the other method
-solves it by approximating the integral as a convolution which can be
-Fourier Transformed (FFT method) [#soler]_.
+Several vdW-DF type XC functionals are implemented selfconsistently
+in GPAW, and also the BEEF-vdW [#BEEF-vdW]_ density functional.
+The vdW-DF variants include vdW-DF [#vdW-DF1a]_, [#vdW-DF1b]_,
+vdW-DF2 [#vdW-DF2]_, optPBE-vdW [#opt-vdW]_, optB88-vdW [#opt-vdW]_,
+and C09-vdW [#C09-vdW]_.
+ 
+The selfconsistent implementation uses the Perez-Soler [#soler]_ FFT
+algorithm to evaluate the total energy and potential of the
+Rutgers-Chalmers nonlocal correlation, which is originally a
+six dimensional integral in real space. However, a non-selfconsistent
+method which directly sums up the real-space integral is also available.
 
 
-
-Doing a van der Waals calculation 
+Doing a vdW-DF calculation 
 ==================================
 
-The FFT method is up to 1000 times faster for big systems which
-probably makes it the weapon of choice for every GPAW vdW enthusiast
+The selfconsistent FFT method is highly recommended over the real-space method.
+Often, the vdW-DF electron density will be very similar to an ordinary GGA
+density, so non-selfconsistent evaluations of a vdW-DF type total energy
+using the FFT method is often ok. However, vdW-DF forces obviously require
+a selfconsistent potential.
 
-The vdW-DF is implemented self consitently in GPAW. In many cases the
-density is hardly affected by van der Waals forces and hence it can
-make sense to add vdW forces to a self consistent GGA calculation.
-
-
-Perturbative vdW-DF calculation (Non self consistent) 
------------------------------------------------------
-  
->>> from gpaw import GPAW
->>> from gpaw.xc.vdw import FFTVDWFunctional
->>> vdw = FFTVDWFunctional(nspins=1,
-...                        Nalpha=20, lambd=1.2, 
-...                        rcut=125.0, Nr=2048, 
-...                        Verbose=True,
-...                        size=None) 
->>> calc = GPAW('input.gpw') 
->>> GGA_energy = calc.get_potential_energy()
->>> vdW_dif = calc.get_xc_difference(vdw)
->>> vdW_energy = GGA_energy + vdW_dif 
-
-For self consistent vdW-DF calculations one should instead simply
-change XC functional to the vdW-DF. This can either be done in two
-ways.
+As the examples below illustrate, FFT-based vdW-DF calculations
+are most easily done by setting e.g. "xc='vdW-DF'"
+in the GPAW calculator object.
+However, parameters of the FFT algorithm can be assigned non-default values
+by importing the vdW-DF base class.
 
 
-Self Consistent vdW-DF Calculation
+Selfconsistent vdW-DF calculations
 ----------------------------------
 
->>> from ase.all import *
+>>> from ase import *
 >>> from gpaw import GPAW
->>> from gpaw.xc.vdw import FFTVDWFunctional
->>> vdw = FFTVDWFunctional(nspins=1, verbose=True)
+>>> vdw = 'vdW-DF'
 >>> atoms = ...
 >>> calc = GPAW(xc=vdw, ...)
 >>> atoms.set_calculator(calc)
->>> e = calc.get_potential_energy()
+>>> e = atoms.get_potential_energy()
 
-This is not quite the conventional method since we are now using an
-object and not a string. If one wants to use all the default settings
-it is also possible to use ``xc='vdW-DF'`` withouth having to import any
-vdW object. Another function is that it is now possible to extend the
-cell with empty space when doing a non self consistent vdW-DF
-calculation. This is practical since vdW interactions are long range
-which would other wise have resulted in bigger cells and more
-demanding GGA calculations. This is referred to as zero padding. This
-is controlled by the 'size' argument and it only works for non
-periodic systems. The zero padded cell should be a number dividable
-with 4. The calculations then adds zeros to the points not included in
-the GGA calculation.
+
+Perturbative vdW-DF calculations (non-selfconsistent) 
+-----------------------------------------------------
+
+>>> from gpaw import GPAW
+>>> xc = 'vdW-DF'
+>>> calc = GPAW('input.gpw')
+>>> GGA_energy = calc.get_potential_energy()
+>>> vdWDF_diff = calc.get_xc_difference(xc)
+>>> vdWDF_energy = GGA_energy + vdWDF_diff
+
+In the above examples, other vdW-DF type functionals can be used
+by substituting 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW', or 'C09-vdW'
+for 'vdW-DF'.
  
 
-Real space method vdW-DF Calculation
+Non-default FFT parameters for vdW-DF calculations
+----------------------------------
+
+A number of parameters determine the spline interpolation of the vdW-DF
+nonlocal kernel. These may be assigned non-default values if the vdW-DF base
+class is explicitly initialized with new settings.
+The example below redefines the number of interpolating cubic splines
+(Nalpha) used in a vdW-DF2 calculation.
+
+>>> from ase import *
+>>> from gpaw import GPAW
+>>> from gpaw.xc.vdw import FFTVDWFunctional
+>>> vdw = FFTVDWFunctional('vdW-DF2',Nalpha=24)
+>>> atoms = ...
+>>> calc = GPAW(xc=vdw, ...)
+>>> atoms.set_calculator(calc)
+>>> e = atoms.get_potential_energy()
+
+
+Real-space method vdW-DF
 ------------------------------------
 
-It is also possible to use the slower real space method, which could
-make sense for smaller systems. This method is not self consistent and
-can only be used in the perturbative method described above. To use
-the real space method one changes the following lines from above:
+It is also possible to use the much slower real-space method for evaluating
+the nonlocal correlation energy,
+which could make sense for (very) small systems.
+This method is not selfconsistent
+and can only be used in the perturbative method described above.
+To use the real-space method one must import a class and set a few parameters:
 
 >>> from gpaw.xc.vdw import RealSpaceVDWFunctional
->>> vdw = RealSpaceVDWFunctional(nspins=1, ncut=0.0005)
+>>> vdw = RealSpaceVDWFunctional('vdW-DF', nspins=1, ncut=0.0005)
+
+where nspins=1 is for spin-paired systems and nspins=2 is used
+for spin-polarized calculations. A cutoff, ncut, defines how small a density
+must be in order not to be included in the 6D integral.
 
 
+BEEF-vdW functional
+==================================
+
+The BEEF-vdW density functional uses the vdW-DF2 nonlocal correlation
+energy and potential. It is implemented selfconistently in GPAW.
+Furthermore, the BEEF-vdW constructions allows the user to calculate
+an estimate of the error to be expected on the quantity calculated
+selfconsistently with BEEF-vdW (i.e. an error estimate on relative energies,
+not on total energies). This estimate stems from non-selfconsistently
+applying an ensemble of XC functionals to BEEF-vdW electron densities.
+The ensemble error estimate is then computed from the variance
+of the ensemble predictions of the quantity of interest.
+
+Below is an example that calculates the BEEF-vdW binding energy
+of molecular H2 (E_bind),
+as well as an ensemble estimate of the binding energy error (dE_bind)
 
 
+>>> from ase import *
+>>> from gpaw import GPAW
+>>> from gpaw.xc.bee import BEEF_Ensemble
+>>> import numpy as np
+>>> xc = 'BEEF-vdW'
+>>> h2 = Atoms('H2',[[0.,0.,0.],[0.,0.,0.75]])
+>>> h2.center(vacuum=3.)
+>>> cell = h2.get_cell()
+>>> calc = GPAW(xc=xc)
+>>> h2.set_calculator(calc)
+>>> e_h2 = h2.get_potential_energy()
+>>> ens = BEEF_Ensemble(calc)
+>>> de_h2 = ens.get_ensemble_energies()
+>>> del h2, calc, ens
+>>> h = Atoms('H')
+>>> h.set_cell(cell)
+>>> h2.center()
+>>> calc = GPAW(xc=xc)
+>>> h.set_calculator(calc)
+>>> e_h = h.get_potential_energy()
+>>> ens = BEEF_Ensemble(calc)
+>>> de_h = ens.get_ensemble_energies()
+>>> E_bind = 2*e_h - e_h2
+>>> dE_bind = 2*de_h[:] - de_h2[:]
+>>> dE_bind = np.std(dE_bind)
 
-.. [#vdW-DF] M. Dion, H. Rydberg, E. Schroder, D.C. Langreth, and
-   B. I. Lundqvist.  Van der Waals density functional for
-   general geometries.  Physical Review Letters, 92, 246401 (2004)
 
-.. [#vdW-DF2] M. Dion, H. Rydberg, E. Schroder, D.C. Langreth, and
-   B. I. Lundqvist.  Erratum: Van der Waals density functional for
+The default number of ensemble XC functionals is 25000,
+for which well-converged error estimates should be ensured.
+Therefore, "de_h2" and "de_h" in the example
+are both arrays of 25000 pertubations of the BEEF-vdW total energy.
+The syntax "ens.get_ensemble_energies(N)" changes this number to N.
+The calculator object input to the BEEF_Ensemble class could of course
+stem from a restarted GPAW calculation. It is very important to calculate
+the ensemble statistics correctly. Computing the standard deviation of each
+array of total energy pertubations makes little sense, only the standard
+deviation of the relative energy pertubations should be used for the
+BEEF-vdW ensemble error estimates on a quantity.
+
+
+.. [#vdW-DF1a] M. Dion, H. Rydberg, E. Schroder, D.C. Langreth, and
+   B. I. Lundqvist. Van der Waals density functional for general geometries.
+   Physical Review Letters, 92, 246401 (2004)
+
+.. [#BEEF-vdW] J. Wellendorff, K. T. Lundgaard, A. Mogelhoj, J. K. Norskov,
+   T. Bligard, and K. W. Jacobsen. To be published.
+
+.. [#vdW-DF1b] M. Dion, H. Rydberg, E. Schroder, D.C. Langreth, and
+   B. I. Lundqvist. Erratum: Van der Waals density functional for
    general geometries.  Physical Review Letters, 95, 109902 (2005)
 
-.. [#vdW-DF3] T. Thonhauser, V.R. Cooper, S. Li, A. Puzder,
-   P. Hyldgaard, and D.C. Langreth. Van der Waals density functional:
-   Self-consistent potential and the nature of the van der Waals bond.
-   Phys. Rev. B 76, 125112 (2007)
+.. [#vdW-DF2] K. Lee, D. E. Murray, L. Kong, B. I. Lundqvist,
+   and D. C. Langreth, Higher-accuracy van der Waals density functional,
+   Physical Review B, 82, 081101 (2010).
 
+.. [#opt-vdW] J. Klimes, D. R. Bowler, and A. Michaelides,
+   Chemical accuracy for the van der Waals density functional,
+   Journal of Physics: Condensed Matter, 22, 022201 (2010).
+
+.. [#C09-vdW] V. R. Cooper,
+   Van der Waals density functional: An appropriate exchange functional,
+   Physical Review B, 81, 161104(R) (2010).
+   
 .. [#soler] Guillermo Román-Pérez and José M. Soler.
    Efficient Implementation of a van der Waals Density Functional: Application
    to Double-Wall Carbon Nanotubes.
-   Phys. Rev. Lett. 103, 096102 (2009)
+   Physical Review Letters 103, 096102 (2009)
