@@ -206,7 +206,7 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-setup_paths = os.environ.get('GPAW_SETUP_PATH', '').split(':')
+setup_paths = os.environ.get('GPAW_SETUP_PATH', '/usr/share/gpaw-setups').split(':')
 
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
