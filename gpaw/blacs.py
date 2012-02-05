@@ -174,6 +174,21 @@ class BlacsGrid:
         self.ncpus = nprow * npcol
         self.order = order
 
+    @property
+    def coords(self):
+        return self.myrow, self.mycol
+
+    @property
+    def shape(self):
+        return self.nprow, self.npcol
+
+    def coords2rank(self, row, col):
+        return self.nprow * col + row
+
+    def rank2coords(self, rank):
+        col, row = divmod(rank, self.nprow)
+        return row, col
+
     def new_descriptor(self, M, N, mb, nb, rsrc=0, csrc=0):
         """Create a new descriptor from this BLACS grid.
 
@@ -358,6 +373,18 @@ class BlacsDescriptor(MatrixDescriptor):
                              self.bshape, self.lld, self.shape)
         return string
 
+    def index2grid(self, row, col):
+        """Get the BLACS grid coordinates storing global index (row, col)."""
+        assert row < self.gshape[0], (row, col, self.gshape)
+        assert col < self.gshape[1], (row, col, self.gshape)
+        gridx = (row // self.bshape[0]) % self.blacsgrid.nprow
+        gridy = (col // self.bshape[1]) % self.blacsgrid.npcol
+        return gridx, gridy
+
+    def index2rank(self, row, col):
+        """Get the rank where global index (row, col) is stored."""
+        return self.blacsgrid.coords2rank(*self.index2grid(row, col))
+
     def diagonalize_dc(self, H_nn, C_nn, eps_N, UL='L'):
         """See documentation in gpaw/utilities/blacs.py."""
         scalapack_diagonalize_dc(self, H_nn, C_nn, eps_N, UL)
@@ -495,6 +522,13 @@ class Redistributor:
         # self.supercomm must be a supercommunicator of the communicators
         # corresponding to the context of srcmatrix as well as dstmatrix.
         # We should verify this somehow.
+        srcdescriptor = self.srcdescriptor
+        dstdescriptor = self.dstdescriptor
+
+        dtype = src_mn.dtype
+        if dst_mn is None:
+            dst_mn = dstdescriptor.zeros(dtype=dtype)
+
         assert dtype == dst_mn.dtype
         assert dtype == float or dtype == complex
         
