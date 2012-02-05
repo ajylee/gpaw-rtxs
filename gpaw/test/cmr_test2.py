@@ -26,10 +26,10 @@ calc = GPAW(h=h,
             convergence={'energy': 1e-5})
 bulk.set_calculator(calc)
 e0 = bulk.get_potential_energy()
-calc.write("cmr_test2.gpw")
-assert os.path.exists("cmr_test2.gpw")
 
 if rank == 0:
+    calc.write("cmr_test2.gpw")
+    assert os.path.exists("cmr_test2.gpw")
     reader = gpaw.io.open("cmr_test2.gpw", 'r')
     w = {}
     for key in reader.parameters:
