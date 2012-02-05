@@ -130,7 +130,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> del h2, calc, ens
 >>> h = Atoms('H')
 >>> h.set_cell(cell)
->>> h2.center()
+>>> h.center()
 >>> calc = GPAW(xc=xc)
 >>> h.set_calculator(calc)
 >>> e_h = h.get_potential_energy()
