@@ -38,7 +38,8 @@ class KPointDescriptor:
         Attributes
         ============  ======================================================
         ``N_c``       Number of k-points in the different directions.
-        ``nspins``    Number of spins.
+        ``nspins``    Number of spins in total.
+        ``mynspins``  Number of spins on this CPU.
         ``nibzkpts``  Number of irreducible kpoints in 1st Brillouin zone.
         ``nks``       Number of k-point/spin combinations in total.
         ``mynks``     Number of k-point/spin combinations on this CPU.

@@ -62,8 +62,8 @@ class Sphere:
     def __init__(self, spline_j):
         self.spline_j = spline_j
         self.spos_c = None
-        self.rank = None
-        self.ranks = None
+        self.rank = None # Rank corresponding to center
+        self.ranks = None # Ranks with at least some overlap
         self.Mmax = None
         self.A_wgm = None
         self.G_wb = None
@@ -1110,8 +1110,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                 self.Mstop)
 
 
-    def calculate_potential_matrix_force_contribution(self, vt_G, rhoT_MM, 
-                                                      q):
+    def calculate_force_contribution(self, vt_G, rhoT_MM, q):
         """Calculate derivatives of potential matrix elements.
 
         ::

@@ -241,6 +241,9 @@ class ManySiteOverlapExpansions(BaseOverlapExpansionSet):
         assert (M1, M2) == shape
         BaseOverlapExpansionSet.__init__(self, shape)
 
+    def get(self, a1, a2):
+        return self.tsoe_II[self.I1_a[a1], self.I2_a[a2]]
+
     def getslice(self, a1, a2, x_xMM):
         I1 = self.I1_a[a1]
         I2 = self.I2_a[a2]
@@ -542,9 +545,24 @@ class AtomicDisplacement:
 
     def _set_spherical_harmonics(self, R_c):
         self.rlY_lm = spherical_harmonics(R_c)
+
+
+    # XXX new
+    def evaluate_direct(self, oe, dst_xqmm):
+        src_xmm = self.evaluate_direct_without_phases(oe)
+        self.phases.apply(src_xmm, dst_xqmm)
+
+    # XXX new
+    def evaluate_direct_without_phases(self, oe):
+        return oe.evaluate(self.r, self.rlY_lm)
+
+
+    # XXX clean up unnecessary methods
+    def overlap_without_phases(self, oe):
+        return oe.evaluate(self.r, self.rlY_lm)
         
     def _evaluate_without_phases(self, oe):
-        return oe.evaluate(self.r, self.rlY_lm)
+        return self.overlap_without_phases(oe)
 
     def evaluate_overlap(self, oe, dst_xqmm):
         src_xmm = self._evaluate_without_phases(oe)
@@ -564,10 +582,14 @@ class DerivativeAtomicDisplacement(AtomicDisplacement):
         else:
             self.Rhat_c = np.zeros(3)
 
-    def _evaluate_without_phases(self, oe):
-        x = oe.derivative(self.r, self.Rhat_c, self.rlY_lm, self.drlYdr_lmc)
-        return x
+    def evaluate_derivative(self, oe, dst_xqmm):
+        oe.derivative(self.r, self.Rhat_c, self.rlY_lm, self.drlYdr_lmc)
 
+    def derivative_without_phases(self, oe):
+        return oe.derivative(self.r, self.Rhat_c, self.rlY_lm, self.drlYdr_lmc)
+
+    def _evaluate_without_phases(self, oe): # override
+        return self.derivative_without_phases(oe)
 
 class NullPhases:
     def __init__(self, ibzk_qc, offset):

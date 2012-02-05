@@ -413,32 +413,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
     def get_overlap_matrix_shape(self):
         return self.mmdescriptor.shape
 
-    def calculate_density_matrix(self, f_n, C_nM, rho_mM=None):
-        """Calculate density matrix from occupations and coefficients.
-
-        Presently this function performs the usual scalapack 3-step trick:
-        redistribute-numbercrunching-backdistribute.
-        
-        
-        Notes on future performance improvement.
-        
-        As per the current framework, C_nM exists as copies on each
-        domain, i.e. this is not parallel over domains.  We'd like to
-        correct this and have an efficient distribution using e.g. the
-        block communicator.
-
-        The diagonalization routine and other parts of the code should
-        however be changed to accommodate the following scheme:
-        
-        Keep coefficients in C_mm form after the diagonalization.
-        rho_mm can then be directly calculated from C_mm without
-        redistribution, after which we only need to redistribute
-        rho_mm across domains.
-        
-        """
-        #rho_ref = self.oldcalculate_density_matrix(f_n, C_nM, rho_mM)
-        #return rho_ref
-        
+    def calculate_blocked_density_matrix(self, f_n, C_nM):
         nbands = self.bd.nbands
         mynbands = self.bd.mynbands
         nao = self.nao
@@ -468,8 +443,33 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                           self.mmdescriptor,
                           self.mmdescriptor,
                           Cf_mm, C_mm, rho_mm, transa='T')
-        del C_mm, Cf_mm
+        return rho_mm
+
+    def calculate_density_matrix(self, f_n, C_nM, rho_mM=None):
+        """Calculate density matrix from occupations and coefficients.
+
+        Presently this function performs the usual scalapack 3-step trick:
+        redistribute-numbercrunching-backdistribute.
         
+        
+        Notes on future performance improvement.
+        
+        As per the current framework, C_nM exists as copies on each
+        domain, i.e. this is not parallel over domains.  We'd like to
+        correct this and have an efficient distribution using e.g. the
+        block communicator.
+
+        The diagonalization routine and other parts of the code should
+        however be changed to accommodate the following scheme:
+        
+        Keep coefficients in C_mm form after the diagonalization.
+        rho_mm can then be directly calculated from C_mm without
+        redistribution, after which we only need to redistribute
+        rho_mm across domains.
+        
+        """
+        dtype = C_nM.dtype
+        rho_mm = self.calculate_blocked_density_matrix(f_n, C_nM)
         rback = Redistributor(self.block_comm, self.mmdescriptor,
                               self.mM_unique_descriptor)
         rho1_mM = self.mM_unique_descriptor.zeros(dtype=dtype)
@@ -483,8 +483,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                 rho_mM = self.mMdescriptor.zeros(dtype=dtype)
 
         self.gd.comm.broadcast(rho_mM, 0)
-        
-        #print 'maxerr', np.abs(rho_mM - rho_ref).max()
         return rho_mM
 
     def oldcalculate_density_matrix(self, f_n, C_nM, rho_mM=None):
