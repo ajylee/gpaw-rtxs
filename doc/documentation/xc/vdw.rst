@@ -4,12 +4,13 @@
 vdW-DF and BEEF-vdW
 =============
 
-Several vdW-DF type XC functionals are implemented selfconsistently
+Several vdW-DF [#vdW-DF1a]_ type XC functionals
+are implemented selfconsistently
 in GPAW, and also the BEEF-vdW [#BEEF-vdW]_ density functional.
 The vdW-DF variants include vdW-DF [#vdW-DF1a]_, [#vdW-DF1b]_,
 vdW-DF2 [#vdW-DF2]_, optPBE-vdW [#opt-vdW]_, optB88-vdW [#opt-vdW]_,
 and C09-vdW [#C09-vdW]_.
- 
+
 The selfconsistent implementation uses the Perez-Soler [#soler]_ FFT
 algorithm to evaluate the total energy and potential of the
 Rutgers-Chalmers nonlocal correlation, which is originally a
@@ -82,11 +83,9 @@ The example below redefines the number of interpolating cubic splines
 Real-space method vdW-DF
 ------------------------------------
 
-It is also possible to use the much slower real-space method for evaluating
-the nonlocal correlation energy,
-which could make sense for (very) small systems.
-This method is not selfconsistent
-and can only be used in the perturbative method described above.
+It is also possible to use the much slower real-space method
+for non-selfconsistent evaluations of the nonlocal correlation energy,
+which might make sense for (very) small systems.
 To use the real-space method one must import a class and set a few parameters:
 
 >>> from gpaw.xc.vdw import RealSpaceVDWFunctional
@@ -110,7 +109,7 @@ applying an ensemble of XC functionals to BEEF-vdW electron densities.
 The ensemble error estimate is then computed from the variance
 of the ensemble predictions of the quantity of interest.
 
-Below is an example that calculates the BEEF-vdW binding energy
+Below is an example which calculates the BEEF-vdW binding energy
 of molecular H2 (E_bind),
 as well as an ensemble estimate of the binding energy error (dE_bind)
 
@@ -145,10 +144,12 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 The default number of ensemble XC functionals is 25000,
 for which well-converged error estimates should be ensured.
 Therefore, "de_h2" and "de_h" in the example
-are both arrays of 25000 pertubations of the BEEF-vdW total energy.
+are both arrays of 25000 pertubations of a BEEF-vdW total energy.
 The syntax "ens.get_ensemble_energies(N)" changes this number to N.
 The calculator object input to the BEEF_Ensemble class could of course
-stem from a restarted GPAW calculation. It is very important to calculate
+stem from a restarted GPAW calculation.
+
+It is very important to calculate
 the ensemble statistics correctly. Computing the standard deviation of each
 array of total energy pertubations makes little sense, only the standard
 deviation of the relative energy pertubations should be used for the
@@ -168,15 +169,15 @@ BEEF-vdW ensemble error estimates on a quantity.
 
 .. [#vdW-DF2] K. Lee, D. E. Murray, L. Kong, B. I. Lundqvist,
    and D. C. Langreth, Higher-accuracy van der Waals density functional,
-   Physical Review B, 82, 081101 (2010).
+   Physical Review B, 82, 081101 (2010)
 
 .. [#opt-vdW] J. Klimes, D. R. Bowler, and A. Michaelides,
    Chemical accuracy for the van der Waals density functional,
-   Journal of Physics: Condensed Matter, 22, 022201 (2010).
+   Journal of Physics: Condensed Matter, 22, 022201 (2010)
 
 .. [#C09-vdW] V. R. Cooper,
    Van der Waals density functional: An appropriate exchange functional,
-   Physical Review B, 81, 161104(R) (2010).
+   Physical Review B, 81, 161104(R) (2010)
    
 .. [#soler] Guillermo Román-Pérez and José M. Soler.
    Efficient Implementation of a van der Waals Density Functional: Application
