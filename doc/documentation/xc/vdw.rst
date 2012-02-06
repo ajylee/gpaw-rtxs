@@ -1,8 +1,9 @@
 .. _vdw:
 
-=============
+========================
 vdW-DF and BEEF-vdW
-=============
+========================
+
 
 Several vdW-DF [#vdW-DF1a]_ type XC functionals
 are implemented selfconsistently
@@ -35,7 +36,7 @@ by importing the vdW-DF base class.
 
 
 Selfconsistent vdW-DF calculations
-----------------------------------
+-------------------------------------
 
 >>> from ase import *
 >>> from gpaw import GPAW
@@ -47,7 +48,7 @@ Selfconsistent vdW-DF calculations
 
 
 Perturbative vdW-DF calculations (non-selfconsistent) 
------------------------------------------------------
+--------------------------------------------------------
 
 >>> from gpaw import GPAW
 >>> xc = 'vdW-DF'
@@ -62,7 +63,7 @@ for 'vdW-DF'.
  
 
 Non-default FFT parameters for vdW-DF calculations
-----------------------------------
+-----------------------------------------------------
 
 A number of parameters determine the spline interpolation of the vdW-DF
 nonlocal kernel. These may be assigned non-default values if the vdW-DF base
