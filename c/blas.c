@@ -15,6 +15,7 @@
 #  define daxpy_  daxpy
 #  define zaxpy_  zaxpy
 #  define dsyrk_  dsyrk
+#  define zher_   zher
 #  define zherk_  zherk
 #  define dsyr2k_ dsyr2k
 #  define zher2k_ zher2k
@@ -39,6 +40,9 @@ void zaxpy_(int* n, void* alpha,
 void dsyrk_(char *uplo, char *trans, int *n, int *k,
 	    double *alpha, double *a, int *lda, double *beta,
 	    double *c, int *ldc);
+void zher_(char *uplo, int *n,
+	   double *alpha, void *x, int *incx, 
+           void *a, int *lda);
 void zherk_(char *uplo, char *trans, int *n, int *k,
 	    double *alpha, void *a, int *lda,
 	    double *beta,
@@ -214,6 +218,26 @@ PyObject* axpy(PyObject *self, PyObject *args)
     zaxpy_(&n, &alpha,
            (void*)COMPLEXP(x), &incx,
            (void*)COMPLEXP(y), &incy);
+  Py_RETURN_NONE;
+}
+
+PyObject* zher(PyObject *self, PyObject *args)
+{
+  double alpha;
+  PyArrayObject* x;
+  PyArrayObject* a;
+  if (!PyArg_ParseTuple(args, "dOO", &alpha, &x, &a))
+    return NULL;
+  int n = x->dimensions[0];
+  for (int d = 1; d < x->nd; d++)
+    n *= x->dimensions[d];
+
+  int incx = 1;
+  int lda = MAX(1, n);
+
+  zher_("l", &n, &(alpha), 
+        (void*)COMPLEXP(x), &incx,
+        (void*)COMPLEXP(a), &lda);
   Py_RETURN_NONE;
 }
 
