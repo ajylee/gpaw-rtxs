@@ -485,6 +485,16 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.gd.comm.broadcast(rho_mM, 0)
         return rho_mM
 
+    def distribute_to_columns(self, rho_mm, srcdescriptor):
+        redistributor = Redistributor(self.block_comm, # XXX
+                                      srcdescriptor,
+                                      self.mM_unique_descriptor)
+        rho_mM = redistributor.redistribute(rho_mm)
+        if self.gd.rank != 0:
+            rho_mM = self.mMdescriptor.zeros(dtype=rho_mm.dtype)
+        self.gd.comm.broadcast(rho_mM, 0)
+        return rho_mM
+
     def oldcalculate_density_matrix(self, f_n, C_nM, rho_mM=None):
         # This version is parallel over the band descriptor only.
         # This is inefficient, but let's keep it for a while in case
