@@ -722,8 +722,6 @@ class PW:
         return wfs
 
     def __eq__(self, other):
-        if isinstance(other, PW):
-            print self.ecut == other.ecut, self.ecut, other.ecut
         return (isinstance(other, PW) and self.ecut == other.ecut)
 
     def __ne__(self, other):
