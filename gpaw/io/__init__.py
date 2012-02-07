@@ -7,7 +7,6 @@ Version 2:
 """
 
 import os
-import os.path
 
 try:
     from ase.units import AUT # requires rev1839 or later
@@ -24,7 +23,6 @@ import numpy as np
 import gpaw.mpi as mpi
 from gpaw.io.dummy import DummyWriter
 
-import os,time,tempfile
 
 def open(filename, mode='r', comm=mpi.world):
     parallel_io = False
@@ -755,7 +753,7 @@ def read(paw, reader):
 
             else:
                 for kpt in wfs.kpt_u:
-                    kpt.psit_nG = wfs.gd.empty(wfs.bd.mynbands, wfs.dtype)
+                    kpt.psit_nG = wfs.wd.empty(wfs.bd.mynbands, wfs.dtype)
                     if hdf5:
                         indices = [kpt.s, kpt.k]
                         indices.append(wfs.bd.get_slice())
@@ -821,6 +819,9 @@ def read(paw, reader):
     newmode =  paw.input_parameters.mode
     try:
         oldmode = r['Mode']
+        if oldmode == 'pw':
+            from gpaw.wavefunctions.pw import PW
+            oldmode = PW(ecut=r['PlaneWaveCutoff'] * Hartree)
     except (AttributeError, KeyError):
         oldmode = 'fd' # This is an old gpw file from before lcao existed
         

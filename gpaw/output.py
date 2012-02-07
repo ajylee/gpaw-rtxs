@@ -171,7 +171,10 @@ class PAWTextOutput:
         self.wfs.summary(self.txt)
         eigensolver = p['eigensolver']
         if eigensolver is None:
-            eigensolver = {'lcao': 'lcao (direct)'}.get(p['mode'], 'rmm-diis')
+            if p.mode == 'lcao':
+                eigensolver = 'lcao (direct)'
+            else:
+                eigensolver = 'rmm-diis'
         t('Eigensolver:       %s' % eigensolver)
         if p['mode'] != 'lcao':
             t('                   (%s)' % fd(p['stencils'][0]))

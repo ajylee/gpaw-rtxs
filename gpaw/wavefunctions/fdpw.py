@@ -146,7 +146,7 @@ class FDPWWaveFunctions(WaveFunctions):
             # Read band by band to save memory
             for n, psit_G in enumerate(kpt.psit_nG):
                 if self.gd.comm.rank == 0:
-                    big_psit_G = np.array(file_nG[n][:], self.dtype)
+                    big_psit_G = file_nG[n][:].astype(psit_G.dtype)
                 else:
                     big_psit_G = None
                 self.gd.distribute(big_psit_G, psit_G)
