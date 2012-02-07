@@ -266,12 +266,12 @@ class BSE(BASECHI):
                                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
                                 tmp_G[jG] = self.dfinvG0_G[jG] / np.sqrt(np.inner(qG,qG))
 
-                            const = 1./pi*self.vol*(6*pi**2/self.vol)**(2./3.)
+                            const = 1./pi*self.vol**(6*pi**2/self.vol/self.nkpt)**(2./3.)
                             tmp_G *= const
                             W_GG[:,0] = tmp_G
                             W_GG[0,:] = tmp_G.conj()
-                            W_GG[0,0] = 2./pi*(6*pi**2/self.vol)**(1./3.) \
-                                            * self.dfinvG0_G[0] *self.vol
+                            W_GG[0,0] = 2./pi*(6*pi**2/self.vol/self.nkpt)**(1./3.) \
+                                            * self.dfinvG0_G[0] *self.vol 
 
                     tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
                     W_SS[iS, jS] = np.sum(tmp_GG)
@@ -279,6 +279,7 @@ class BSE(BASECHI):
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
 
         K_SS *= 4 * pi / self.vol
+
         if self.use_W:
             K_SS -= 0.5 * W_SS / self.vol
         world.sum(K_SS)
@@ -299,13 +300,17 @@ class BSE(BASECHI):
                         print iS, jS, H_SS[iS,jS]- H_SS[jS,iS].conj()
 #                    assert np.abs(H_SS[iS,jS]- H_SS[jS,iS].conj()) < 1e-4
 
+        # make the matrix hermitian
+        if self.use_W:
+            H_SS = (np.real(H_SS) + np.real(H_SS.T)) / 2. + 1j * (np.imag(H_SS) - np.imag(H_SS.T)) /2.
+
 #        if not self.positive_w:
         self.w_S, self.v_SS = np.linalg.eig(H_SS)
 #        else:
-#        from gpaw.utilities.lapack import diagonalize
-#        self.w_S = np.zeros(self.nS)
-#        diagonalize(H_SS, self.w_S)
-#        self.v_SS = H_SS.copy() # eigenvectors in the rows
+#            from gpaw.utilities.lapack import diagonalize
+#            self.w_S = np.zeros(self.nS, dtype=complex)
+#            diagonalize(H_SS, self.w_S)
+#            self.v_SS = H_SS.T.copy() # eigenvectors in the rows
 
         data = {
                 'w_S': self.w_S,

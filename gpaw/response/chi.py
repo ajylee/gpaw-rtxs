@@ -207,6 +207,10 @@ class CHI(BASECHI):
             dpsit_g = gd.empty(dtype=complex)
             tmp = np.zeros((3), dtype=complex)
 
+        use_zher = False
+        if self.eta < 1e-3:
+            use_zher = True
+
         rho_G = np.zeros(self.npw, dtype=complex)
         t0 = time()
         t_get_wfs = 0
@@ -287,16 +291,20 @@ class CHI(BASECHI):
 
                         if k_pad:
                             rho_G[:] = 0.
-                        
+
                         if not self.hilbert_trans:
+                            if not use_zher:
+                                rho_GG = np.outer(rho_G, rho_G.conj())
                             for iw in range(self.Nw_local):
                                 w = self.w_w[iw + self.wstart] / Hartree
                                 coef = ( 1. / (w + e_kn[ibzkpt1, n] - e_kn[ibzkpt2, m] + 1j * self.eta) 
                                        - 1. / (w - e_kn[ibzkpt1, n] + e_kn[ibzkpt2, m] + 1j * self.eta) )
                                 C =  (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) * coef
-                                
-                                zher(C.real, rho_G.conj(), chi0_wGG[iw])
-                                #axpy(C, rho_GG, chi0test_wGG[iw])
+
+                                if use_zher:
+                                    zher(C.real, rho_G.conj(), chi0_wGG[iw])
+                                else:
+                                    axpy(C, rho_GG, chi0_wGG[iw])
 
                         else:
                             rho_GG = np.outer(rho_G, rho_G.conj())
@@ -348,12 +356,13 @@ class CHI(BASECHI):
         # Hilbert Transform
         if not self.hilbert_trans:
             self.kcomm.sum(chi0_wGG)
-            assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
-            for iw in range(self.Nw_local):
-                chi0_wGG[iw] += chi0_wGG[iw].conj().T
-                for iG in range(self.npw):
-                    chi0_wGG[iw, iG, iG] /= 2.
-                    assert np.abs(np.imag(chi0_wGG[iw, iG, iG])) < 1e-10 
+            if use_zher:
+                assert (np.abs(chi0_wGG[0,1:,0]) < 1e-10).all()
+                for iw in range(self.Nw_local):
+                    chi0_wGG[iw] += chi0_wGG[iw].conj().T
+                    for iG in range(self.npw):
+                        chi0_wGG[iw, iG, iG] /= 2.
+                        assert np.abs(np.imag(chi0_wGG[iw, iG, iG])) < 1e-10 
         else:
             self.kcomm.sum(specfunc_wGG)
             if self.wScomm.size == 1:
