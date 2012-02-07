@@ -266,7 +266,7 @@ class BSE(BASECHI):
                                 qG = np.dot(q+self.Gvec_Gc[jG], self.bcell_cv)
                                 tmp_G[jG] = self.dfinvG0_G[jG] / np.sqrt(np.inner(qG,qG))
 
-                            const = 1./pi*self.vol**(6*pi**2/self.vol/self.nkpt)**(2./3.)
+                            const = 1./pi*self.vol*(6*pi**2/self.vol/self.nkpt)**(2./3.)
                             tmp_G *= const
                             W_GG[:,0] = tmp_G
                             W_GG[0,:] = tmp_G.conj()
