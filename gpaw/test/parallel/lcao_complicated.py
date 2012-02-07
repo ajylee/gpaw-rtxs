@@ -13,7 +13,7 @@ from gpaw.utilities import compiled_with_sl
 # enough CPUs are available), both with and without scalapack
 # (if scalapack is available).
 #
-# Run with 2, 4 or 8 (best) CPUs.
+# Run with 1, 2, 4 or 8 (best) CPUs.
 #
 # This test covers many cases not caught by lcao_parallel or
 # lcao_parallel_kpt
@@ -104,9 +104,10 @@ if world.size == 8:
 if world.size > 1:
     check(parallel)
 
-    if compiled_with_sl():
-        parallel['sl_default'] = (sl_cpus // 2, 2, 5)
-        check(parallel)
-else:
-    parallel['sl_default'] = (1, 1, 5)
+if compiled_with_sl():
+    if world.size == 1:
+        sl_default = (1, 1, 5)
+    else:
+        sl_default = (sl_cpus // 2, 2, 5)
+    parallel['sl_default'] = sl_default
     check(parallel)
