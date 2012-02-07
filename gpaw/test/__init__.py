@@ -57,6 +57,7 @@ tests = [
     'numpy_zdotc_graphite.py',
     'gemm_complex.py',
     'lapack.py',
+    'zher.py',
     'mpicomm.py',
     'parallel/submatrix_redist.py',
     'eigh.py',
