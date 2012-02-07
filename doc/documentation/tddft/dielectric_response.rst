@@ -335,7 +335,7 @@ Substitute it to the integration in the beginning of this section, one get
          
 Applying the hilbert transform can make the calculations of `\chi^0_{\mathbf{G} \mathbf{G}^{\prime}}(\mathbf{q}, \omega)` `Nw / 2` times faster, where `Nw` is the number of frequency points used. 
 
-For the detal function, we use either a triangular function, which is described in  \ [#DeltaFunc]_ and
+For the delta function, we use either a triangular function, which is described in  \ [#DeltaFunc]_ and
 is normalized to 1 or a gaussian function, which is in principle normalized but in fact not due to  numerically finite frequency 
 points used. We tried both and it turns out that the spectrum does not sensitively depend on the function applied.  
 
