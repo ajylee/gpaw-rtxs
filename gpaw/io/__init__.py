@@ -28,7 +28,7 @@ def open(filename, mode='r', comm=mpi.world):
     parallel_io = False
     if filename.endswith('.nc'):
         import gpaw.io.netcdf as io
-    elif filename.endswith('.db'):
+    elif filename.endswith('.db') or filename.endswith('.cmr'):
         import gpaw.io.cmr_io as io
     elif filename.endswith('.hdf5'):
         import gpaw.io.hdf5 as io
@@ -487,7 +487,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                         wpsi.close()
 
     db = False
-    if filename.endswith('.db'):
+    if filename.endswith('.db') or filename.endswith('.cmr'):
         if master:
             w.write_additional_db_params(cmr_params=cmr_params)
     elif cmr_params is not None and 'db' in cmr_params:
@@ -506,7 +506,10 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
    # Creates a db file for CMR, if requested
     if db and not filename.endswith('.db'):
-        #Write a db copy to the database
+        # Write a db copy to the database
+        write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
+    elif db and not filename.endswith('.cmr'):
+        # Write a db copy to the database (Note currently only *.db are accepted for a check-in)
         write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
 
 

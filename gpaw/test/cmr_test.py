@@ -17,12 +17,14 @@ calc = GPAW(h=h,
             convergence={'energy': 1e-5})
 bulk.set_calculator(calc)
 e0 = bulk.get_potential_energy()
-calc.write("test1.db")
-assert os.path.exists("test1.db")
-calc.write("test2.db", cmr_params={"value":1, "keywords":["a", "b"]})
-assert os.path.exists("test2.db")
-data = cmr.read("test2.db")
-assert data["value"] == 1
-assert len(data["db_keywords"]) == 2
-os.unlink("test1.db")
-os.unlink("test2.db")
+
+for ext in [".db", ".cmr"]:
+    calc.write("test1"+ext)
+    assert os.path.exists("test1"+ext)
+    calc.write("test2"+ext, cmr_params={"value":1, "keywords":["a", "b"]})
+    assert os.path.exists("test2"+ext)
+    data = cmr.read("test2"+ext)
+    assert data["value"] == 1
+    assert len(data["db_keywords"]) == 2
+    os.unlink("test1"+ext)
+    os.unlink("test2"+ext)

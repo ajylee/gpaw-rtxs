@@ -41,7 +41,7 @@ except:
     from cmr.io import CONVERTION_ORIGINAL
     from cmr.static import CALCULATOR_GPAW
     
-    def create_db_filename(param):
+    def create_db_filename(param, ext="ignored"):
         return cdbfn()
 
     def get_reader(name):
@@ -180,8 +180,11 @@ class Writer:
             for key in ase_vars:
                 self.data.set_user_variable(key, ase_vars[key])
             self.cmr_params.pop("ase_atoms_var")
-        if self.filename==".db":
-            self.cmr_params["output"]=create_db_filename(self.data)
+        if self.filename==".db" or self.filename==".cmr":
+            # Note: 
+            #      .cmr files can currently not be uploaded to the database therefore 
+            #      it defaults to .db until supported
+            self.cmr_params["output"]=create_db_filename(self.data, ext=".db")
         else:
             self.cmr_params["output"]=self.filename
         self.data.write(self.cmr_params)
