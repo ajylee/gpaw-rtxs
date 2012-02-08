@@ -8,41 +8,6 @@ from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 
-def get_neighbor_displacements(nl, spos_ac, cell_cv, get_phases):
-    # XXX simple subclass
-    from gpaw.lcao.overlap import DerivativeAtomicDisplacement
-    class Displacement(DerivativeAtomicDisplacement):
-        def __init__(self, a1, a2, R_c, offset, phases):
-            DerivativeAtomicDisplacement.__init__(self, None, a1, a2, R_c,
-                                                  offset, phases)
-
-    disp_aao = {}
-
-    def add(disp):
-        a1 = disp.a1
-        a2 = disp.a2
-        if not (a1, a2) in disp_aao:
-            disp_aao[(a1, a2)] = []
-        disp_aao[(a1, a2)].append(disp)
-    
-    for a1, spos1_c in enumerate(spos_ac):
-        a2_a, offsets = nl.get_neighbors(a1)
-        for a2, offset in zip(a2_a, offsets):
-            spos2_c = spos_ac[a2] + offset
-
-            R_c = np.dot(spos2_c - spos1_c, cell_cv)
-            disp = Displacement(a1, a2, R_c, offset, get_phases(offset))
-            add(disp)
-            if a1 != a2 or offset.any():
-                disp2 = Displacement(a2, a1, -R_c, -offset,
-                                     get_phases(-offset))
-                add(disp2)
-    
-    keys = disp_aao.keys()
-    keys.sort()
-    disp_aao = [disp_aao[key] for key in keys]
-    return keys, disp_aao
-
 
 def get_r_and_offsets(nl, spos_ac, cell_cv):
     r_and_offset_aao = {}
@@ -63,8 +28,6 @@ def get_r_and_offsets(nl, spos_ac, cell_cv):
                 add(a2, a1, -R_c, -offset)
     
     return r_and_offset_aao
-
-
 
 
 def add_paw_correction_to_overlap(setups, P_aqMi, S_qMM, Mstart=0,
@@ -499,8 +462,6 @@ class LCAOWaveFunctions(WaveFunctions):
         #            yield a1, a2, R_c, offset
         #            if a1 != a2:
         #                yield a2, a1, -R_c, -offset
-
-        np.set_printoptions(suppress=1, precision=5)
 
         if isblacs:
             self.timer.start('prepare TCI loop')
