@@ -96,6 +96,7 @@ tests = [
     'ase3k.py',
     'laplace.py',
     'gauss_wave.py',
+    'pw/interpol.py',
     'pw/h.py',
     'pw/lfc.py',
     'pw/reallfc.py',

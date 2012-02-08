@@ -12,7 +12,7 @@ for mode in ['fd', 'pw']:
     hydrogen.get_potential_energy()
     dens = hydrogen.calc.density
     ham = hydrogen.calc.hamiltonian
-    ham.poisson.eps = 1e-18
+    ham.poisson.eps = 1e-20
     dens.interpolate()
     dens.calculate_pseudo_charge()
     ham.update(dens)
@@ -31,4 +31,4 @@ for mode in ['fd', 'pw']:
     dens.calculate_pseudo_charge()
     ham.update(dens)
     e2 = ham.get_energy(hydrogen.calc.occupations) - ham.Ekin
-    equal(y, (e1 - e2) / (2 * x), 8e-7)
+    equal(y, (e1 - e2) / (2 * x), 2e-8)

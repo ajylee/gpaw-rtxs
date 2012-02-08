@@ -215,38 +215,88 @@ class PWDescriptor:
         else:
             return result
 
-    def interpolate(self, a_G, pd):
+    def interpolate(self, a_R, pd):
+        if self.dtype == float:
+            return self.interpolate_real(a_R, pd)
+
         a_Q = self.tmp_Q
         b_Q = pd.tmp_Q
         n0, n1, n2 = a_Q.shape
         n0 //= 2
         n1 //= 2
-        self.tmp_R[:] = a_G
+        n2 //= 2
+        self.tmp_R[:] = a_R
+        self.fftplan.execute()
+        b_Q[:] = 0.0
+        b_Q[n0:-n0, n1:-n1, n2:-n2] = np.fft.fftshift(a_Q)
+        b_Q[n0, n1:-n1, n2:-n2] /= 2
+        b_Q[-n0, n1:-n1, n2:-n2] = b_Q[n0, n1:-n1, n2:-n2]
+        b_Q[n0:-n0 + 1, n1, n2:-n2] /= 2
+        b_Q[n0:-n0 + 1, -n1, n2:-n2] = b_Q[n0:-n0 + 1, n1, n2:-n2]
+        b_Q[n0:-n0 + 1, n1:-n1 + 1, n2] /= 2
+        b_Q[n0:-n0 + 1, n1:-n1 + 1, -n2] = b_Q[n0:-n0 + 1, n1:-n1 + 1, n2]
+        b_Q[:] = np.fft.ifftshift(b_Q)
+        pd.ifftplan.execute()
+        return pd.tmp_R * (8.0 / pd.tmp_R.size), a_Q.ravel()[self.Q_G]
+
+    def interpolate_real(self, a_R, pd):
+        a_Q = self.tmp_Q
+        b_Q = pd.tmp_Q
+        n0, n1, n2 = a_Q.shape
+        n0 //= 2
+        n1 //= 2
+        self.tmp_R[:] = a_R
         self.fftplan.execute()
         b_Q[:] = 0.0
         b_Q[n0:-n0, n1:-n1, :n2] = np.fft.fftshift(a_Q, axes=(0, 1))
+        b_Q[n0, n1:-n1, :n2] /= 2
         b_Q[-n0, n1:-n1, :n2] = b_Q[n0, n1:-n1, :n2]
+        b_Q[n0:-n0 + 1, n1, :n2] /= 2
         b_Q[n0:-n0 + 1, -n1, :n2] = b_Q[n0:-n0 + 1, n1, :n2]
-        b_Q[n0::2 * n0] *= 0.5
-        b_Q[:, n1::2 * n1] *= 0.5
-        b_Q[:, :, n2 - 1] *= 0.5
+        b_Q[n0:-n0 + 1, n1:-n1 + 1, n2 - 1] /= 2
         b_Q[:] = np.fft.ifftshift(b_Q, axes=(0, 1))
         pd.ifftplan.execute()
         return pd.tmp_R * (8.0 / pd.tmp_R.size), a_Q.ravel()[self.Q_G]
 
-    def restrict(self, a_g, pd):
+    def restrict(self, a_R, pd):
+        if self.dtype == float:
+            return self.restrict_real(a_R, pd)
+
         a_Q = pd.tmp_Q
         b_Q = self.tmp_Q
         n0, n1, n2 = a_Q.shape
         n0 //= 2
         n1 //= 2
-        self.tmp_R[:] = a_g
+        n2 //= 2
+        self.tmp_R[:] = a_R
+        self.fftplan.execute()
+        b_Q[:] = np.fft.fftshift(b_Q)
+        b_Q[n0, n1:-n1 + 1, n2:-n2 + 1] += b_Q[-n0, n1:-n1 + 1, n2:-n2 + 1]
+        b_Q[n0, n1:-n1 + 1, n2:-n2 + 1] *= 0.5
+        b_Q[n0:-n0, n1, n2:-n2 + 1] += b_Q[n0:-n0, -n1, n2:-n2 + 1]
+        b_Q[n0:-n0, n1, n2:-n2 + 1] *= 0.5
+        b_Q[n0:-n0, n1:-n1, n2] += b_Q[n0:-n0, n1:-n1, -n2]
+        b_Q[n0:-n0, n1:-n1, n2] *= 0.5
+        a_Q[:] = b_Q[n0:-n0, n1:-n1, n2:-n2]
+        a_Q[:] = np.fft.ifftshift(a_Q)
+        a_G = a_Q.ravel()[pd.Q_G] / 8
+        pd.ifftplan.execute()
+        return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
+
+    def restrict_real(self, a_R, pd):
+        a_Q = pd.tmp_Q
+        b_Q = self.tmp_Q
+        n0, n1, n2 = a_Q.shape
+        n0 //= 2
+        n1 //= 2
+        self.tmp_R[:] = a_R
         self.fftplan.execute()
         b_Q[:] = np.fft.fftshift(b_Q, axes=(0, 1))
         b_Q[n0, n1:-n1 + 1, :n2] += b_Q[-n0, n1:-n1 + 1, :n2]
+        b_Q[n0, n1:-n1 + 1, :n2] *= 0.5
         b_Q[n0:-n0, n1, :n2] += b_Q[n0:-n0, -n1, :n2]
+        b_Q[n0:-n0, n1, :n2] *= 0.5
         a_Q[:] = b_Q[n0:-n0, n1:-n1, :n2]
-        a_Q[:, :, n2 - 1] *= 2.0
         a_Q[:] = np.fft.ifftshift(a_Q, axes=(0, 1))
         a_G = a_Q.ravel()[pd.Q_G] / 8
         pd.ifftplan.execute()
