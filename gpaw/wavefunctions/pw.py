@@ -43,7 +43,7 @@ class PWDescriptor:
             i_Qc[..., :2] %= N_c[:2]
             i_Qc[..., :2] -= N_c[:2] // 2
             self.tmp_Q = fftw.empty(Nr_c, complex)
-            self.tmp_R = self.tmp_Q.view(float)[:, :, :-2]
+            self.tmp_R = self.tmp_Q.view(float)[:, :, :N_c[2]]
         else:
             i_Qc = np.indices(N_c).transpose((1, 2, 3, 0))
             i_Qc += N_c // 2
