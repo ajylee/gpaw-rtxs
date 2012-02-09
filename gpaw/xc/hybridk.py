@@ -266,7 +266,6 @@ class HybridXC(XCFunctional):
                         if np.abs(f_n) < 1e-10:
                             self.nbands = max(self.nbands, n1)
                             continue
-            self.nbands = self.bd.nbands
         else:
             self.nbands = self.bd.nbands
                 
