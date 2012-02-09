@@ -20,7 +20,7 @@ compiling Python.
 First, load the Python module and set ``XTPE_LINK_TYPE`` environment
 variable for dynamic linking::
 
-  module load python/2.6.4
+  module load python
   module load hdf5-parallel
   setenv XTPE_LINK_TYPE dynamic
 
