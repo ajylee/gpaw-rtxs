@@ -4,7 +4,7 @@ import numpy as np
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
-from gpaw.utilities.blas import gemv, scal, axpy, zher
+from gpaw.utilities.blas import gemv, scal, axpy, czher
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.fd_operators import Gradient
 from gpaw.response.math_func import hilbert_transform
@@ -302,7 +302,7 @@ class CHI(BASECHI):
                                 C =  (f_kn[ibzkpt1, n] - f_kn[ibzkpt2, m]) * coef
 
                                 if use_zher:
-                                    zher(C.real, rho_G.conj(), chi0_wGG[iw])
+                                    czher(C.real, rho_G.conj(), chi0_wGG[iw])
                                 else:
                                     axpy(C, rho_GG, chi0_wGG[iw])
 

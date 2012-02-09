@@ -1,4 +1,4 @@
-from gpaw.utilities.blas import zher
+from gpaw.utilities.blas import czher
 import numpy as np
 
 alpha = 0.5
@@ -12,7 +12,7 @@ for i in range(3):
     a[i,i] = np.real(a[i,i])
 
 b = alpha * np.outer(x.conj(), x) + a
-zher(alpha, x, a)
+czher(alpha, x, a)
 
 for i in range(3):
     for j in range(i,3):
