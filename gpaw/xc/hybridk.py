@@ -265,12 +265,12 @@ class HybridXC(XCFunctional):
                         f_n = kpt1.f_n[n1]
                         if np.abs(f_n) < 1e-10:
                             self.nbands = max(self.nbands, n1)
-                            continue
+                            break
         else:
             self.nbands = self.bd.nbands
                 
         B = self.nbands
-        self.log('Number of bands:', B)
+        self.log('Number of bands calculated:', B)
         self.log('Number of valence electrons:', self.setups.nvalence)
 
         E = B - self.setups.nvalence / 2.0  # empty bands
