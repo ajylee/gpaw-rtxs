@@ -98,7 +98,7 @@ class KPoint:
 class HybridXC(XCFunctional):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
-                 alpha=None, skip_gamma=False, ecut=None, acdf=False, coredensity=True,
+                 alpha=None, skip_gamma=False, ecut=None, etotflag = False, acdf=False, coredensity=True,
                  logfilename='-', bands=None):
         """Mix scalculate_exx_paw_cotandard functionals with exact exchange.
 
@@ -136,16 +136,19 @@ class HybridXC(XCFunctional):
         self.type = xc.type
         self.alpha = alpha
         self.skip_gamma = skip_gamma
-        self.acdf = acdf
-        self.coredensity = coredensity
-        self.exx = None
-#        self.exxacdf = None
-        if self.acdf is True:
-            self.exxacdf = 0.0
+
+        self.exx = 0.0
+        self.etotflag = etotflag
         self.ecut = ecut
         self.fd = logfilename
         self.write_timing_information = True
         self.bands = bands
+        self.acdf = acdf  # adiabatic-connection dissipation fluctuation for RPA correlation energy
+        self.coredensity = coredensity
+        if self.acdf is True:
+            self.exxacdf = 0.0
+            self.etotflag = True
+            print 'etotflag is True'
 
         XCFunctional.__init__(self, name)
 
@@ -252,7 +255,22 @@ class HybridXC(XCFunctional):
         self.log("%d CPU's used for %d IBZ k-points" % (W, K))
         self.log('Spins:', self.nspins)
 
-        B = self.bd.nbands
+        if self.etotflag:
+            self.nbands = 0
+            for s in range(self.nspins):
+                kpt1_k = [KPoint(kd, kpt)
+                          for kpt in self.kpt_u if kpt.s == s]
+                for kpt1 in kpt1_k:
+                    for n1 in range(self.bd.nbands):
+                        f_n = kpt1.f_n[n1]
+                        if np.abs(f_n) < 1e-10:
+                            self.nbands = max(self.nbands, n1)
+                            continue
+            self.nbands = self.bd.nbands
+        else:
+            self.nbands = self.bd.nbands
+                
+        B = self.nbands
         self.log('Number of bands:', B)
         self.log('Number of valence electrons:', self.setups.nvalence)
 
@@ -260,8 +278,9 @@ class HybridXC(XCFunctional):
         self.npairs = (K * kd.nbzkpts - 0.5 * K**2) * (B**2 - E**2)
         self.log('Approximate number of pairs:', self.npairs)
 
-        self.exx_skn = np.zeros((self.nspins, K, B))
-        self.debug_skn = np.zeros((self.nspins, K, B))
+        if not self.etotflag:
+            self.exx_skn = np.zeros((self.nspins, K, B))
+            self.debug_skn = np.zeros((self.nspins, K, B))
 
         for s in range(self.nspins):
             kpt1_q = [KPoint(kd, kpt)
@@ -299,39 +318,38 @@ class HybridXC(XCFunctional):
                     kpt2_q.pop(0)
                     kpt2_q.append(kpt)
 
-        for kpt in self.kpt_u:
-            for a, D_sp in self.density.D_asp.items():
-                setup = self.setups[a]
-                for D_p in D_sp:
-                    D_ii = unpack2(D_p)
-                    ni = len(D_ii)
-                    P_ni = kpt.P_ani[a]
-                    for i1 in range(ni):
-                        for i2 in range(ni):
-                            A = 0.0
-                            for i3 in range(ni):
-                                p13 = packed_index(i1, i3, ni)
-                                for i4 in range(ni):
-                                    p24 = packed_index(i2, i4, ni)
-                                    A += setup.M_pp[p13, p24] * D_ii[i3, i4]
-                            self.exx_skn[kpt.s, kpt.k] -= \
-                                (self.hybrid * A *
-                                 P_ni[:, i1].conj() * P_ni[:, i2]).real
-                            
-                            p12 = packed_index(i1, i2, ni)
-                            if setup.X_p is not None:
-                                self.exx_skn[kpt.s, kpt.k] -= self.hybrid * \
-                                    (P_ni[:, i1].conj() * setup.X_p[p12] *
-                                     P_ni[:, i2]).real / self.nspins
-
-
-        if self.acdf:
-            self.exxacdf = self.world.sum(self.exxacdf[0])
-            #print self.exxacdf
-            self.exxacdf += self.calculate_exx_paw_correction()
-            self.exx = self.exxacdf
-
+        if self.etotflag:
+            if self.acdf:
+                self.exxacdf = self.world.sum(self.exxacdf[0])
+                self.exxacdf += self.calculate_exx_paw_correction()
+                self.exx = self.exxacdf
         else:
+            for kpt in self.kpt_u:
+                for a, D_sp in self.density.D_asp.items():
+                    setup = self.setups[a]
+                    for D_p in D_sp:
+                        D_ii = unpack2(D_p)
+                        ni = len(D_ii)
+                        P_ni = kpt.P_ani[a]
+                        for i1 in range(ni):
+                            for i2 in range(ni):
+                                A = 0.0
+                                for i3 in range(ni):
+                                    p13 = packed_index(i1, i3, ni)
+                                    for i4 in range(ni):
+                                        p24 = packed_index(i2, i4, ni)
+                                        A += setup.M_pp[p13, p24] * D_ii[i3, i4]
+                                self.exx_skn[kpt.s, kpt.k] -= \
+                                    (self.hybrid * A *
+                                     P_ni[:, i1].conj() * P_ni[:, i2]).real
+                                
+                                p12 = packed_index(i1, i2, ni)
+                                if setup.X_p is not None:
+                                    self.exx_skn[kpt.s, kpt.k] -= self.hybrid * \
+                                        (P_ni[:, i1].conj() * setup.X_p[p12] *
+                                         P_ni[:, i2]).real / self.nspins
+
+            
             self.world.sum(self.exx_skn)
             self.exx = 0.0
             for kpt in self.kpt_u:
@@ -343,8 +361,8 @@ class HybridXC(XCFunctional):
                 self.exx += self.hybrid * setup.ExxC
                 self.exx -= self.hybrid * 0.5 * np.dot(D_sp.sum(0), setup.X_p)
 
-        self.world.sum(self.debug_skn)
-        assert (self.debug_skn == self.kd.nbzkpts * B).all()
+            self.world.sum(self.debug_skn)
+            assert (self.debug_skn == self.kd.nbzkpts * B).all()
     
     def apply(self, kpt1, kpt2, k):
         k1_c = self.kd.ibzk_kc[kpt1.k]
@@ -372,10 +390,10 @@ class HybridXC(XCFunctional):
         fcut = 1e-10
         is_ibz2 = abs(k2_c - self.kd.ibzk_kc[kpt2.k]).max() < 1e-9
         
-        for n1 in range(self.bd.nbands):
+        for n1 in range(self.nbands):
             f1 = kpt1.f_n[n1]
             e1 = kpt1.eps_n[n1]
-            for n2 in range(self.bd.nbands):
+            for n2 in range(self.nbands):
                 if same:
                     assert is_ibz2
                     if n2 > n1:
@@ -394,12 +412,13 @@ class HybridXC(XCFunctional):
                 x = 1.0
                 if same and n1 == n2:
                     x = 0.5
-                    
-                self.debug_skn[kpt1.s, kpt1.k, n1] += x
-                if is_ibz2:
-                    self.debug_skn[kpt2.s, kpt2.k, n2] += x
 
-                if self.acdf:
+                if not self.etotflag:
+                    self.debug_skn[kpt1.s, kpt1.k, n1] += x
+                    if is_ibz2:
+                        self.debug_skn[kpt2.s, kpt2.k, n2] += x
+
+                if self.etotflag:
                     if abs(f1) < fcut or abs(f2) < fcut:
                         continue
                 else:
@@ -421,18 +440,25 @@ class HybridXC(XCFunctional):
                 vt_G *= -pi * vol / Gpk2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
 
-                if self.acdf:
-                    self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
-                                   f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight  
-                self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
+                if self.etotflag:
+                    if self.acdf:
+                        self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
+                                   f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight
+                    else:
+                        self.exx += f1 * f2 * e * kpt1.weight
+                else:
+                    self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
 
                 if is_ibz2:
-                    self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
-  	            if self.acdf:
-                        self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
-                                        f2 * (1-np.sign(e1-e2)) * e ) * kpt2.weight 
-
-                        
+                    if self.etotflag:
+                        if self.acdf:
+                            self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
+                                        f2 * (1-np.sign(e1-e2)) * e ) * kpt2.weight
+                        else:
+                            self.exx += f1 * f2 * e * kpt2.weight
+                    else:
+                        self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
+                    
                 if self.write_timing_information:
                     t = time() - t0
                     self.log('Time for first pair-density:', t, 'seconds')
