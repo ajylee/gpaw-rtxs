@@ -138,6 +138,24 @@ def lorz_fit(x,y, npeak=1, initpara = None):
 
     return yfit, result[0]
 
+def linear_fit(x,y, initpara = None):
+    
+    def residual(p, x, y):
+        err = y - linear(x, p)
+        return err
+
+    def linear(x, p):
+        return p[0]*x + p[1]
+
+    if initpara is None:
+        initpara = np.array([1.0,1.0])
+
+    p0 = initpara
+    result = leastsq(residual, p0, args=(x, y), maxfev=2000)
+    yfit = linear(x, result[0])
+
+    return yfit, result[0]
+
 
 def plot_setfont():
 
