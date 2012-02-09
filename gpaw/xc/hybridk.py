@@ -98,7 +98,7 @@ class KPoint:
 class HybridXC(XCFunctional):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, finegrid=False,
-                 alpha=None, skip_gamma=False, ecut=None, acdf=False, coredensity=False,
+                 alpha=None, skip_gamma=False, ecut=None, acdf=False, coredensity=True,
                  logfilename='-', bands=None):
         """Mix scalculate_exx_paw_cotandard functionals with exact exchange.
 
@@ -163,7 +163,8 @@ class HybridXC(XCFunctional):
                                         dndr_sLg, rnablaY_Lv)
     
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
-                                 addcoredensity=self.coredensity, a=None):
+                                 addcoredensity=True, a=None):
+        addcoredensity = self.coredensity
 
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
                                  addcoredensity, a)
