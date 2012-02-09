@@ -138,7 +138,7 @@ def axpy(alpha, x, y):
     assert x.shape == y.shape
     _gpaw.axpy(alpha, x, y)
 
-def zher(alpha, x, a):
+def czher(alpha, x, a):
     """alpha x * x.conj() + a.
 
     Performs the operation::
@@ -155,7 +155,7 @@ def zher(alpha, x, a):
     assert x.ndim == 1 and a.ndim == 2
     assert x.shape[0] == a.shape[0]
 
-    _gpaw.zher(alpha, x, a)
+    _gpaw.czher(alpha, x, a)
 
 
 def rk(alpha, a, beta, c):
