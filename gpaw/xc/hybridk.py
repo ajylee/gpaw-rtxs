@@ -256,7 +256,7 @@ class HybridXC(XCFunctional):
         self.log('Spins:', self.nspins)
 
         if self.etotflag:
-            self.nbands = 0
+            self.nbandstmp = 0
             for s in range(self.nspins):
                 kpt1_k = [KPoint(kd, kpt)
                           for kpt in self.kpt_u if kpt.s == s]
@@ -264,8 +264,11 @@ class HybridXC(XCFunctional):
                     for n1 in range(self.bd.nbands):
                         f_n = kpt1.f_n[n1]
                         if np.abs(f_n) < 1e-10:
-                            self.nbands = max(self.nbands, n1)
+                            self.nbandstmp = max(self.nbandstmp, n1)
                             break
+            tmp = np.zeros(kd.comm.size, dtype=int)
+            kd.comm.all_gather(np.array([self.nbandstmp]), tmp)
+            self.nbands = tmp.max()
         else:
             self.nbands = self.bd.nbands
                 
