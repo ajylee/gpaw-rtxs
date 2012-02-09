@@ -19,6 +19,7 @@ formula = 'H2'
 vacuum = 2.0
 xc = 'LDA'
 mode = 'lcao'
+h = 0.20
 
 cmr_params = {
     'db_keywords': [project_id],
@@ -28,6 +29,7 @@ cmr_params = {
     'formula': formula,
     'vacuum': vacuum,
     'mode': mode,
+    'h': h,
     }
 cmrfile = formula + '.cmr'
 
@@ -35,7 +37,7 @@ system1 = molecule(formula)
 system1.center(vacuum=vacuum)
 
 # first calculation: LDA lcao
-calc = GPAW(mode=mode, xc=xc, txt=None)
+calc = GPAW(mode=mode, xc=xc, h=h, txt=None)
 system1.set_calculator(calc)
 e = system1.get_potential_energy()
 calc.write(formula)
@@ -89,7 +91,7 @@ if rank == 0:
 
     # column_length=0 aligns data in the table (-1 : data unaligned is default)
     all.print_table(column_length=0,
-                    columns=['formula', 'xc', 'ase_potential_energy', 'PBE'])
+                    columns=['formula', 'xc', 'h', 'ase_potential_energy', 'PBE'])
 
 if rank == 0:
     equal(results['PBE'], e + ediff, 1e-6)
