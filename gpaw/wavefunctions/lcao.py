@@ -273,8 +273,8 @@ class LCAOWaveFunctions(WaveFunctions):
         gd = self.gd
         bd = self.bd
 
-        Mstart = self.ksl.Mstart
-        Mstop = self.ksl.Mstop
+        Mstart = ksl.Mstart
+        Mstop = ksl.Mstop
         
         bfs = self.basis_functions
         my_atom_indices = bfs.my_atom_indices
@@ -305,10 +305,9 @@ class LCAOWaveFunctions(WaveFunctions):
         # if rho is given, otherwise the coefficients are used.
         self.timer.start('LCAO forces: initial')
 
-        def get_density_matrix(f_n, C_nM, redistributor, desc):
+        def get_density_matrix(f_n, C_nM, redistributor):
             rho1_mm = ksl.calculate_blocked_density_matrix(f_n, C_nM).conj()
             rho_mm = redistributor.redistribute(rho1_mm)
-            #rho_mm = self.ksl.mmdescriptor.redistribute(desc, rho1_mm)
             return rho_mm
         
 
@@ -363,8 +362,8 @@ class LCAOWaveFunctions(WaveFunctions):
 
             # XXX should probably use bdsize x gdsize instead
             # That would be consistent with some existing grids
-            slgrid = self.ksl.blockgrid
-            grid = BlacsGrid(self.ksl.block_comm, self.gd.comm.size,
+            slgrid = ksl.blockgrid
+            grid = BlacsGrid(ksl.block_comm, self.gd.comm.size,
                              self.bd.comm.size)
             
             blocksize1 = -(-nao // grid.nprow)
@@ -378,23 +377,15 @@ class LCAOWaveFunctions(WaveFunctions):
             Fpot_av = np.zeros_like(F_av)
             for u, kpt in enumerate(self.kpt_u):
                 self.timer.start('get density matrix')
-                rhoT_mm = get_density_matrix(kpt.f_n, kpt.C_nM,
-                                             redistributor, desc)
+                rhoT_mm = get_density_matrix(kpt.f_n, kpt.C_nM, redistributor)
                 rhoT_umm.append(rhoT_mm)
                 self.timer.stop('get density matrix')
                 
                 self.timer.start('LCAO forces: potential')
                 rhoT_mM = ksl.distribute_to_columns(rhoT_mm, desc)
-
-
-                rhoT_mM = self.ksl.get_transposed_density_matrix(kpt.f_n,
-                                                                 kpt.C_nM)
-
                 
-                #for u, kpt in enumerate(self.kpt_u):
                 vt_G = hamiltonian.vt_sG[kpt.s]
-                Fpot_av += bfs.calculate_force_contribution(vt_G,
-                                                            rhoT_mM,
+                Fpot_av += bfs.calculate_force_contribution(vt_G, rhoT_mM,
                                                             kpt.q)
                 del rhoT_mM
                 self.timer.stop('LCAO forces: potential')
@@ -402,7 +393,7 @@ class LCAOWaveFunctions(WaveFunctions):
             self.timer.start('get density matrix')
             for kpt in self.kpt_u:
                 ET_mm = get_density_matrix(kpt.f_n * kpt.eps_n, kpt.C_nM,
-                                           redistributor, desc)
+                                           redistributor)
                 ET_umm.append(ET_mm)
             self.timer.stop('get density matrix')
             
@@ -456,13 +447,6 @@ class LCAOWaveFunctions(WaveFunctions):
         from gpaw.lcao.overlap import OppositeDirection,\
              TwoCenterIntegralCalculator, AtomicDisplacement, PairFilter
 
-        #class ProjectorPairFilter(PairFilter):
-        #    def iter(self):
-        #        for a1, a2, R_c, offset in self.pairs.iter():
-        #            yield a1, a2, R_c, offset
-        #            if a1 != a2:
-        #                yield a2, a1, -R_c, -offset
-
         if isblacs:
             self.timer.start('prepare TCI loop')
             M_a = bfs.M_a
@@ -490,11 +474,6 @@ class LCAOWaveFunctions(WaveFunctions):
             atompairs = r_and_offset_aao.keys()
             atompairs.sort()
 
-            #print 'number of atom pairs', len(atompairs)
-            
-            #atompairs, disp_aao = get_neighbor_displacements(nl, spos_ac,
-            #                                                 cell_cv,
-            #                                                 get_phases)
             self.timer.stop('get neighbors')
 
             T_expansions = tci.T_expansions
@@ -705,19 +684,8 @@ class LCAOWaveFunctions(WaveFunctions):
             # Cache of Displacement objects with spherical harmonics with
             # evaluated spherical harmonics.
             disp_aao = {}
-            self.misses = 0
-            self.hits = 0
 
-            combinations = set()
-
-            self.misses1 = 0
-            self.hits1 = 0
             def get_displacements(a1, a2, maxdistance):
-                #if (a1, a2) in combinations:
-                #    self.hits1 += 1
-                #else:
-                #    combinations.add((a1, a2))
-                #    self.misses1 += 1
                 # XXX the way maxdistance is handled it can lead to
                 # bad caching when different maxdistances are passed
                 # to subsequent calls with same pair of atoms
@@ -732,9 +700,6 @@ class LCAOWaveFunctions(WaveFunctions):
                         disp_o.append(disp)
                     disp_aao[(a1, a2)] = disp_o
                     self.timer.stop('displacements')
-                    self.misses += 1
-                else:
-                    self.hits += 1
                 return [disp for disp in disp_o if disp.r < maxdistance]
                 
             # THIS IS WHERE THE REAL THING STARTS
@@ -800,8 +765,6 @@ class LCAOWaveFunctions(WaveFunctions):
             Fkin_av = Fkin2_av
             Ftheta_av = Ftheta2_av
             self.timer.stop('not so complicated loop')
-
-            #print 'not so complicated', self.world.rank, self.hits, self.misses
 
             dHP_and_dSP_aauim = {}
 
@@ -873,6 +836,10 @@ class LCAOWaveFunctions(WaveFunctions):
                     else:
                         P_qmi = P_expansion2.zeros((nq,), dtype=dtype)
                         for disp in disp_o:
+                            # XXX We only use evaluate_direct, but disp
+                            # already contain spherical harmonics derivatives.
+                            #
+                            # Maybe use lazy evaluation of derivatives?
                             disp.evaluate_direct(P_expansion2, P_qmi)
                         P_qmi = P_qmi[:, J2start:J2stop].copy()
                         dH_sp = alldH_asp[a3]
@@ -884,6 +851,7 @@ class LCAOWaveFunctions(WaveFunctions):
                             dH_ii = unpack(dH_sp[kpt.s])
                             dHP_im = np.dot(P_qmi[kpt.q],
                                             dH_ii).T.conj()
+                            # XXX only need nq of these
                             dSP_im = np.dot(P_qmi[kpt.q], dS_ii).T.conj()
                             dHP_uim.append(dHP_im)
                             dSP_uim.append(dSP_im)
@@ -906,7 +874,7 @@ class LCAOWaveFunctions(WaveFunctions):
                         Frho_av[a3] += Frho_c
                         
             self.timer.stop('complicated loop')
-            #print 'complicated', self.world.rank, self.hits, self.misses
+        
         if not isblacs:
             # Potential contribution
             #
