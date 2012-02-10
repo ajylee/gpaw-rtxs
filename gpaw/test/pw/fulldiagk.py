@@ -24,7 +24,7 @@ if world.size <= 2:
     scalapack = None
 else:
     mb = world.size // 4
-    scalapack = (mb, mb, 32)
+    scalapack = (2, world.size // 4, 32)
 
 a.calc.diagonalize_full_hamiltonian(nbands=120, scalapack=scalapack)
 w2 = a.calc.get_pseudo_wave_function(0, 1)

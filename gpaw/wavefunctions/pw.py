@@ -514,12 +514,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
             md2 = BlacsDescriptor(bg2, npw, npw, b, b)
-            assert nprow == npcol
 
             md3 = BlacsDescriptor(bg, npw, npw, bd.mynbands, npw)
         else:
             md = md2 = MatrixDescriptor(npw, npw)
             nprow = npcol = 1
+
+        assert bd.comm.size == nprow * npcol
 
         self.pt.set_positions(atoms.get_scaled_positions())
         self.kpt_u[0].P_ani = None
@@ -539,13 +540,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
             md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
             del H_GG, S_GG
 
-            if nprow * npcol < bd.comm.size:
-                bd.comm.broadcast(eps_n, 0)
             kpt.eps_n = eps_n[myslice].copy()
 
             if scalapack:
                 r = Redistributor(bd.comm, md2, md3)
-                psit_nG = r.redistribute(psit_nG)
+                psit_nG = r.redistribute(psit_nG,
+                                         subM=bd.mynbands,
+                                         subN=npw)
 
             kpt.psit_nG = psit_nG[:bd.mynbands].copy()
             del psit_nG

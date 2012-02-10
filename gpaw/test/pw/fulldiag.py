@@ -21,8 +21,7 @@ a.calc.write('H2')
 if world.size == 1:
     scalapack = None
 else:
-    mb = {2: 1, 4: 2, 8: 2}[world.size]
-    scalapack = (mb, mb, 32)
+    scalapack = (2, world.size // 2, 32)
 
 a.calc.diagonalize_full_hamiltonian(nbands=120, scalapack=scalapack)
 w2 = a.calc.get_pseudo_wave_function(0)
