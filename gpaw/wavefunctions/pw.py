@@ -554,9 +554,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             if scalapack:
                 r = Redistributor(bd.comm, md2, md3)
-                psit_nG = r.redistribute(psit_nG,
-                                         )#subM=bd.mynbands,
-                                         #subN=npw)
+                psit_nG = r.redistribute(psit_nG)
 
             kpt.psit_nG = psit_nG[:bd.mynbands].copy()
             del psit_nG
