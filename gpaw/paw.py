@@ -407,7 +407,7 @@ class PAW(PAWTextOutput):
             else:
                 h = par.h / Bohr
 
-            if 1:#real_space:
+            if real_space:
                 N_c = h2gpts(h, cell_cv, 4)
             else:
                 # Need to test this a bit more ...
