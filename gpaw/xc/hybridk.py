@@ -241,7 +241,7 @@ class HybridXC(XCFunctional):
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
 
-        # Add EXX contribution:
+         # Add EXX contribution:
         return exc + self.exx
 
     def calculate_exx(self):
@@ -323,8 +323,11 @@ class HybridXC(XCFunctional):
         if self.etotflag:
             if self.acdf:
                 self.exxacdf = self.world.sum(self.exxacdf[0])
-                self.exxacdf += self.calculate_exx_paw_correction()
                 self.exx = self.exxacdf
+            else:
+                self.exx = self.world.sum(self.exx[0])
+            self.exx += self.calculate_exx_paw_correction()
+                
         else:
             for kpt in self.kpt_u:
                 for a, D_sp in self.density.D_asp.items():
@@ -447,7 +450,7 @@ class HybridXC(XCFunctional):
                         self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
                                    f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight
                     else:
-                        self.exx += f1 * f2 * e * kpt1.weight
+                        self.exx += f2 * e * kpt1.weight
                 else:
                     self.exx_skn[kpt1.s, kpt1.k, n1] += 2 * f2 * e
 
@@ -457,7 +460,7 @@ class HybridXC(XCFunctional):
                             self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
                                         f2 * (1-np.sign(e1-e2)) * e ) * kpt2.weight
                         else:
-                            self.exx += f1 * f2 * e * kpt2.weight
+                            self.exx += f1 * e * kpt2.weight
                     else:
                         self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
                     
