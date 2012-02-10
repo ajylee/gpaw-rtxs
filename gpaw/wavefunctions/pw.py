@@ -216,69 +216,79 @@ class PWDescriptor:
             return result
 
     def interpolate(self, a_R, pd):
+        a_Q = self.tmp_Q
+        b_Q = pd.tmp_Q
+
+        e0, e1, e2 = 1 - self.gd.N_c % 2  # even or odd size
+        a0, a1, a2 = pd.gd.N_c // 2 - self.gd.N_c // 2
+        b0, b1, b2 = self.gd.N_c + (a0, a1, a2)
+
         if self.dtype == float:
-            return self.interpolate_real(a_R, pd)
+            b2 = (b2 - a2) // 2 + 1
+            a2 = 0
+            axes = (0, 1)
+        else:
+            axes = (0, 1, 2)
 
-        a_Q = self.tmp_Q
-        b_Q = pd.tmp_Q
-        n0, n1, n2 = a_Q.shape
-        n0 //= 2
-        n1 //= 2
-        n2 //= 2
         self.tmp_R[:] = a_R
         self.fftplan.execute()
         b_Q[:] = 0.0
-        b_Q[n0:-n0, n1:-n1, n2:-n2] = np.fft.fftshift(a_Q)
-        b_Q[n0, n1:-n1, n2:-n2] /= 2
-        b_Q[-n0, n1:-n1, n2:-n2] = b_Q[n0, n1:-n1, n2:-n2]
-        b_Q[n0:-n0 + 1, n1, n2:-n2] /= 2
-        b_Q[n0:-n0 + 1, -n1, n2:-n2] = b_Q[n0:-n0 + 1, n1, n2:-n2]
-        b_Q[n0:-n0 + 1, n1:-n1 + 1, n2] /= 2
-        b_Q[n0:-n0 + 1, n1:-n1 + 1, -n2] = b_Q[n0:-n0 + 1, n1:-n1 + 1, n2]
-        b_Q[:] = np.fft.ifftshift(b_Q)
-        pd.ifftplan.execute()
-        return pd.tmp_R * (8.0 / pd.tmp_R.size), a_Q.ravel()[self.Q_G]
+        b_Q[a0:b0, a1:b1, a2:b2] = np.fft.fftshift(a_Q, axes=axes)
 
-    def interpolate_real(self, a_R, pd):
-        a_Q = self.tmp_Q
-        b_Q = pd.tmp_Q
-        n0, n1, n2 = a_Q.shape
-        n0 //= 2
-        n1 //= 2
-        self.tmp_R[:] = a_R
-        self.fftplan.execute()
-        b_Q[:] = 0.0
-        b_Q[n0:-n0, n1:-n1, :n2] = np.fft.fftshift(a_Q, axes=(0, 1))
-        b_Q[n0, n1:-n1, :n2] /= 2
-        b_Q[-n0, n1:-n1, :n2] = b_Q[n0, n1:-n1, :n2]
-        b_Q[n0:-n0 + 1, n1, :n2] /= 2
-        b_Q[n0:-n0 + 1, -n1, :n2] = b_Q[n0:-n0 + 1, n1, :n2]
-        b_Q[n0:-n0 + 1, n1:-n1 + 1, n2 - 1] /= 2
-        b_Q[:] = np.fft.ifftshift(b_Q, axes=(0, 1))
+        if e0:
+            b_Q[a0, a1:b1, a2:b2] *= 0.5
+            b_Q[b0, a1:b1, a2:b2] = b_Q[a0, a1:b1, a2:b2]
+            b0 += 1
+        if e1:
+            b_Q[a0:b0, a1, a2:b2] *= 0.5
+            b_Q[a0:b0, b1, a2:b2] = b_Q[a0:b0, a1, a2:b2]
+            b1 += 1
+        if self.dtype == complex:
+            if e2:
+                b_Q[a0:b0, a1:b1, a2] *= 0.5
+                b_Q[a0:b0, a1:b1, b2] = b_Q[a0:b0, a1:b1, a2]
+        else:
+            if e2:
+                b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
+
+        b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
         pd.ifftplan.execute()
-        return pd.tmp_R * (8.0 / pd.tmp_R.size), a_Q.ravel()[self.Q_G]
+        return pd.tmp_R * (1.0 / self.tmp_R.size), a_Q.ravel()[self.Q_G]
 
     def restrict(self, a_R, pd):
-        if self.dtype == float:
-            return self.restrict_real(a_R, pd)
-
         a_Q = pd.tmp_Q
         b_Q = self.tmp_Q
-        n0, n1, n2 = a_Q.shape
-        n0 //= 2
-        n1 //= 2
-        n2 //= 2
+
+        e0, e1, e2 = 1 - pd.gd.N_c % 2  # even or odd size
+        a0, a1, a2 = self.gd.N_c // 2 - pd.gd.N_c // 2
+        b0, b1, b2 = pd.gd.N_c // 2 + self.gd.N_c // 2 + 1
+
+        if self.dtype == float:
+            b2 = pd.gd.N_c[2] // 2 + 1
+            a2 = 0
+            axes = (0, 1)
+        else:
+            axes = (0, 1, 2)
+
         self.tmp_R[:] = a_R
         self.fftplan.execute()
-        b_Q[:] = np.fft.fftshift(b_Q)
-        b_Q[n0, n1:-n1 + 1, n2:-n2 + 1] += b_Q[-n0, n1:-n1 + 1, n2:-n2 + 1]
-        b_Q[n0, n1:-n1 + 1, n2:-n2 + 1] *= 0.5
-        b_Q[n0:-n0, n1, n2:-n2 + 1] += b_Q[n0:-n0, -n1, n2:-n2 + 1]
-        b_Q[n0:-n0, n1, n2:-n2 + 1] *= 0.5
-        b_Q[n0:-n0, n1:-n1, n2] += b_Q[n0:-n0, n1:-n1, -n2]
-        b_Q[n0:-n0, n1:-n1, n2] *= 0.5
-        a_Q[:] = b_Q[n0:-n0, n1:-n1, n2:-n2]
-        a_Q[:] = np.fft.ifftshift(a_Q)
+        b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
+
+        if e0:
+            b_Q[a0, a1:b1, a2:b2] += b_Q[b0 - 1, a1:b1, a2:b2]
+            b_Q[a0, a1:b1, a2:b2] *= 0.5
+            b0 -= 1
+        if e1:
+            b_Q[a0:b0, a1, a2:b2] += b_Q[a0:b0, b1 - 1, a2:b2]
+            b_Q[a0:b0, a1, a2:b2] *= 0.5
+            b1 -= 1
+        if self.dtype == complex and e2:
+            b_Q[a0:b0, a1:b1, a2] += b_Q[a0:b0, a1:b1, b2 - 1]
+            b_Q[a0:b0, a1:b1, a2] *= 0.5
+            b2 -= 1
+
+        a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
+        a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
         a_G = a_Q.ravel()[pd.Q_G] / 8
         pd.ifftplan.execute()
         return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
