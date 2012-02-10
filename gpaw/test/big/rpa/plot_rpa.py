@@ -1,7 +1,7 @@
 import numpy as np
 from pylab import *
 from gpaw.response.tool import linear_fit
-from ase.test import equal
+from gpaw.test import equal
 
 tag = 'Nabulk'
 d = np.loadtxt('%s_RPA.dat' %(tag))
