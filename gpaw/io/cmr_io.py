@@ -91,9 +91,15 @@ class Writer:
             print "dimension: ", name, value
 
     def __setitem__(self, name, value):
+        """ sets the value of a variable in the db-file. Note that only
+        values that were defined in the cmr-schema are written.
+        (User defined values have to be added with set_user_variable(name, value)
+        IMPORTANT: CMR does not support None values for numbers, therefore all variables
+        with value None are ignored."""
         if self.verbose:
             print "name value:", name, value
-        self.data[name]=value
+        if not value is None:
+            self.data[name]=value
         
     def _get_dimension(self, array):
         """retrieves the dimension of a multidimensional array
