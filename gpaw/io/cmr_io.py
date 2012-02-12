@@ -27,8 +27,8 @@ try:
     def get_writer():
         return Converter.get_xml_writer(CALCULATOR_GPAW)
     
-    def create_db_filename(param):
-        return cdbfn(param)
+    def create_db_filename(param, ext=".db"):
+        return cdbfn(param, ext=ext)
     
 except:    
     #old style cmr io
