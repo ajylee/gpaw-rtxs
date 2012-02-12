@@ -98,6 +98,8 @@ class Writer:
         with value None are ignored."""
         if self.verbose:
             print "name value:", name, value
+        if name == "GridSpacing" and value == "None":
+            return
         if not value is None:
             self.data[name]=value
         
