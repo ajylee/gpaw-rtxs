@@ -273,10 +273,8 @@ def divrl(a_g, l, r_g):
     return b_g
 
 
-def compiled_with_sl(extended_check=False):
-    if extended_check and not hasattr(_gpaw, 'Communicator'):
-        return False
-    return _gpaw.compiled_with_sl()
+def compiled_with_sl():
+    return hasattr(_gpaw, 'new_blacs_context')
 
 
 def load_balance(paw, atoms):
