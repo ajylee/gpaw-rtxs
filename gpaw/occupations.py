@@ -388,7 +388,7 @@ class SmoothDistribution(ZeroKelvin):
         if self.fermilevel is None:
             self.fermilevel = self.guess_fermi_level(wfs)
 
-        if not self.fixmagmom:
+        if not self.fixmagmom or wfs.nspins == 1:
             self.fermilevel, self.magmom, self.e_entropy = \
                              self.find_fermi_level(wfs, self.nvalence,
                                                    self.fermilevel)
