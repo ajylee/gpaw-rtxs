@@ -413,27 +413,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for f, psit_G in zip(f_n, kpt.psit_nG):
             nt_R += f * abs(self.pd.ifft(psit_G))**2
 
-    def initialize_wave_functions_from_basis_functions(self, basis_functions,
-                                                       density, hamiltonian,
-                                                       spos_ac):
-        FDPWWaveFunctions.initialize_wave_functions_from_basis_functions(
-            self, basis_functions, density, hamiltonian, spos_ac)
-
-        N_c = self.gd.N_c
-
-        for kpt in self.kpt_u:
-            if self.kd.gamma:
-                emikr_R = 1.0
-            else:
-                k_c = self.kd.ibzk_kc[kpt.k]
-                emikr_R = np.exp(-2j * pi *
-                                  np.dot(np.indices(N_c).T, k_c / N_c).T)
-
-            psit_nG = self.pd.empty(self.bd.mynbands)
-            for n, psit_R in enumerate(kpt.psit_nG):
-                psit_nG[n] = self.pd.fft(psit_R * emikr_R)
-            kpt.psit_nG = psit_nG
-
     def _get_wave_function_array(self, u, n):
         kpt = self.kpt_u[u]
         if self.kd.gamma:
@@ -567,6 +546,34 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         occupations.calculate(self)
         
+    def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
+        N_c = self.gd.N_c
+
+        psit_nR = self.gd.zeros(mynbands, self.dtype)
+
+        for kpt in self.kpt_u:
+            if self.kd.gamma:
+                emikr_R = 1.0
+            else:
+                k_c = self.kd.ibzk_kc[kpt.k]
+                emikr_R = np.exp(-2j * pi *
+                                  np.dot(np.indices(N_c).T, k_c / N_c).T)
+
+            basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
+            kpt.C_nM = None
+
+            kpt.psit_nG = self.pd.empty(self.bd.mynbands)
+            for n in range(mynbands):
+                kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R)
+
+    def random_wave_functions(self, mynao):
+        rs = np.random.RandomState(self.world.rank)
+        weight_G = 1.0 / (1.0 + (self.pd.G_Gv**2).sum(1))
+        for kpt in self.kpt_u:
+            psit_nG = kpt.psit_nG[mynao:]
+            psit_nG.real = rs.uniform(-1, 1, psit_nG.shape) * weight_G
+            psit_nG.imag = rs.uniform(-1, 1, psit_nG.shape) * weight_G
+
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
         self.pd.estimate_memory(mem.subnode('PW-descriptor'))
@@ -815,6 +822,7 @@ class ReciprocalSpaceDensity(Density):
         Density.set_positions(self, spos_ac, rank_a)
         self.nct_q = self.pd2.zeros()
         self.nct.add(self.nct_q, 1.0 / self.nspins)
+        print self.nct_q.shape, self.pd2.tmp_R.shape, self.pd2.tmp_Q.shape
         self.nct_G = self.pd2.ifft(self.nct_q)
 
     def interpolate(self, comp_charge=None):
