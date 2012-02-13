@@ -73,10 +73,10 @@ class FFTPlanB:
         if self.in_R.dtype == float:
             self.out_R[:] = np.fft.rfftn(self.in_R)
         elif self.out_R.dtype == float:
-            self.out_R[:] = np.fft.irfftn(self.in_R)
+            self.out_R[:] = np.fft.irfftn(self.in_R, self.out_R.shape)
             self.out_R *= self.out_R.size
         elif self.sign == 1:
-            self.out_R[:] = np.fft.ifftn(self.in_R)
+            self.out_R[:] = np.fft.ifftn(self.in_R, self.out_R.shape)
             self.out_R *= self.out_R.size
         else:
             self.out_R[:] = np.fft.fftn(self.in_R)
