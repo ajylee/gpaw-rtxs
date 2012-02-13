@@ -822,7 +822,6 @@ class ReciprocalSpaceDensity(Density):
         Density.set_positions(self, spos_ac, rank_a)
         self.nct_q = self.pd2.zeros()
         self.nct.add(self.nct_q, 1.0 / self.nspins)
-        print self.nct_q.shape, self.pd2.tmp_R.shape, self.pd2.tmp_Q.shape
         self.nct_G = self.pd2.ifft(self.nct_q)
 
     def interpolate(self, comp_charge=None):
