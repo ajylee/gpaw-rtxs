@@ -64,7 +64,7 @@ def main(nbands=1000, mprocs=2, mb=64):
         assert delta < tol
 
 if __name__ in ['__main__', '__builtin__']:
-    if not compiled_with_sl(True):
+    if not compiled_with_sl():
         print('Not built with ScaLAPACK. Test does not apply.')
     else:
         main()

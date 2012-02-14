@@ -49,7 +49,7 @@ def test(comm, M, N, mcpus, ncpus, mb, nb):
         print A_mn
 
 if __name__ in ['__main__', '__builtin__']:
-    if not compiled_with_sl(True):
+    if not compiled_with_sl():
         print('Not built with ScaLAPACK. Test does not apply.')
     else:
         M, N = 10, 10

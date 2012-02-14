@@ -349,7 +349,7 @@ def UTConstantWavefunctionFactory(dtype, parstride_bands, blocking, async):
 
 # -------------------------------------------------------------------
 
-if __name__ in ['__main__', '__builtin__'] and compiled_with_sl(True):
+if __name__ in ['__main__', '__builtin__'] and compiled_with_sl():
     # We may have been imported by test.py, if so we should redirect to logfile
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_hsblacs.log', verbosity=2)

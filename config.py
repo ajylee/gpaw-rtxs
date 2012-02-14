@@ -378,7 +378,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
     for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/transformers.c', 'c/compiled_WITH_SL.c',
+               'c/operators.c', 'c/transformers.c',
                'c/blacs.c', 'c/utilities.c', 'c/hdf5.c']
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])

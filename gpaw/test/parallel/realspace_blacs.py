@@ -120,7 +120,7 @@ def main(seed=42, dtype=float):
     parallelprint(world, C_nN)
 
 if __name__ in ['__main__', '__builtin__']:
-    if not compiled_with_sl(True):
+    if not compiled_with_sl():
         print('Not built with ScaLAPACK. Test does not apply.')
     else:
         main(dtype=float)
