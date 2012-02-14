@@ -210,6 +210,7 @@ static PyMethodDef functions[] = {
 
 #ifdef PARALLEL
 extern PyTypeObject MPIType;
+extern PyTypeObject GPAW_MPI_Request_type;
 #endif
 
 #ifndef GPAW_INTERPRETER
@@ -217,6 +218,8 @@ PyMODINIT_FUNC init_gpaw(void)
 {
 #ifdef PARALLEL
   if (PyType_Ready(&MPIType) < 0)
+    return;
+  if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
     return;
 #endif
 
@@ -227,6 +230,7 @@ PyMODINIT_FUNC init_gpaw(void)
 
 #ifdef PARALLEL
   Py_INCREF(&MPIType);
+  Py_INCREF(&GPAW_MPI_Request_type);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
