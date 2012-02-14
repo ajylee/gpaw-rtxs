@@ -208,7 +208,7 @@ class BEEF_Ensemble:
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
 
-    def get_ensemble_energies(self, ensemble_size=25000):
+    def get_ensemble_energies(self, ensemble_size=1000):
         """Returns an array of ensemble total energies"""
 
         if self.exch is None:
