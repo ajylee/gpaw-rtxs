@@ -27,12 +27,19 @@ class FDWaveFunctions(FDPWWaveFunctions):
                                    gd, nvalence, setups, bd,
                                    dtype, world, kd, timer)
 
-        self.wd = self.gd  # wave function descriptor
-        
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
 
         self.matrixoperator = MatrixOperator(self.orthoksl)
+
+    def empty(self, n=(), dtype=float, global_array=False, realspace=False):
+        return self.gd.empty(n, dtype, global_array)
+
+    def integrate(self, a_xg, b_yg=None, global_integral=True):
+        return self.gd.integrate(a_xg, b_yg, global_integral)
+
+    def bytes_per_wave_function(self):
+        return self.gd.bytecount(self.dtype)
 
     def set_setups(self, setups):
         self.pt = LFC(self.gd, [setup.pt_j for setup in setups],

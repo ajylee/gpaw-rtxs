@@ -122,7 +122,7 @@ class FDPWWaveFunctions(WaveFunctions):
         # from the file to memory:
         for kpt in self.kpt_u:
             file_nG = kpt.psit_nG
-            kpt.psit_nG = self.wd.empty(self.bd.mynbands, self.dtype)
+            kpt.psit_nG = self.empty(self.bd.mynbands, self.dtype)
             if extra_parameters.get('sic'):
                 kpt.W_nn = np.zeros((self.bd.nbands, self.bd.nbands),
                                     dtype=self.dtype)
@@ -179,19 +179,17 @@ class FDPWWaveFunctions(WaveFunctions):
         if self.bd.comm.rank == 0:
             self.kpt_comm.sum(F_av, 0)
 
-    def _get_wave_function_array(self, u, n):
+    def _get_wave_function_array(self, u, n, realspace=True):
         psit_nG = self.kpt_u[u].psit_nG
         if psit_nG is None:
             raise RuntimeError('This calculator has no wave functions!')
         return psit_nG[n][:] # dereference possible tar-file content
 
     def estimate_memory(self, mem):
-        gridbytes = self.wd.bytecount(self.dtype)
+        gridbytes = self.bytes_per_wave_function()
         mem.subnode('Arrays psit_nG', 
                     len(self.kpt_u) * self.bd.mynbands * gridbytes)
-        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self.wd,
-                                         self.dtype, self.bd.mynbands,
-                                         self.bd.nbands)
+        self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self)
         self.pt.estimate_memory(mem.subnode('Projectors'))
         self.matrixoperator.estimate_memory(mem.subnode('Overlap op'),
                                             self.dtype)

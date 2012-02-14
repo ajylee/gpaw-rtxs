@@ -381,7 +381,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
         
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
-        self.wd = self.pd
+
+    def empty(self, n=(), dtype=float, global_array=False, realspace=False):
+        if realspace:
+            return self.gd.empty(n, dtype, global_array)
+        else:
+            return self.pd.empty(n, dtype)
+
+    def integrate(self, a_xg, b_yg=None, global_integral=True):
+        return self.pd.integrate(a_xg, b_yg, global_integral)
+
+    def bytes_per_wave_function(self):
+        return self.gd.bytecount(self.dtype)
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
@@ -413,15 +424,20 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for f, psit_G in zip(f_n, kpt.psit_nG):
             nt_R += f * abs(self.pd.ifft(psit_G))**2
 
-    def _get_wave_function_array(self, u, n):
+    def _get_wave_function_array(self, u, n, realspace=True):
+        psit_G = FDPWWavefunctions._get_wave_function_array(self, u, n,
+                                                            realspace)
+        if not realspace:
+            return psit_G
+
         kpt = self.kpt_u[u]
         if self.kd.gamma:
-            return self.pd.ifft(kpt.psit_nG[n])
+            return self.pd.ifft(psit_G)
         else:
             N_c = self.gd.N_c
             k_c = self.kd.ibzk_kc[kpt.k]
             eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
-            return self.pd.ifft(kpt.psit_nG[n]) * eikr_R
+            return self.pd.ifft(psit_G) * eikr_R
 
     def write(self, writer, write_wave_functions=False):
         writer['Mode'] = 'pw'
@@ -437,8 +453,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         for s in range(self.nspins):
             for k in range(self.nibzkpts):
-                psit_nG = self.collect_array('psit_nG', k, s)
-                writer.fill(psit_nG, s, k)
+                for n in range(self.bd.nbands):
+                    psit_G = self.get_wave_function_array(n, k, s,
+                                                          realspace=False)
+                    writer.fill(psit_G, s, k, n)
 
     def hs(self, ham, q=-1, s=0, md=None):
         assert self.dtype == complex

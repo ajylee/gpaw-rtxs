@@ -756,7 +756,7 @@ def read(paw, reader):
 
             else:
                 for kpt in wfs.kpt_u:
-                    kpt.psit_nG = wfs.wd.empty(wfs.bd.mynbands, wfs.dtype)
+                    kpt.psit_nG = wfs.empty(wfs.bd.mynbands, wfs.dtype)
                     if hdf5:
                         indices = [kpt.s, kpt.k]
                         indices.append(wfs.bd.get_slice())

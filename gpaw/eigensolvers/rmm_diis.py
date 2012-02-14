@@ -8,10 +8,6 @@ from gpaw.utilities import unpack
 from gpaw.mpi import run
 
 
-def integrate(gd, a_G, b_G):
-    return np.real(gd.integrate(a_G, b_G, global_integral=False))
-
-
 class RMM_DIIS(Eigensolver):
     """RMM-DIIS eigensolver
 
@@ -40,9 +36,12 @@ class RMM_DIIS(Eigensolver):
             self.calculate_residuals(kpt, wfs, hamiltonian, kpt.psit_nG,
                                      kpt.P_ani, kpt.eps_n, R_nG)
 
-        gd = self.gd
+        def integrate(a_G, b_G):
+            return np.real(wfs.integrate(a_G, b_G, global_integral=False))
+
+        comm = wfs.gd.comm
         B = self.blocksize
-        dR_xG = gd.empty(B, wfs.dtype)
+        dR_xG = wfs.empty(B, wfs.dtype)
         P_axi = wfs.pt.dict(B)
         error = 0.0
         for n1 in range(0, wfs.bd.mynbands, B):
@@ -58,7 +57,7 @@ class RMM_DIIS(Eigensolver):
             if self.keep_htpsit:
                 R_xG = R_nG[n_x]
             else:
-                R_xG = gd.empty(B, wfs.dtype)
+                R_xG = wfs.empty(B, wfs.dtype)
                 psit_xG = kpt.psit_nG[n_x]
                 wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG, R_xG)
                 wfs.pt.integrate(psit_xG, P_axi, kpt.q)
@@ -75,8 +74,7 @@ class RMM_DIIS(Eigensolver):
                         weight = kpt.weight
                     else:
                         weight = 0.0
-                error += weight * integrate(gd,
-                                            R_xG[n - n1], R_xG[n - n1])
+                error += weight * integrate(R_xG[n - n1], R_xG[n - n1])
 
             # Precondition the residual:
             self.timer.start('precondition')
@@ -95,11 +93,11 @@ class RMM_DIIS(Eigensolver):
                                      calculate_change=True)
             
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-            RdR_x = np.array([integrate(gd, dR_G, R_G)
+            RdR_x = np.array([integrate(dR_G, R_G)
                               for R_G, dR_G in zip(R_xG, dR_xG)])
-            dRdR_x = np.array([integrate(gd, dR_G, dR_G) for dR_G in dR_xG])
-            gd.comm.sum(RdR_x)
-            gd.comm.sum(dRdR_x)
+            dRdR_x = np.array([integrate(dR_G, dR_G) for dR_G in dR_xG])
+            comm.sum(RdR_x)
+            comm.sum(dRdR_x)
 
             lam_x = -RdR_x / dRdR_x
             # Calculate new psi'_G = psi_G + lam pR_G + lam pR'_G
@@ -113,5 +111,5 @@ class RMM_DIIS(Eigensolver):
             self.timer.stop('precondition')
             
         self.timer.stop('RMM-DIIS')
-        error = gd.comm.sum(error)
+        error = comm.sum(error)
         return error

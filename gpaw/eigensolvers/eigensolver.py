@@ -25,7 +25,6 @@ class Eigensolver:
         self.band_comm = wfs.band_comm
         self.dtype = wfs.dtype
         self.bd = wfs.bd
-        self.gd = wfs.wd
         self.ksl = wfs.diagksl
         self.nbands = wfs.bd.nbands
         self.mynbands = wfs.bd.mynbands
@@ -39,7 +38,7 @@ class Eigensolver:
 
         if self.keep_htpsit:
             # Soft part of the Hamiltonian times psit:
-            self.Htpsit_nG = self.gd.zeros(self.nbands, self.dtype)
+            self.Htpsit_nG = wfs.empty(self.nbands, self.dtype)
 
         for kpt in wfs.kpt_u:
             if kpt.eps_n is None:
@@ -162,18 +161,18 @@ class Eigensolver:
 
         self.timer.stop('Subspace diag')
 
-    def estimate_memory(self, mem, gd, dtype, mynbands, nbands):
-        gridmem = gd.bytecount(dtype)
+    def estimate_memory(self, mem, wfs):
+        gridmem = wfs.bytes_per_wave_function()
 
-        keep_htpsit = self.keep_htpsit and (mynbands == nbands)
+        keep_htpsit = self.keep_htpsit and (wfs.bd.mynbands == wfs.bd.nbands)
 
         if keep_htpsit:
-            mem.subnode('Htpsit', nbands * gridmem)
+            mem.subnode('Htpsit', wfs.bd.nbands * gridmem)
         else:
             mem.subnode('No Htpsit', 0)
 
-        mem.subnode('eps_n', mynbands*mem.floatsize)
-        mem.subnode('eps_N', nbands*mem.floatsize)
+        mem.subnode('eps_n', wfs.bd.mynbands * mem.floatsize)
+        mem.subnode('eps_N', wfs.bd.nbands * mem.floatsize)
         mem.subnode('Preconditioner', 4 * gridmem)
         mem.subnode('Work', gridmem)
         

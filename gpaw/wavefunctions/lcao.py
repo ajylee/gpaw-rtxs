@@ -66,6 +66,15 @@ class LCAOWaveFunctions(WaveFunctions):
                                               kd,
                                               cut=True)
 
+    def empty(self, n=(), dtype=float, global_array=False, realspace=False):
+        if realspace:
+            return self.gd.empty(n, dtype, global_array)
+        else:
+            if isinstance(n, int):
+                n = (n,)
+            nao = self.setups.nao
+            return np.empty(n + (nao,), dtype)
+
     def summary(self, fd):
         fd.write('Mode: LCAO\n')
         
@@ -982,16 +991,20 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('Wait for sum')
         self.timer.stop('LCAO forces')
 
-
-    def _get_wave_function_array(self, u, n):
+    def _get_wave_function_array(self, u, n, realspace=True):
         kpt = self.kpt_u[u]
         if kpt.C_nM is None:
             # Hack to make sure things are available after restart
             self.lazyloader.load(self)
         
-        psit_G = self.gd.zeros(dtype=self.dtype)
-        self.basis_functions.lcao_to_grid(kpt.C_nM[n], psit_G, kpt.q)
-        return psit_G
+        C_M = kpt.C_nM[n]
+
+        if realspace:
+            psit_G = self.gd.zeros(dtype=self.dtype)
+            self.basis_functions.lcao_to_grid(C_M, psit_G, kpt.q)
+            return psit_G
+        else:
+            return C_M
 
     def load_lazily(self, hamiltonian, spos_ac):
         """Horrible hack to recalculate lcao coefficients after restart."""
