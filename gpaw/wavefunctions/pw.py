@@ -425,7 +425,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             nt_R += f * abs(self.pd.ifft(psit_G))**2
 
     def _get_wave_function_array(self, u, n, realspace=True):
-        psit_G = FDPWWavefunctions._get_wave_function_array(self, u, n,
+        psit_G = FDPWWaveFunctions._get_wave_function_array(self, u, n,
                                                             realspace)
         if not realspace:
             return psit_G
