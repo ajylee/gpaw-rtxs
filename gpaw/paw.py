@@ -172,7 +172,7 @@ class PAW(PAWTextOutput):
             
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'poissonsolver', 'idiotproof', 'notify']:
+                       'eigensolver', 'idiotproof', 'notify']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -183,7 +183,7 @@ class PAW(PAWTextOutput):
             self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'occupations']:
+                       'poissonsolver', 'occupations']:
                 self.hamiltonian = None
                 self.occupations = None
             elif key in ['charge']:
