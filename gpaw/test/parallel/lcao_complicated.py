@@ -105,9 +105,5 @@ if world.size > 1:
     check(parallel)
 
 if compiled_with_sl():
-    if world.size == 1:
-        sl_default = (1, 1, 5)
-    else:
-        sl_default = (sl_cpus // 2, 2, 5)
-    parallel['sl_default'] = sl_default
+    parallel['sl_auto'] = True
     check(parallel)
