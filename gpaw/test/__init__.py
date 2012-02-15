@@ -353,7 +353,8 @@ except ImportError:
                 'bse_silicon.py',
                 'aeatom.py',
                 'rpa_energy_Si.py',
-                'rpa_energy_N2.py']
+                'rpa_energy_N2.py',
+                'gw_test.py']
 
 try:
     import _hdf5
