@@ -29,7 +29,7 @@ class KPointDescriptor:
 
         Parameters
         ----------
-        kpts: None, list of ints, or ndarray
+        kpts: None, sequence of 3 ints, or (n,3) shaped ndarray
             Specification of the k-point grid. None=Gamma, list of
             ints=Monkhorst-Pack, ndarray=user specified.
         nspins: int
@@ -138,7 +138,7 @@ class KPointDescriptor:
              self.bz2ibz_k,
              self.ibz2bz_k,
              self.bz2bz_ks) = self.symmetry.reduce(self.bzk_kc, comm)
-
+            
         if setups is not None:
             setups.set_symmetry(self.symmetry)
 
@@ -148,6 +148,17 @@ class KPointDescriptor:
             self.nks = self.nibzkpts * self.nspins
         else:
             self.nks = self.nibzkpts
+
+        # Wrap k-points to 1. BZ:
+        self.i1bzk_kc = self.ibzk_kc.copy()
+        if atoms is not None:
+            B_cv = 2.0 * np.pi * np.linalg.inv(atoms.cell / Bohr).T
+            K_kv = np.dot(self.ibzk_kc, B_cv)
+            N_xc = np.indices((3, 3, 3)).reshape((3, 27)).T - 1
+            G_xv = np.dot(N_xc, B_cv)
+            for k, K_v in enumerate(K_kv):
+                x = ((G_xv - K_v)**2).sum(1).argmin()
+                self.i1bzk_kc[k] -= N_xc[x]
         
     def set_communicator(self, comm):
         """Set k-point communicator."""
@@ -164,9 +175,12 @@ class KPointDescriptor:
         if self.nspins == 2 and comm.size == 1:  # NCXXXXXXXX
             # Avoid duplicating k-points in local list of k-points.
             self.ibzk_qc = self.ibzk_kc.copy()
+            self.i1bzk_qc = self.i1bzk_kc.copy()
         else:
             self.ibzk_qc = np.vstack((self.ibzk_kc,
                                       self.ibzk_kc))[self.get_slice()]
+            self.i1bzk_qc = np.vstack((self.i1bzk_kc,
+                                       self.i1bzk_kc))[self.get_slice()]
 
     def create_k_points(self, gd):
         """Return a list of KPoints."""

@@ -71,18 +71,18 @@ class PWDescriptor:
         self.G_Gv = G_Qv[self.Q_G]
 
         self.n_c = self.Q_G #??????? # used by hs_operators.py XXX
-        self.ibzk_qc = []
+        self.i1bzk_qc = []
 
-    def g2(self, ibzk_qc):
+    def g2(self, i1bzk_qc):
         # Did we already do this one?
-        if (len(self.ibzk_qc) == len(ibzk_qc) and
-            (self.ibzk_qc == ibzk_qc).all()):
+        if (len(self.i1bzk_qc) == len(i1bzk_qc) and
+            (self.i1bzk_qc == i1bzk_qc).all()):
             return self.G2_qG
 
         # No.
-        self.ibzk_qc = ibzk_qc
+        self.i1bzk_qc = i1bzk_qc
         B_cv = 2.0 * pi * self.gd.icell_cv
-        K_qv = np.dot(ibzk_qc, B_cv)
+        K_qv = np.dot(i1bzk_qc, B_cv)
         self.G2_qG = np.zeros((len(K_qv), len(self.Q_G)))
         for q, K_v in enumerate(K_qv):
             self.G2_qG[q] = ((self.G_Gv + K_v)**2).sum(1)
@@ -399,7 +399,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.fftwflags)
         self.timer.stop('PWDescriptor')
 
-        self.G2_qG = self.pd.g2(self.kd.ibzk_qc)
+        self.G2_qG = self.pd.g2(self.kd.i1bzk_qc)
 
         self.pt = PWLFC([setup.pt_j for setup in setups], self.pd, self.kd)
 
@@ -435,7 +435,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             return self.pd.ifft(psit_G)
         else:
             N_c = self.gd.N_c
-            k_c = self.kd.ibzk_kc[kpt.k]
+            k_c = self.kd.i1bzk_kc[kpt.k]
             eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
             return self.pd.ifft(psit_G) * eikr_R
 
@@ -573,7 +573,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             if self.kd.gamma:
                 emikr_R = 1.0
             else:
-                k_c = self.kd.ibzk_kc[kpt.k]
+                k_c = self.kd.i1bzk_kc[kpt.k]
                 emikr_R = np.exp(-2j * pi *
                                   np.dot(np.indices(N_c).T, k_c / N_c).T)
 
@@ -628,7 +628,7 @@ class PWLFC(BaseLFC):
         if kd is None:
             k_qc = np.zeros((1, 3))
         else:
-            k_qc = kd.ibzk_qc
+            k_qc = kd.i1bzk_qc
 
         self.G2_qG = pd.g2(k_qc)
 
@@ -700,7 +700,7 @@ class PWLFC(BaseLFC):
         if self.kd is None or self.kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
         else:
-            self.eikR_qa = np.exp(2j * pi * np.dot(self.kd.ibzk_qc, spos_ac.T))
+            self.eikR_qa = np.exp(2j * pi * np.dot(self.kd.i1bzk_qc, spos_ac.T))
 
         pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
         self.emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Gv, pos_av.T))
