@@ -31,13 +31,13 @@ class LCAO:
         # XXX document parallel stuff, particularly root parameter
         assert self.has_initialized
 
-        wfs.timer.start('Potential matrix')
-
         bf = wfs.basis_functions
-
+        
         if Vt_xMM is None:
+            wfs.timer.start('Potential matrix')
             vt_G = hamiltonian.vt_sG[kpt.s]
             Vt_xMM = bf.calculate_potential_matrices(vt_G)
+            wfs.timer.stop('Potential matrix')
 
         if bf.gamma:
             y = 1.0
@@ -45,14 +45,14 @@ class LCAO:
             if wfs.dtype == complex:
                 H_MM = H_MM.astype(complex)
         else:
+            wfs.timer.start('Sum over cells')
             y = 0.5
             k_c = wfs.kd.ibzk_qc[kpt.q]
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]
             for sdisp_c, Vt_MM in zip(bf.sdisp_xc, Vt_xMM)[1:]:
                 H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
-
-        wfs.timer.stop('Potential matrix')
-
+            wfs.timer.stop('Sum over cells')
+        
         # Add atomic contribution
         #
         #           --   a     a  a*
@@ -84,8 +84,10 @@ class LCAO:
         for kpt in wfs.kpt_u:
             if kpt.s != s:
                 s = kpt.s
+                wfs.timer.start('Potential matrix')
                 Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
                     hamiltonian.vt_sG[s])
+                wfs.timer.stop('Potential matrix')
             self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
 
         wfs.timer.stop('LCAO eigensolver')
