@@ -208,7 +208,7 @@ class BEEF_Ensemble:
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
 
-    def get_ensemble_energies(self, ensemble_size=1000):
+    def get_ensemble_energies(self, ensemble_size=2000, seed=0):
         """Returns an array of ensemble total energies"""
 
         if self.exch is None:
@@ -223,11 +223,11 @@ class BEEF_Ensemble:
         assert len(c) == 2
 
         basis_constribs = np.append(x, c)
-        ensemble_coefs = self.get_ensemble_coefs(ensemble_size)
+        ensemble_coefs = self.get_ensemble_coefs(ensemble_size, seed)
         de = np.dot(ensemble_coefs, basis_constribs)
         return de
 
-    def get_ensemble_coefs(self, ensemble_size):
+    def get_ensemble_coefs(self, ensemble_size, seed):
         """Pertubation coefficients of BEEF ensemble functionals."""
 
         if self.xc in ['BEEF-vdW', 'BEEF-1']:
@@ -236,11 +236,12 @@ class BEEF_Ensemble:
             N = ensemble_size
             assert np.shape(uiOmega) == (31, 31)
             Wo, Vo = np.linalg.eig(uiOmega)
+            np.random.seed(seed)
+            RandV = np.random.randn(31, N)
 
             for j in range(N):
-                np.random.seed(j)
-                RandV = np.random.randn(31)
-                coefs_i = (np.dot(np.dot(Vo, np.diag(np.sqrt(Wo))), RandV)[:])
+                v = RandV[:,j]
+                coefs_i = (np.dot(np.dot(Vo, np.diag(np.sqrt(Wo))), v)[:])
                 if j == 0:
                     ensemble_coefs = coefs_i
                 else:
