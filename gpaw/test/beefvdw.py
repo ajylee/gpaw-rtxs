@@ -38,4 +38,5 @@ assert abs(f0 - 1.04407657919) < 1.e-6
 E_bind = 2*e_h - e_h2
 dE_bind = 2*de_h[:] - de_h2[:]
 dE_bind = np.std(dE_bind)
-assert abs(dE_bind - 0.201562413056) < 1.e-3
+assert abs(E_bind - 5.1263857048) < 1.e-6
+assert abs(dE_bind - 0.203761783634) < 1.e-3
