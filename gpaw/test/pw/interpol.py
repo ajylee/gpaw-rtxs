@@ -46,7 +46,7 @@ if world.size == 1:
         a2 = pd1r.interpolate(a1, pd2r)[0]
         c2 = pd1.interpolate(a1 + 0.0j, pd2)[0]
         d2 = pd1.interpolate(a1 * 1.0j, pd2)[0]
-        equal(gd1.integrate(a1), gd2.integrate(a2), 1e-14)
+        equal(gd1.integrate(a1), gd2.integrate(a2), 1e-13)
         equal(abs(c2 - a2).max(), 0, 1e-14)
         equal(abs(d2 - a2 * 1.0j).max(), 0, 1e-14)
 
