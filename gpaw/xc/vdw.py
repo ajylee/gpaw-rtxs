@@ -76,6 +76,7 @@ def hRPS(x, xc=1.0):
         y -= xm / m
         if m < 12:
             z += xm
+    np.clip(y, -1e10, 1e10, y)
     y = np.exp(y)
     return xc * (1.0 - y), z * y
 
