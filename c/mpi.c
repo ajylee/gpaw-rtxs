@@ -206,8 +206,7 @@ static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
     int dest, src;
     int sendtag = 123;
     int recvtag = 123;
-    // BUG ALERT: Is it not wrong that the order of arguments is different?!?
-    static char *kwlist[] = {"a", "dest", "sendtag", "b", "src", "recvtag",
+    static char *kwlist[] = {"a", "dest", "b", "src", "sendtag", "recvtag",
 			     NULL};
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OiOi|ii:sendreceive",
 				     kwlist,
@@ -842,7 +841,7 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args);
 static PyMethodDef mpi_methods[] = {
     {"sendreceive",          (PyCFunction)mpi_sendreceive,
      METH_VARARGS|METH_KEYWORDS,
-     "sendreceive(a, dest, desttag=123, b, src, srctag=123) sends an array to dest and receives an array a from src."},
+     "sendreceive(a, dest, b, src, desttag=123, srctag=123) sends an array to dest and receives an array a from src."},
     {"receive",          (PyCFunction)mpi_receive,
      METH_VARARGS|METH_KEYWORDS,
      "receive(a, src, tag=123, block=1) receives array a from src."},
