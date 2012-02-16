@@ -142,7 +142,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> dE_bind = np.std(dE_bind)
 
 
-The default number of ensemble XC functionals is 1000,
+The default number of ensemble XC functionals is 2000,
 for which well-converged error estimates should be ensured.
 Therefore, "de_h2" and "de_h" in the example
 are both arrays of 25000 pertubations of a BEEF-vdW total energy.
