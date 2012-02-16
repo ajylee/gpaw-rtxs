@@ -89,18 +89,19 @@ class CHI(BASECHI):
         # Frequency init
         self.dw = None
         if len(self.w_w) == 1:
-            self.HilberTrans = False
+            self.hilbert_trans = False
 
         if self.hilbert_trans:
             self.dw = self.w_w[1] - self.w_w[0]
-            assert ((self.w_w[1:] - self.w_w[:-1] - self.dw) < 1e-10).all() # make sure its linear w grid
+#            assert ((self.w_w[1:] - self.w_w[:-1] - self.dw) < 1e-10).all() # make sure its linear w grid
             assert self.w_w.max() == self.w_w[-1]
             
             self.dw /= Hartree
             self.w_w  /= Hartree
             self.wmax = self.w_w[-1] 
             self.wcut = self.wmax + 5. / Hartree
-            self.Nw  = int(self.wmax / self.dw) + 1
+#            self.Nw  = int(self.wmax / self.dw) + 1
+            self.Nw = len(self.w_w)
             self.NwS = int(self.wcut / self.dw) + 1
         else:
             self.Nw = len(self.w_w)
@@ -366,7 +367,7 @@ class CHI(BASECHI):
         else:
             self.kcomm.sum(specfunc_wGG)
             if self.wScomm.size == 1:
-                chi0_wGG = hilbert_transform(specfunc_wGG, self.Nw, self.dw, self.eta,
+                chi0_wGG = hilbert_transform(specfunc_wGG, self.w_w, self.Nw, self.dw, self.eta,
                                              self.full_hilbert_trans)[self.wstart:self.wend]
                 self.printtxt('Finished hilbert transform !')
                 del specfunc_wGG
@@ -387,7 +388,7 @@ class CHI(BASECHI):
         
                 specfunc_Wg = SliceAlongFrequency(specfuncnew_wGG, coords, self.wcomm)
                 self.printtxt('Finished Slice Along Frequency !')
-                chi0_Wg = hilbert_transform(specfunc_Wg, self.Nw, self.dw, self.eta,
+                chi0_Wg = hilbert_transform(specfunc_Wg, self.w_w, self.Nw, self.dw, self.eta,
                                             self.full_hilbert_trans)[:self.Nw]
                 self.printtxt('Finished hilbert transform !')
                 self.comm.barrier()

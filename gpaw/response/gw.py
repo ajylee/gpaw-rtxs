@@ -32,6 +32,29 @@ class GW(BASECHI):
                  txt=None
                 ):
 
+        # create nonlinear frequency grid
+        # grid is linear from 0 to wcut with spacing dw
+        # spacing is linearily increasing between wcut and wmax
+        # Hilbert transforms are still carried out on linear grid
+        wcut = w[0]
+        wmax = w[1]
+        dw = w[2]
+        w_w = np.linspace(0., wcut, wcut/dw+1)
+        i=1
+        wi=wcut
+        while wi < wmax:
+            wi += i*dw
+            w_w = np.append(w_w, wi)
+            i+=1
+        while ((len(w_w) - 1) % wpar) != 0:
+            wi += i*dw
+            w_w = np.append(w_w, wi)
+            i+=1
+
+        dw_w = np.zeros(len(w_w))
+        dw_w[0] = dw
+        dw_w[1:] = w_w[1:] - w_w[:-1]
+
         BASECHI.__init__(self, calc=file, nbands=nbands, w=w, ecut=ecut, eta=eta, txt=txt)
 
         self.file = file
@@ -41,6 +64,10 @@ class GW(BASECHI):
         self.hilbert_trans = hilbert_trans
         self.wpar = wpar
         self.exxfile = exxfile
+        self.w_w = w_w
+        self.dw_w = dw_w
+        self.eta_w = dw_w * 4
+        self.wcut = wcut
 
     def initialize(self):
 
@@ -61,15 +88,16 @@ class GW(BASECHI):
         self.nqpt = np.shape(self.bzq_kc)[0]
         
         # frequency points init
-        self.dw = self.w_w[1] - self.w_w[0]
-        assert ((self.w_w[1:] - self.w_w[:-1] - self.dw) < 1e-10).all() # make sure its linear w grid
-        assert self.w_w.max() == self.w_w[-1]
-        assert self.w_w.min() == self.w_w[0]
-        
-        self.dw /= Hartree
+        self.dw_w /= Hartree
         self.w_w  /= Hartree
+        self.eta_w /= Hartree
         self.wmax = self.w_w[-1]
-        self.wmin = self.w_w[0] 
+        self.wmin = self.w_w[0]
+        self.dw = self.w_w[1] - self.w_w[0]
+        self.Nw = len(self.w_w)
+
+        emaxdiff = self.e_kn[:, self.nbands].max() - self.e_kn[:,0].min()
+        assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
 
         # GW kpoints init
         if (self.kpoints == None):
@@ -87,7 +115,7 @@ class GW(BASECHI):
             self.gwnband = np.shape(self.bands)[0]
             self.gwbands_n = self.bands
 
-        self.alpha = 1j/(2*pi) * self.dw / (self.vol * self.nkpt)
+        self.alpha = 1j/(2*pi * self.vol * self.nkpt)
 
         # print init
         self.print_gw_init()
@@ -201,8 +229,11 @@ class GW(BASECHI):
             wcomm.all_gather(np.array([nG_local]), coords)
             W_Wg = SliceAlongFrequency(W_wGG, coords, wcomm)
 
-            Cplus_Wg = np.zeros_like(W_Wg)
-            Cminus_Wg = np.zeros_like(W_Wg)
+            ng = np.shape(W_Wg)[1]
+            Nw = int(self.w_w[-1] / self.dw)
+
+            Cplus_Wg = np.zeros((Nw, ng), dtype=complex)
+            Cminus_Wg = np.zeros((Nw, ng), dtype=complex)
             Cplus_wG0 = np.zeros((2, nG), dtype=complex)
             Cminus_wG0 = np.zeros((2, nG), dtype=complex)
 
@@ -214,10 +245,10 @@ class GW(BASECHI):
                 wcomm.all_gather(tmp_w, tmp_W)
                 del tmp_w
 
-            w2_w = np.arange(df.Nw) * self.dw
-            for iw in range(df.Nw):
+            for iw in range(Nw):
                 w1 = iw * self.dw
-                w1_w = 1. / (w1 + w2_w + 1j*self.eta) + 1. / (w1 - w2_w + 1j*self.eta)
+                w1_w = 1. / (w1 + self.w_w + 1j*self.eta_w) + 1. / (w1 - self.w_w + 1j*self.eta_w)
+                w1_w *= self.dw_w
                 Cplus_Wg[iw] = gemmdot(w1_w, W_Wg, beta=0.0)
                 Cminus_Wg[iw] = gemmdot(w1_w.conj(), W_Wg, beta=0.0)
                 # special Hilbert transform optical limit:
@@ -272,17 +303,17 @@ class GW(BASECHI):
                         wcomm.all_gather(C_wlocal, C_w)
                         del C_wlocal
 
-                        # w1 = w - epsilon_m,k-q + i*eta * sgn(epsilon_m,k-q, E_f)
-                        w1 = self.e_kn[ibzkpt1, n] - self.e_kn[ibzkpt2,m] + 1j*self.eta*sign
-                        w2_w = np.arange(df.Nw) * self.dw
+                        # w1 = w - epsilon_m,k-q
+                        w1 = self.e_kn[ibzkpt1, n] - self.e_kn[ibzkpt2,m]
 
                         # calculate self energy
-                        w1_w = 1./(w1 - w2_w) + 1./(w1 + w2_w)
-                        Pw = np.sum(w1_w)*self.dw - self.dw/w1
+                        w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign) + 1./(w1 + self.w_w + 1j*self.eta_w*sign)
+                        w1_w *= self.dw_w
                         Sigma_kn[i,j] += np.real(gemmdot(C_w, w1_w, beta=0.0))
 
                         # calculate derivate of self energy with respect to w
-                        w1_w = 1./(w1 - w2_w)**2 + 1./(w1 + w2_w)**2
+                        w1_w = 1./(w1 - self.w_w + 1j*self.eta_w*sign)**2 + 1./(w1 + self.w_w + 1j*self.eta_w*sign)**2
+                        w1_w *= self.dw_w
                         dSigma_kn[i,j] -= np.real(gemmdot(C_w, w1_w, beta=0.0))
 
                     else: #method 2
@@ -367,6 +398,11 @@ class GW(BASECHI):
             e_kn = data['e_kn'] # in Hartree
             v_kn = data['v_kn'] # in Hartree
             e_xx = data['e_xx'] # in Hartree
+            gwkpt_k = data['gwkpt_k']
+            gwbands_n = data['gwbands_n']
+            assert (gwkpt_k == self.gwkpt_k).all(), 'exxfile inconsistent with input parameters'
+            assert (gwbands_n == self.gwbands_n).all(), 'exxfile inconsistent with input parameters'
+
         else:
             self.printtxt("calculating Exact exchange and E_XC")
 
@@ -398,7 +434,9 @@ class GW(BASECHI):
     def print_gw_init(self):
 
         self.printtxt("Number of IBZ k-points       : %d" %(self.kd.nibzkpts))
-        self.printtxt("Frequency range (eV)         : %.2f - %.2f in %.2f" %(self.wmin*Hartree, self.wmax*Hartree, self.dw*Hartree))
+        self.printtxt("Linear frequency grid (eV)   : %.2f - %.2f in %.2f" %(self.wmin*Hartree, self.wcut, self.dw*Hartree))
+        self.printtxt("Maximum frequency (eV)       : %.2f" %(self.wmax*Hartree))
+        self.printtxt("Number of frequency points   : %d" %(self.Nw))
         self.printtxt('')
         self.printtxt('Calculate matrix elements for k = :')
         for k in self.gwkpt_k:
