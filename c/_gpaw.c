@@ -102,13 +102,6 @@ PyObject* pblas_rk(PyObject *self, PyObject *args);
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
-// IO wrappers
-#ifdef IO_WRAPPERS
-void init_io_wrappers();
-#endif
-PyObject* Py_enable_io_wrappers(PyObject *self, PyObject *args);
-PyObject* Py_disable_io_wrappers(PyObject *self, PyObject *args);
-
 static PyMethodDef functions[] = {
   {"symmetrize", symmetrize, METH_VARARGS, 0},
   {"symmetrize_wavefunction", symmetrize_wavefunction, METH_VARARGS, 0},
@@ -203,8 +196,6 @@ static PyMethodDef functions[] = {
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // GPAW_CRAYPAT
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
-  {"enable_io_wrappers", Py_enable_io_wrappers, METH_VARARGS, 0},
-  {"disable_io_wrappers", Py_disable_io_wrappers, METH_VARARGS, 0},
   {0, 0, 0, 0}
 };
 
@@ -275,10 +266,6 @@ main(int argc, char **argv)
 
 #ifdef GPAW_PERFORMANCE_REPORT
   gpaw_perf_init();
-#endif
-
-#ifdef IO_WRAPPERS
-  init_io_wrappers();
 #endif
 
 #ifdef GPAW_MPI_MAP
