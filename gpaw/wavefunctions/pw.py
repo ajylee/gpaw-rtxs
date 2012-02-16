@@ -567,7 +567,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         N_c = self.gd.N_c
 
-        psit_nR = self.gd.zeros(mynbands, self.dtype)
+        psit_nR = self.gd.empty(mynbands, self.dtype)
 
         for kpt in self.kpt_u:
             if self.kd.gamma:
@@ -577,6 +577,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 emikr_R = np.exp(-2j * pi *
                                   np.dot(np.indices(N_c).T, k_c / N_c).T)
 
+            psit_nR[:] = 0.0
             basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
             kpt.C_nM = None
 
