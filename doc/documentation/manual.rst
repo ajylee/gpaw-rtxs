@@ -177,6 +177,13 @@ See also the page on :ref:`lcao`.
 Number of electronic bands
 --------------------------
 
+This parameter determines how many bands are included in the calculation for
+each spin. For example, for spin-unpolarized system with 10 valence electrons
+``nbands=5`` would include all the occupied states. In 10 valence electron
+spin-polarized system with magnetic moment of 2 a minimum of ``nbands=6`` is
+needed (6 occupied bands for spin-up, 4 occupied bands and 2 empty bands for
+spin down).
+
 The default number of electronic bands (``nbands``) is equal to the
 number of atomic orbitals present in the atomic setups.  For systems
 with the occupied states well separated from the unoccupied states,
