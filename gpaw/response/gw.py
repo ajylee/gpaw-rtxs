@@ -317,7 +317,7 @@ class GW(BASECHI):
                         dSigma_kn[i,j] -= np.real(gemmdot(C_w, w1_w, beta=0.0))
 
                     else: #method 2
-                        if not self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n] == 0:
+                        if not self.e_kn[ibzkpt2,m] - self.e_kn[ibzkpt1,n] < 1e-10:
                             sign *= np.sign(self.e_kn[ibzkpt1,n] - self.e_kn[ibzkpt2,m])
 
                         # find points on frequency grid
