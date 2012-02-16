@@ -293,25 +293,6 @@ class PWDescriptor:
         pd.ifftplan.execute()
         return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
 
-    def restrict_real(self, a_R, pd):
-        a_Q = pd.tmp_Q
-        b_Q = self.tmp_Q
-        n0, n1, n2 = a_Q.shape
-        n0 //= 2
-        n1 //= 2
-        self.tmp_R[:] = a_R
-        self.fftplan.execute()
-        b_Q[:] = np.fft.fftshift(b_Q, axes=(0, 1))
-        b_Q[n0, n1:-n1 + 1, :n2] += b_Q[-n0, n1:-n1 + 1, :n2]
-        b_Q[n0, n1:-n1 + 1, :n2] *= 0.5
-        b_Q[n0:-n0, n1, :n2] += b_Q[n0:-n0, -n1, :n2]
-        b_Q[n0:-n0, n1, :n2] *= 0.5
-        a_Q[:] = b_Q[n0:-n0, n1:-n1, :n2]
-        a_Q[:] = np.fft.ifftshift(a_Q, axes=(0, 1))
-        a_G = a_Q.ravel()[pd.Q_G] / 8
-        pd.ifftplan.execute()
-        return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
-
     def map(self, pd):
         N_c = np.array(self.tmp_Q.shape)
         N3_c = pd.tmp_Q.shape
@@ -406,9 +387,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.set_setups(self, setups)
 
     def summary(self, fd):
-        fd.write('Mode: Plane waves (%d, ecut=%.3f eV)\n' %
-                 (len(self.pd), self.pd.ecut * units.Hartree))
-        
+        fd.write('Mode: Plane waves\n')
+        fd.write('      Cutoff energy: %.3f eV\n' %
+                 (self.pd.ecut * units.Hartree))
+        if self.dtype == float:
+            fd.write('      Number of coefficients: %d (reduced to %d)\n' %
+                     (len(self.pd) * 2 + 1, len(self.pd)))
+        else:
+            fd.write('      Number of coefficients: %d\n' % len(self.pd))
+        if fftw.FFTPlan is fftw.FFTPlanB:
+            fd.write("      Using Numpy's FFT\n")
+        else:
+            fd.write("      Using FFTW\n")
+
     def make_preconditioner(self, block=1):
         return Preconditioner(self.G2_qG, self.pd)
 
