@@ -841,7 +841,7 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args);
 static PyMethodDef mpi_methods[] = {
     {"sendreceive",          (PyCFunction)mpi_sendreceive,
      METH_VARARGS|METH_KEYWORDS,
-     "sendreceive(a, dest, b, src, desttag=123, srctag=123) sends an array to dest and receives an array a from src."},
+     "sendreceive(a, dest, b, src, desttag=123, srctag=123) sends an array a to dest and receives an array b from src."},
     {"receive",          (PyCFunction)mpi_receive,
      METH_VARARGS|METH_KEYWORDS,
      "receive(a, src, tag=123, block=1) receives array a from src."},
