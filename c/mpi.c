@@ -13,6 +13,9 @@
 #include "extensions.h"
 #include <structmember.h>
 #include "mympi.h"
+#ifdef __bgp__
+#include <mpix.h>
+#endif
 
 // Check that array is well-behaved and contains data that can be sent.
 #define CHK_ARRAY(a) if ((a) == NULL || !PyArray_Check(a)		\
@@ -1026,9 +1029,21 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
   MPI_Comm comm;
   MPI_Comm_create(self->comm, newgroup, &comm); // has a memory leak!
 #ifdef GPAW_MPI_DEBUG
-  // Default Errhandler is MPI_ERRORS_ARE_FATAL
-  MPI_Errhandler_set(comm, MPI_ERRORS_RETURN); 
-#endif 
+  if (comm != MPI_COMM_NULL)
+    {
+      // Default Errhandler is MPI_ERRORS_ARE_FATAL
+      MPI_Errhandler_set(comm, MPI_ERRORS_RETURN);
+#ifdef __bgp__
+      int result;
+      int rank;
+      MPI_Comm_rank(comm, &rank);
+      MPIX_Get_property(comm, MPIDO_RECT_COMM, &result);
+      if (rank == 0) {
+	if(result) fprintf(stderr, "Get_property: comm is rectangular. \n");
+      }
+#endif
+    }
+#endif // GPAW_MPI_DEBUG
   MPI_Group_free(&newgroup);
   MPI_Group_free(&group);
   if (comm == MPI_COMM_NULL)
