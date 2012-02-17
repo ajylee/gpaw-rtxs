@@ -50,7 +50,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.set_positions(self, spos_ac)
 
     def summary(self, fd):
-        fd.write('Mode: Finite-difference\n')
+        fd.write('Wave functions: Uniform real-space grid\n')
+        fd.write('Kinetic energy operator: %s\n' % self.kin.description)
         
     def make_preconditioner(self, block=1):
         return Preconditioner(self.gd, self.kin, self.dtype, block)

@@ -109,6 +109,7 @@ def Transformer(gdin, gdout, nn=1, dtype=float):
             t = TransformerWrapper(t)
         return t
     class T:
+        nn = 1
         def apply(self, input, output, phases=None):
             output[:] = input
     return T()

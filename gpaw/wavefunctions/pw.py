@@ -387,7 +387,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.set_setups(self, setups)
 
     def summary(self, fd):
-        fd.write('Mode: Plane waves\n')
+        fd.write('Wave functions: Plane wave expansion\n')
         fd.write('      Cutoff energy: %.3f eV\n' %
                  (self.pd.ecut * units.Hartree))
         if self.dtype == float:
@@ -398,7 +398,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if fftw.FFTPlan is fftw.FFTPlanB:
             fd.write("      Using Numpy's FFT\n")
         else:
-            fd.write("      Using FFTW\n")
+            fd.write("      Using FFTW library\n")
 
     def make_preconditioner(self, block=1):
         return Preconditioner(self.G2_qG, self.pd)
@@ -867,8 +867,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         class PS:
             def initialize(self):
                 pass
-            def get_method(self):
-                return 'FFT'
             def get_stencil(self):
                 return '????'
             def estimate_memory(self, mem):
@@ -876,6 +874,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.poisson = PS()
         self.npoisson = 0
+
+    def summary(self, fd):
+        Hamiltonian.summary(self, fd)
+        fd.write('Interpolation: FFT\n')
+        fd.write('Poisson solver: FFT\n')
 
     def set_positions(self, spos_ac, rank_a=None):
         Hamiltonian.set_positions(self, spos_ac, rank_a)

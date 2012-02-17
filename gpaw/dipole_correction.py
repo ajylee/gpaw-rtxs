@@ -14,10 +14,6 @@ class DipoleCorrection:
         self.corrector = DipoleCorrector(direction)
         self.poissonsolver = poissonsolver
 
-    def get_method(self):
-        description = self.poissonsolver.get_method()
-        return '%s with %s-axis dipole correction' % (description,
-                                                      'xyz'[self.corrector.c])
     def get_stencil(self):
         return self.poissonsolver.get_stencil()
 
@@ -34,6 +30,10 @@ class DipoleCorrection:
                 #    raise ValueError('System must be periodic along axes '
                 #                     'perpendicular to dipole correction')
         self.poissonsolver.set_grid_descriptor(gd)
+
+        self.description = (
+            self.poissonsolver.description +
+            '\nDipole correctaion along %s-axis' % 'xyz'[self.corrector.c])
 
     def initialize(self):
         self.poissonsolver.initialize()

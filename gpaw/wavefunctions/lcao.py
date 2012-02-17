@@ -76,7 +76,7 @@ class LCAOWaveFunctions(WaveFunctions):
             return np.empty(n + (nao,), dtype)
 
     def summary(self, fd):
-        fd.write('Mode: LCAO\n')
+        fd.write('Wave functions: LCAO\n')
         
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)

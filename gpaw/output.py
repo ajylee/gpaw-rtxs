@@ -176,25 +176,9 @@ class PAWTextOutput:
             else:
                 eigensolver = 'rmm-diis'
         t('Eigensolver:       %s' % eigensolver)
-        if p['mode'] != 'lcao':
-            t('                   (%s)' % fd(p['stencils'][0]))
 
-        poisson = self.hamiltonian.poisson
-        t('Poisson Solver:    %s' % poisson.get_method())
-        description = fd(poisson.get_stencil())
-        t('                   (%s)\n' % description)
+        self.hamiltonian.summary(self.txt)
 
-        order = str((2 * p['stencils'][1]))
-        if order[-1] == '1':
-            order = order + 'st'
-        elif order[-1] == '2':
-            order = order + 'nd'
-        elif order[-1] == '3':
-            order = order + 'rd'
-        else:
-            order = order + 'th'
-
-        t('Interpolation:     ' + order + ' Order')
         t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
         if self.wfs.gamma:
@@ -565,13 +549,3 @@ class Grid:
         if depth < self.depth[i, j]:
             self.grid[i, j] = ord(c)
             self.depth[i, j] = depth
-
-
-def fd(n):
-    if n == 'M':
-        return 'Mehrstellen finite-difference stencil'
-    if n == 1:
-        return 'Nearest neighbor central finite-difference stencil'
-    if isinstance(n, str):
-        return n
-    return '%d nearest neighbors central finite-difference stencil' % n

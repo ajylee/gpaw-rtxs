@@ -83,6 +83,10 @@ class Hamiltonian:
         self.Etot = None
         self.S = None
 
+    def summary(self, fd):
+        fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
+                 tuple(self.finegd.N_c))
+
     def set_positions(self, spos_ac, rank_a=None):
         self.spos_ac = spos_ac
         self.vbar.set_positions(spos_ac)
@@ -435,6 +439,16 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
                         forces=True)
         self.vbar_g = None
+
+    def summary(self, fd):
+        Hamiltonian.summary(self, fd)
+
+        degree = self.restrictor.nn * 2 - 1
+        name = ['linear', 'cubic', 'quintic', 'heptic'][degree // 2]
+        fd.write('Interpolation: tri-%s ' % name +
+                 '(%d. degree polynomial)\n' % degree)
+
+        fd.write('Poisson solver: %s\n' % self.poisson.description)
 
     def set_positions(self, spos_ac, rank_a=None):
         Hamiltonian.set_positions(self, spos_ac, rank_a)
