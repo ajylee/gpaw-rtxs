@@ -13,7 +13,7 @@ from gpaw.fd_operators import Laplace
 
 G = 120  # number of grid points (G x G x G)
 N = 2000  # number of bands
-repeats = 20
+repeats = 1
 
 try:
     N = int(sys.argv[1])
@@ -73,10 +73,10 @@ vt_G.fill(0.567)
 def run(psit_mG):
     overlap = MatrixOperator(ksl, J)
     def H(psit_xG):
-        kin(psit_xG, overlap.work1_xG[:M // J])
+        kin(psit_xG, overlap.work1_xG)
         for psit_G, y_G in zip(psit_xG, overlap.work1_xG):
             y_G += vt_G * psit_G
-        return overlap.work1_xG[:M // J]
+        return overlap.work1_xG
     dH_aii = {0: np.ones((2, 2)) * 0.123, 1: np.ones((3, 3)) * 0.321}
     def dH(a, P_ni):
         return np.dot(P_ni, dH_aii[a])
