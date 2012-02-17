@@ -1,9 +1,11 @@
-# this example shows how to add new calculated results to an already
+# this example shows how to append new calculated results to an already
 # existing cmr file, illustrated for calculation of PBE energy on LDA density
 
 import os
 
 import cmr
+# set True in order to use cmr in parallel jobs!
+cmr.set_ase_parallel(enable=True)
 
 from ase.structure import molecule
 from ase.io import read, write
@@ -49,34 +51,26 @@ system2, calc2 = restart(formula, txt=None)
 if 1: # not used in this example
     calc2.write(formula + '.db', cmr_params=cmr_params)
 # write the information 'as in' corresponding trajectory file into cmr file
-if rank == 0:
-    write(cmrfile, system2, cmr_params=cmr_params)
-barrier()
+write(cmrfile, system2, cmr_params=cmr_params)
 
 # add the xc tag to the cmrfile
-if rank == 0:
-    # cmr works in serial!
-    assert os.path.exists(cmrfile)
-    data = cmr.read(cmrfile)
-    data.set_user_variable('xc', xc)
-    data.write(cmrfile)
-barrier()
+assert os.path.exists(cmrfile)
+data = cmr.read(cmrfile)
+data.set_user_variable('xc', xc)
+data.write(cmrfile)
 
 # peform PBE calculation on LDA density
 ediff = calc2.get_xc_difference('PBE')
 
 # add new results to the cmrfile
-if rank == 0:
-    # cmr works in serial!
-    assert os.path.exists(cmrfile)
-    data = cmr.read(cmrfile)
-    data.set_user_variable('PBE', data['ase_potential_energy'] + ediff)
-    data.write(cmrfile)
-barrier()
+assert os.path.exists(cmrfile)
+data = cmr.read(cmrfile)
+data.set_user_variable('PBE', data['ase_potential_energy'] + ediff)
+data.write(cmrfile)
 
 # analyse the results with CMR
 
-# cmr works in serial!
+# cmr readers work only in serial!
 
 from cmr.ui import DirectoryReader
 

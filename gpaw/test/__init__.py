@@ -282,7 +282,7 @@ tests = [
 
 try:
     import cmr
-    tests.append('cmr_restart.py')
+    tests.append('cmr_append.py')
     tests.append('cmr_test.py')
 except:
     pass
