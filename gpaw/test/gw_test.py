@@ -35,6 +35,7 @@ nbands=8
 bands=np.array([3,4])
 ecut=25./Hartree
 
+gwkpt_k = calc.wfs.kd.ibz2bz_k
 gwnkpt = calc.wfs.kd.nibzkpts
 gwnband = len(bands)
 
@@ -70,6 +71,8 @@ data = {
         'e_kn': e_kn,         # in Hartree
         'v_kn': v_kn,         # in Hartree
         'e_xx': e_xx,         # in Hartree
+        'gwkpt_k': gwkpt_k,
+        'gwbands_n': bands
        }
 if rank == 0:
     pickle.dump(data, open('EXX.pckl', 'w'), -1)
