@@ -871,6 +871,9 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                 return 'FFT'
             def get_stencil(self):
                 return '????'
+            def estimate_memory(self, mem):
+                pass
+
         self.poisson = PS()
         self.npoisson = 0
 

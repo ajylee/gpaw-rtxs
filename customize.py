@@ -56,10 +56,10 @@
 # Valid values for scalapack are False, or True:
 # False (the default) - no ScaLapack compiled in
 # True - ScaLapack compiled in
-scalapack = False
+scalapack = not False
 
 if scalapack:
     libraries += ['scalapack']
-    library_dirs += []
+    library_dirs += ['/home/jensj/scalapack-2.0.1']
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
