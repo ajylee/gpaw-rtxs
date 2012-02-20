@@ -83,14 +83,10 @@ PyObject* scalapack_set(PyObject *self, PyObject *args);
 PyObject* scalapack_redist(PyObject *self, PyObject *args);
 PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args);
 PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args);
-#ifdef GPAW_MR3
 PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args);
-#endif
 PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args);
 PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args);
-#ifdef GPAW_MR3
 PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args);
-#endif 
 PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args);
 PyObject* pblas_tran(PyObject *self, PyObject *args);
 PyObject* pblas_gemm(PyObject *self, PyObject *args);
