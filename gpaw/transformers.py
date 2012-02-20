@@ -85,6 +85,7 @@ class TransformerWrapper:
         self.dtype = transformer.dtype
         self.ngpin = transformer.ngpin
         self.ngpout = transformer.ngpout
+        self.nn = transformer.nn
 
     def apply(self, input, output=None, phases=None):
         assert is_contiguous(input, self.dtype)
