@@ -181,8 +181,6 @@ class PAWTextOutput:
 
         t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
-        if self.wfs.gamma:
-            t('Gamma Point Calculation')
 
         nibzkpts = self.wfs.nibzkpts
 
@@ -222,9 +220,9 @@ class PAWTextOutput:
 
         self.wfs.symmetry.print_symmetries(t)
 
-        t(('%d k-point%s in the Irreducible Part of the ' +
-           'Brillouin Zone (total: %d)') %
-          (nibzkpts, ' s'[1:nibzkpts], len(self.wfs.bzk_kc)))
+        t(self.wfs.kd.description)
+        t(('%d k-point%s in the Irreducible Part of the Brillouin Zone') %
+          (nibzkpts, ' s'[1:nibzkpts]))
 
         if self.scf.fixdensity > self.scf.maxiter:
             t('Fixing the initial density')

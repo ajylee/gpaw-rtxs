@@ -76,6 +76,23 @@ class KPointDescriptor:
         self.set_symmetry(None, None, usesymm=None)
         self.set_communicator(mpi.serial_comm)
 
+        if self.gamma:
+            self.description = '1 k-point (Gamma)'
+        else:
+            self.description = '%d k-points' % self.nbzkpts
+            if self.N_c is not None:
+                self.description += (' (%d x %d x %d Monkhorst-Pack grid' %
+                                     tuple(self.N_c))
+                if self.offset_c.any():
+                    self.description += ' + ['
+                    for x in self.offset_c:
+                        if x != 0 and abs(round(1 / x) - 1 / x) < 1e-12:
+                            self.description += '1/%d,' % (1 / x)
+                        else:
+                            self.description += '%f,' % x
+                    self.description = self.description[:-1] + ']'
+                self.description += ')'
+
     def __len__(self):
         """Return number of k-point/spin combinations of local CPU."""
         
