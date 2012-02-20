@@ -14,14 +14,16 @@ Requirements
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
-4) C compiler - preferably gcc.
+4) C99 compliant compiler - preferably gcc.
 
-5) BLAS and LAPACK libraries. Start with your system provided defaults or
+5) BLAS and LAPACK (> 3.2.1) libraries. Start with your system provided defaults or
    e.g. http://www.amd.com/acml.
 
-6) An MPI library (required for parallel calculations).
+6) An MPI (> 2.0) library (required for parallel calculations).
 
-7) (Optional) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+7) (Optional) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format.
+
+8) (Optional) ScaLAPACK (> 2.0.0) library for parallel dense linear algebra.
 
 
 .. note::
