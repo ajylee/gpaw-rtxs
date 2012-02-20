@@ -188,22 +188,22 @@ def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                 f_sg[:] = 0.0
                 n_sg = np.dot(Y_L, n_sLg)
                 if x_only:
-                    f_sg = 2 * (4 / 9.) * A_x * (2*n_sg)**(-2/3.)
+                    f_sg = nspins * (4 / 9.) * A_x * (nspins*n_sg)**(-2/3.)
                 else:
                     xc.calculate_fxc(rgd, n_sg, f_sg)
                 
                 ft_sg[:] = 0.0
                 nt_sg = np.dot(Y_L, nt_sLg)
                 if x_only:
-                    ft_sg = 2 * (4 / 9.) * A_x * (2*nt_sg)**(-2/3.)
+                    ft_sg = nspins * (4 / 9.) * A_x * (nspins*nt_sg)**(-2/3.)
                 else:
                     xc.calculate_fxc(rgd, nt_sg, ft_sg)
                 for i in range(len(rgd.r_g)):
                     coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n]) * rgd.r_g[i])
                     for s in range(len(f_sg)):
-                        KxcPAW_sGG += w * np.dot(coef_GG,
-                                                 (f_sg[s,i]-ft_sg[s,i]) * dv_g[i]) \
-                                                 * coefatoms_GG
+                        KxcPAW_sGG[s] += w * np.dot(coef_GG,
+                                                    (f_sg[s,i]-ft_sg[s,i]) * dv_g[i]) \
+                                                    * coefatoms_GG
 
     world.sum(KxcPAW_sGG)
     Kxc_sGG += KxcPAW_sGG

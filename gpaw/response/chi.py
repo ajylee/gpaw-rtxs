@@ -148,7 +148,7 @@ class CHI(BASECHI):
         # Calculate ALDA kernel (not used in chi0)
         R_av = calc.atoms.positions / Bohr
         if self.xc == 'RPA': #type(self.w_w[0]) is float:
-            self.Kxc_GG = np.zeros((self.npw, self.npw))
+            self.Kxc_sGG = np.zeros((self.nspins, self.npw, self.npw))
             self.printtxt('RPA calculation.')
         elif self.xc == 'ALDA' or self.xc == 'ALDA_X':
             nt_sg = calc.density.nt_sG
@@ -160,16 +160,16 @@ class CHI(BASECHI):
             else:
                 nt_sG = nt_sg
             
-            self.Kxc_GG = calculate_Kxc(self.gd, # global grid
-                                        nt_sG,
-                                        self.npw, self.Gvec_Gc,
-                                        self.nG, self.vol,
-                                        self.bcell_cv, R_av,
-                                        calc.wfs.setups,
-                                        calc.density.D_asp,
-                                        functional=self.xc,
-                                        density_cut=self.density_cut)
-
+            self.Kxc_sGG = calculate_Kxc(self.gd, # global grid
+                                         nt_sG,
+                                         self.npw, self.Gvec_Gc,
+                                         self.nG, self.vol,
+                                         self.bcell_cv, R_av,
+                                         calc.wfs.setups,
+                                         calc.density.D_asp,
+                                         functional=self.xc,
+                                         density_cut=self.density_cut)
+            
             self.printtxt('Finished %s kernel ! ' % self.xc)
 
 

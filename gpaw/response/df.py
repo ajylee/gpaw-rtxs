@@ -67,7 +67,7 @@ class DF(CHI):
             # http://prb.aps.org/pdf/PRB/v33/i10/p7017_1 eq. 4
             A_wGG = self.chi0_wGG.copy()
             for iw in range(self.Nw_local):
-                A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_GG[0], self.chi0_wGG[iw])))
+                A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_sGG[0], self.chi0_wGG[iw])))
     
             for iw in range(self.Nw_local):
                 dm_wGG[iw] = tmp_GG - self.Kc_GG * A_wGG[iw]                
@@ -111,7 +111,7 @@ class DF(CHI):
             kernel_GG[iG,iG] = 4 * pi / np.dot(qG, qG)
             
         if xc == 'ALDA':
-            kernel_GG += self.Kxc_GG[0]
+            kernel_GG += self.Kxc_sGG[0]
 
         for iw in range(self.Nw_local):
             tmp_GG = np.eye(self.npw, self.npw) - np.dot(self.chi0_wGG[iw], kernel_GG)
