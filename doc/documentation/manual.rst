@@ -257,17 +257,36 @@ Brillouin-zone sampling
 -----------------------
 
 The default sampling of the Brillouin-zone is with only the
-`\Gamma`-point.  This allows us to choose the wave functions to be real.
-Monkhorst-Pack sampling can be used if required: ``kpts=(n1, n2,
-n3)``, where ``n1``, ``n2`` and ``n3`` are positive integers.  This
-will sample the Brillouin-zone with a regular grid of ``n1`` `\times`
-``n2`` `\times` ``n3`` **k**-points.
+`\Gamma`-point.  This allows us to choose the wave functions to be
+real.  Monkhorst-Pack sampling can be used if required: ``kpts=(N1,
+N2, N3)``, where ``N1``, ``N2`` and ``N3`` are positive integers.
+This will sample the Brillouin-zone with a regular grid of ``N1``
+`\times` ``N2`` `\times` ``N3`` **k**-points.  See the
+:func:`ase.dft.kpoints.monkhorst_pack` function for more details.
 
-An arbitrary set of **k**-points can be specified, by giving an array
-of floats of the format ``kpts_kc`` where ``k`` is a k-point index,
-and ``c`` is an axis index. **k**-points are given in scaled
-coordinates, relative to the basis vectors of the reciprocal unit
-cell.
+An arbitrary set of **k**-points can be specified, by giving a
+sequence of k-point coordinates like this::
+
+    kpts=[(0, 0, -0.25), (0, 0, 0), (0, 0, 0.25), (0, 0, 0.5)]
+
+The **k**-point coordinates are given in scaled coordinates, relative
+to the basis vectors of the reciprocal unit cell.
+
+The above four k-points are equivalent to this:
+
+>>> from ase.dft.kpoints import monkhorst_pack
+>>> kpts = monkhorst_pack((1, 1, 4))
+>>> kpts
+array([[ 0.   ,  0.   , -0.375],
+       [ 0.   ,  0.   , -0.125],
+       [ 0.   ,  0.   ,  0.125],
+       [ 0.   ,  0.   ,  0.375]])
+>>> kpts+=(0,0,0.125)
+>>> kpts
+array([[ 0.  ,  0.  , -0.25],
+       [ 0.  ,  0.  ,  0.  ],
+       [ 0.  ,  0.  ,  0.25],
+       [ 0.  ,  0.  ,  0.5 ]])
 
 
 .. _manual_spinpol:
