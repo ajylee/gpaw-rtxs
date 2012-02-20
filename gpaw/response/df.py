@@ -111,7 +111,7 @@ class DF(CHI):
             kernel_GG[iG,iG] = 4 * pi / np.dot(qG, qG)
             
         if xc == 'ALDA':
-            kernel_GG += self.Kxc_GG
+            kernel_GG += self.Kxc_GG[0]
 
         for iw in range(self.Nw_local):
             tmp_GG = np.eye(self.npw, self.npw) - np.dot(self.chi0_wGG[iw], kernel_GG)

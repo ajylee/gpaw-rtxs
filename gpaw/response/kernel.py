@@ -198,10 +198,13 @@ def calculate_Kxc(gd, nt_sG, npw, Gvec_Gc, nG, vol,
                     ft_sg = 2 * (4 / 9.) * A_x * (2*nt_sg)**(-2/3.)
                 else:
                     xc.calculate_fxc(rgd, nt_sg, ft_sg)
-                
                 for i in range(len(rgd.r_g)):
                     coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n]) * rgd.r_g[i])
-                    KxcPAW_sGG += w * np.dot(coef_GG, (f_sg[0,i]-ft_sg[0,i]) * dv_g[i]) * coefatoms_GG
+                    for s in range(len(f_sg)):
+                        KxcPAW_sGG += w * np.dot(coef_GG,
+                                                 (f_sg[s,i]-ft_sg[s,i]) * dv_g[i]) \
+                                                 * coefatoms_GG
+
     world.sum(KxcPAW_sGG)
     Kxc_sGG += KxcPAW_sGG
 
