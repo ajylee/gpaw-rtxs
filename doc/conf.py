@@ -40,7 +40,7 @@ try:
     from sphinx.ext import intersphinx
     extensions.append('sphinx.ext.intersphinx')
 except ImportError:
-    print 'Warning: no sphinx.ext.intersphinx available: please update to sphinx >= 5.0'
+    print 'Warning: no sphinx.ext.intersphinx available: please update to sphinx >= 0.5'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
