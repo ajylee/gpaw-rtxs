@@ -35,7 +35,7 @@ are in order:
 * A :class:`~ase.optimize.bfgs.BFGS` optimizer is created and
   associated with the
   :class:`Atoms` object.  It is also given an optional argument,
-  :keyword:`trajectory`, which specifies the name of a file into which the
+  ``trajectory``, which specifies the name of a file into which the
   positions will be saved for each step in the geometry optimization.
 * Finally the call ``opt.run(fmax=0.05)`` will run the
   optimization algorithm until all atomic forces are below 0.05 eV per
