@@ -61,8 +61,10 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pzhegvx_  pzhegvx
 #define   pdsyngst_ pdsyngst
 #define   pzhengst_ pzhengst
+#ifdef GPAW_MR3
 #define   pdsyevr_  pdsyevr
 #define   pzheevr_  pzheevr
+#endif // GPAW_MR3
 
 #define   pdtran_  pdtran
 #define   pztranc_ pztranc
@@ -196,6 +198,7 @@ void pzhengst_(int* ibtype, char* uplo, int* n,
 	       void* b, int* ib, int* jb, int* descb,
 	       double* scale, void* work, int* lwork, int* info);
 
+#ifdef GPAW_MR3
 void pdsyevr_(char* jobz, char* range,
               char* uplo, int* n,
               double* a, int* ia, int* ja, int* desca,
@@ -216,6 +219,7 @@ void pzheevr_(char* jobz, char* range,
               void* work, int* lwork, double* rwork, int* lrwork,
               int* iwork, int* liwork,
               int* info);
+#endif // GPAW_MR3
 
 // pblas
 void pdtran_(int* m, int* n,
@@ -882,6 +886,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   return returnvalue;
 }
 
+#ifdef GPAW_MR3
 PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
 {
   // Standard driver for MRRR algorithm
@@ -1002,6 +1007,7 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
   PyObject* returnvalue = Py_BuildValue("i", info);
   return returnvalue;
 }
+#endif
 
 PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args)
 {
@@ -1342,6 +1348,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   return returnvalue;
 }
 
+#ifdef GPAW_MR3
 PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
 {
   // General driver for MRRR algorithm
@@ -1551,6 +1558,7 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
   PyObject* returnvalue = Py_BuildValue("i", info);
   return returnvalue;
 }
+#endif
 
 PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args)
 {

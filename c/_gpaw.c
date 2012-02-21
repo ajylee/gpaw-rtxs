@@ -83,10 +83,14 @@ PyObject* scalapack_set(PyObject *self, PyObject *args);
 PyObject* scalapack_redist(PyObject *self, PyObject *args);
 PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args);
 PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args);
+#ifdef GPAW_MR3
 PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args);
+#endif
 PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args);
 PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args);
+#ifdef GPAW_MR3
 PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args);
+#endif 
 PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args);
 PyObject* pblas_tran(PyObject *self, PyObject *args);
 PyObject* pblas_gemm(PyObject *self, PyObject *args);
@@ -165,13 +169,17 @@ static PyMethodDef functions[] = {
   {"scalapack_redist",      scalapack_redist,     METH_VARARGS, 0},
   {"scalapack_diagonalize_dc", scalapack_diagonalize_dc, METH_VARARGS, 0}, 
   {"scalapack_diagonalize_ex", scalapack_diagonalize_ex, METH_VARARGS, 0},
+#ifdef GPAW_MR3
   {"scalapack_diagonalize_mr3", scalapack_diagonalize_mr3, METH_VARARGS, 0},
+#endif // GPAW_MR3
   {"scalapack_general_diagonalize_dc", 
    scalapack_general_diagonalize_dc, METH_VARARGS, 0},
   {"scalapack_general_diagonalize_ex", 
    scalapack_general_diagonalize_ex, METH_VARARGS, 0},
+#ifdef GPAW_MR3
   {"scalapack_general_diagonalize_mr3",
    scalapack_general_diagonalize_mr3, METH_VARARGS, 0},
+#endif // GPAW_MR3
   {"scalapack_inverse_cholesky", scalapack_inverse_cholesky, METH_VARARGS, 0},
   {"pblas_tran", pblas_tran, METH_VARARGS, 0},
   {"pblas_gemm", pblas_gemm, METH_VARARGS, 0},
