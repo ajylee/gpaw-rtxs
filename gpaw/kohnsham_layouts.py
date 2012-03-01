@@ -384,7 +384,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         nblocks = -(-len(Sflat_x) // blocksize)
         Mstart = 0
         for i in range(nblocks):
-            self.gd.comm.sum(Sflat_x[Mstart:Mstart + blocksize])
+            self.gd.comm.sum(Sflat_x[Mstart:Mstart + blocksize], root=root)
             Mstart += blocksize
         assert Mstart + blocksize >= len(Sflat_x)
 

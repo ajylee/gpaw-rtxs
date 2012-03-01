@@ -178,7 +178,7 @@ class OverlapExpansion(BaseOverlapExpansionSet):
             x, dxdr = spline.get_value_and_derivative(r)
             if abs(x) > 1e-10:
                 GrlY_mi = np.dot(G_mmm, rlY_lm[l])
-                dxdR_cmi += dxdr * GrlY_mi * Rhat_c[:, None, None]
+                dxdR_cmi += dxdr * Rhat_c[:, None, None] * GrlY_mi
                 dxdR_cmi += x * np.dot(G_mmm, drlYdR_lmc[l]).transpose(2, 0, 1)
         return dxdR_cmi
 
@@ -330,14 +330,13 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
             Mend2 = Mstart2 + tsoe.shape[1]
             x_xqNM[..., Mstart1b:Mend1b, Mstart2:Mend2] += \
                         x_qxmm[..., Mstart1b - Mstart1:Mend1b - Mstart1, :]
-        if a1 in self.local_indices and a2 < a1 and (self.astart <=
-                                                     a2 < self.aend):
-            # XXX this is necessary to fill out both upper/lower
-            #
-            # Should not be decided here, and should not be done except
-            # in force calculation, *or* force calculation should not require
-            # it in the first place
-            self.evaluate_slice(disp.reverse(), x_xqNM)
+        # This is all right as long as we are only interested in a2 <= a1
+        #if a1 in self.local_indices and a2 < a1 and (self.astart <=
+        #                                             a2 < self.aend):
+        #    self.evaluate_slice(disp.reverse(), x_xqNM)
+        
+
+
             
 class SimpleAtomIter:
     def __init__(self, cell_cv, spos1_ac, spos2_ac, offsetsteps=0):
@@ -544,8 +543,7 @@ class AtomicDisplacement:
         self._set_spherical_harmonics(R_c)
 
     def _set_spherical_harmonics(self, R_c):
-        self.rlY_lm = spherical_harmonics(R_c)
-
+        self.rlY_lm = LazySphericalHarmonics(R_c)
 
     # XXX new
     def evaluate_direct(self, oe, dst_xqmm):
@@ -574,14 +572,47 @@ class AtomicDisplacement:
                                               self.phases.inverse())
                                               
 
+class LazySphericalHarmonics:
+    """Class for caching spherical harmonics as they are calculated.
+
+    Behaves like a list Y_lm, but really calculates (or retrieves) Y_m
+    once a given value of l is __getitem__'d."""
+    def __init__(self, R_c):
+        self.R_c = np.asarray(R_c)
+        self.Y_lm = {}
+        self.dYdr_lmc = {}
+
+    def evaluate(self, l):
+        rlY_m = np.empty(2 * l + 1)
+        Yl(l, self.R_c, rlY_m)
+        return rlY_m
+        
+    def __getitem__(self, l):
+        Y_m = self.Y_lm.get(l)
+        if Y_m is None:
+            Y_m = self.evaluate(l)
+            self.Y_lm[l] = Y_m
+        return Y_m
+
+class LazySphericalHarmonicsDerivative(LazySphericalHarmonics):
+    def evaluate(self, l):
+        drlYdR_mc = np.empty((2 * l + 1, 3))
+        L0 = l**2
+        for m in range(2 * l + 1):
+            drlYdR_mc[m, :] = nablarlYL(L0 + m, self.R_c)
+        return drlYdR_mc
+
+
 class DerivativeAtomicDisplacement(AtomicDisplacement):
     def _set_spherical_harmonics(self, R_c):
-        self.rlY_lm, self.drlYdr_lmc = spherical_harmonics_and_derivatives(R_c)
+        self.rlY_lm = LazySphericalHarmonics(R_c)
+        self.drlYdr_lmc = LazySphericalHarmonicsDerivative(R_c)
+        
         if R_c.any():
             self.Rhat_c = R_c / self.r
         else:
             self.Rhat_c = np.zeros(3)
-
+    
     def evaluate_derivative(self, oe, dst_xqmm):
         oe.derivative(self.r, self.Rhat_c, self.rlY_lm, self.drlYdr_lmc)
 
@@ -590,6 +621,7 @@ class DerivativeAtomicDisplacement(AtomicDisplacement):
 
     def _evaluate_without_phases(self, oe): # override
         return self.derivative_without_phases(oe)
+
 
 class NullPhases:
     def __init__(self, ibzk_qc, offset):
