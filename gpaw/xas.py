@@ -104,7 +104,69 @@ class XAS:
             self.sigma_cn[:, n1:n2] =  weight **0.5 * a_cn #.real
             n1 = n2
 
+        # ajl mod: need these for calculating seed state
+        self._rtxs_wfs = wfs
+        self._rtxs_n_start = n_start
+        self._rtxs_n_end = n_end
+
         self.symmetry = wfs.symmetry
+
+        ## save these for use in td xs (ajl)
+        class tdxs_args: pass
+        tdxs_args.nocc = nocc
+        tdxs_args.spin = spin
+        tdxs_args.center = center
+        tdxs_args.nkpts = nkpts
+        tdxs_args.a = a
+        tdxs_args.A_ci = A_ci
+        tdxs_args.bd = wfs.bd
+
+        self.tdxs_args = tdxs_args
+        #self.wfs = wfs
+
+
+    def get_td_sigma_cn(self, wfs):
+        """
+        by ajl.
+
+        Gives the sigma_cn for a given (td) kpt.
+        This is for getting the correlation function.
+        """
+
+
+        ## recover some variables from __init__ scope.
+        nocc = self.tdxs_args.nocc
+        spin = self.tdxs_args.spin
+        center = self.tdxs_args.center
+        nkpts = self.tdxs_args.nkpts
+
+        a = self.tdxs_args.a
+        A_ci = self.tdxs_args.A_ci
+
+        ## copied from __init__ but assume mode == 'xas'
+        n_start = nocc
+        n_end = wfs.bd.nbands
+        n =  wfs.bd.nbands - nocc
+
+
+        ## forked from __init__
+        sigma_cn = np.empty((3, nkpts * n), complex)
+        n1 = 0
+        for kpt in wfs.kpt_u:
+            if kpt.s != spin:
+                continue
+
+            n2 = n1 + n
+            #self.eps_n[n1:n2] = kpt.eps_n[n_start:n_end] * Hartree
+            P_ni = kpt.P_ani[a][n_start:n_end]
+            a_cn = np.inner(A_ci, P_ni)
+            weight = kpt.weight * wfs.nspins / 2
+            print "weight", weight
+            print a_cn.shape, sigma_cn.shape
+            sigma_cn[:, n1:n2] =  weight **0.5 * a_cn #.real
+            n1 = n2
+
+        return sigma_cn
 
     def get_spectra(self, fwhm=0.5, E_in=None, linbroad=None, N=1000, kpoint=None,
                     proj=None,  proj_xyz=True, stick=False):
@@ -173,6 +235,13 @@ class XAS:
         # now symmetrize
         sigma2_cn = np.zeros((proj_3.shape[0], self.sigma_cn.shape[1]),float) 
         
+        import gpaw.rtxs.seed
+
+        assert self.symmetry.op_scc.shape[0] == 1, "RTXS not implemented for multiple symmetries"
+
+        ## ajl mod; save amplitudes for seeds
+        _p_sigma_cn = np.zeros((proj_3.shape[0], self.sigma_cn.shape[1]), self.sigma_cn.dtype)
+
         if self.symmetry is not None:
             for i,p in enumerate(proj_3):
                 for op_cc in self.symmetry.op_scc:
@@ -180,12 +249,18 @@ class XAS:
                                    np.dot(op_cc, self.cell_cv))
                     s_tmp = np.dot(p, np.dot(op_vv, self.sigma_cn))
                     sigma2_cn[i,:] += (s_tmp * np.conjugate(s_tmp) ).real 
+                    _p_sigma_cn[i,:] += s_tmp
             sigma2_cn /= len(self.symmetry.op_scc)
+            _p_sigma_cn[i,:] /= len(self.symmetry.op_scc)**0.5
             
         else:
             for i,p in enumerate(proj_3):
                 s_tmp = np.dot(p, self.sigma_cn)
                 sigma2_cn[i,:] += (s_tmp * np.conjugate(s_tmp) ).real 
+                _p_sigma_cn[i,:] += s_tmp
+
+        self.seed_state = gpaw.rtxs.seed.seed_state(
+            _p_sigma_cn, self._rtxs_wfs, (self._rtxs_n_start, self._rtxs_n_end))
                 
         eps_n = self.eps_n[:]
 
