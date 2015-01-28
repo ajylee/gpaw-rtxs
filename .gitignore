@@ -1,0 +1,5 @@
+_gpaw.so
+build/
+configuration.log
+gpaw.egg-info/
+gpaw/svnversion.py
