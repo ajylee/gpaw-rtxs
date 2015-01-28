@@ -305,7 +305,7 @@ class TDDFT(GPAW):
 
 
         # Convert to atomic units
-        time_step = time_step * attosec_to_autime
+        self._time_step = time_step * attosec_to_autime
         
         if dipole_moment_file is not None:
             self.initialize_dipole_moment_file(dipole_moment_file)
@@ -339,8 +339,8 @@ class TDDFT(GPAW):
 
 
             # Propagate the Kohn-Shame wavefunctions a single timestep
-            niterpropagator = self.propagator.propagate(self.time, time_step)
-            self.time += time_step
+            niterpropagator = self.propagator.propagate(self.time, self._time_step)
+            self.time += self._time_step
             self.niter += 1
 
             # Call registered callback functions
@@ -368,6 +368,29 @@ class TDDFT(GPAW):
 
         if restart_file is not None:
             self.write(restart_file, 'all')
+
+
+    def change_time_step(self, time_step):
+        """Intended for use in callback
+
+        Tip: the method name is meant to be easily grepped.
+        """
+
+        self._time_step = time_step * attosec_to_autime
+
+        if self.rank == 0:
+            self.text("Changing time step to {}".format(time_step))
+            self.txt.flush()
+
+
+    def get_time_step(self):
+        """Intended for use in callback
+
+        Tip: the method name is meant to be easily grepped.
+        """
+
+        return self._time_step
+
 
     def initialize_dipole_moment_file(self, dipole_moment_file):
         if self.rank == 0:
