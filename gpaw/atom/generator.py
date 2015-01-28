@@ -481,6 +481,10 @@ class Generator(AllElectron):
 
         vt += vbar
 
+        self.rtxs_save_vt_at_construct_projector_functions = vt.copy()
+
+        self.rtxs_save_u_ln_at_construct_projector_functions = map(lambda a: a.copy(), u_ln)
+        self.rtxs_save_s_ln_at_construct_projector_functions = map(lambda a: a.copy(), s_ln)
         # Construct projector functions:
         for l, (e_n, s_n, q_n) in enumerate(zip(e_ln, s_ln, q_ln)):
             for e, s, q in zip(e_n, s_n, q_n):
@@ -490,6 +494,10 @@ class Generator(AllElectron):
         filter = Filter(r, dr, gcutfilter, hfilter).filter
 
         vbar = filter(vbar * r)
+
+        ## save these for rtxs
+        self.rtxs_save_filter = filter
+        self.rtxs_save_vbar = vbar
 
         # Calculate matrix elements:
         self.dK_lnn = dK_lnn = []
