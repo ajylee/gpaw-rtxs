@@ -273,7 +273,8 @@ class TDDFT(GPAW):
         GPAW.read(self, reader)
 
     def propagate(self, time_step, iterations, dipole_moment_file=None,
-                  restart_file=None, dump_interval=100):
+                  restart_file=None, dump_interval=100,
+                  callbacks = []):
         """Propagates wavefunctions.
         
         Parameters
@@ -289,7 +290,10 @@ class TDDFT(GPAW):
             Name of the restart file
         dump_interval: integer
             After how many iterations restart data is dumped
-        
+        callbacks:
+            A list of functions of the calculator objects that get called
+            every iteration. Allows the calculator to be extended easily.
+
         """
 
         if self.rank == 0:
@@ -315,6 +319,9 @@ class TDDFT(GPAW):
 
         self.timer.start('Propagate')
         while self.niter < maxiter:
+            for callback in callbacks:
+                callback.take_a_step()
+
             norm = self.density.finegd.integrate(self.density.rhot_g)
 
             # Write dipole moment at every iteration
@@ -353,6 +360,10 @@ class TDDFT(GPAW):
                     print 'Wrote restart file.'
                     print self.niter, ' iterations done. Current time is ', \
                         self.time * autime_to_attosec, ' as.' 
+
+        for callback in callbacks:
+            callback.take_a_step()
+            callback.finalize()
 
         self.timer.stop('Propagate')
 
