@@ -469,6 +469,9 @@ class LeanSetup(BaseSetup):
         # Probably empty dictionary, required by GLLB
         self.extra_xc_data = s.extra_xc_data
 
+        # Required for rtxs
+        self.T_Lqp = s.T_Lqp
+
 
 class Setup(BaseSetup):
     """Attributes:
@@ -659,6 +662,7 @@ class Setup(BaseSetup):
             self.phicorehole_g = self.phicorehole_g[:gcut2].copy()
 
         T_Lqp = self.calculate_T_Lqp(lcut, nq, _np, nj, jlL_i)
+        self.T_Lqp = T_Lqp
         (g_lg, n_qg, nt_qg, Delta_lq, self.Lmax, self.Delta_pL, Delta0, 
          self.N0_p) = self.get_compensation_charges(phi_jg, phit_jg, _np,
                                                     T_Lqp)
