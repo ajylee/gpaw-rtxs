@@ -220,7 +220,16 @@ class Hamiltonian:
             Epot += setup.M + np.dot(D_p, (setup.M_p +
                                            np.dot(setup.M_pp, D_p)))
 
-            if self.vext is not None:
+            if (self.vext is not None
+                and hasattr(self.vext, 'get_dVext_p')
+                and self.vext.use_dVext_p(a)):
+
+                _dVext_p = self.vext.get_dVext_p(a)
+                # RTXS modification
+                Eext += np.dot(D_p, _dVext_p)
+                dH_p += _dVext_p
+
+            elif self.vext is not None:
                 vext = self.vext.get_taylor(spos_c=self.spos_ac[a, :])
                 # Tailor expansion to the zeroth order
                 Eext += vext[0][0] * (sqrt(4 * pi) * density.Q_aL[a][0]
@@ -469,9 +478,12 @@ class RealSpaceHamiltonian(Hamiltonian):
         Eext = 0.0
         if self.vext is not None:
             assert self.collinear
-            vt_g += self.vext.get_potential(self.finegd)
-            Eext = self.finegd.integrate(vt_g, density.nt_g,
-                                         global_integral=False) - Ebar
+            # RTXS modification
+            vt_ext_g = self.vext.get_potential(self.finegd)
+            vt_g += vt_ext_g
+            Eext += self.finegd.integrate(vt_ext_g, density.nt_g,
+                                         global_integral=False) #- Ebar
+
 
         self.vt_sg[1:self.nspins] = vt_g
 
