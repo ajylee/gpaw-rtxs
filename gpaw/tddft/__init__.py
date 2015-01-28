@@ -436,7 +436,11 @@ class TDDFT(GPAW):
         """Calculate the time-dependent total energy"""
 
         self.td_overlap.update(self.wfs)
-        self.td_density.update()
+
+        import gpaw.rtxs.options
+        if gpaw.rtxs.options.EVOLVE_HAMILTONIAN: # ajl
+            self.td_density.update()
+
         self.td_hamiltonian.update(self.td_density.get_density(),
                                    self.time)
 

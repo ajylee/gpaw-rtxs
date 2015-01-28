@@ -15,6 +15,8 @@ from gpaw.mpi import rank, run
 from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.tdopers import DummyDensity
 
+import gpaw.rtxs.options
+
 ###############################################################################
 # DummyKPoint
 ###############################################################################
@@ -357,9 +359,11 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
         self.td_overlap.update(self.wfs)
 
-        # Calculate density rho(t) based on the wavefunctions psit_nG
-        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
+        if gpaw.rtxs.options.EVOLVE_HAMILTONIAN: # ajl
+
+            # Calculate density rho(t) based on the wavefunctions psit_nG
+            # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
+            self.td_density.update()
 
         # Update Hamiltonian H(t) to reflect density rho(t)
         self.td_hamiltonian.update(self.td_density.get_density(), time)
@@ -383,9 +387,10 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
         self.td_overlap.update(self.wfs)
 
-        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
-        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
+        if gpaw.rtxs.options.EVOLVE_HAMILTONIAN: # ajl
+            # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
+            # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
+            self.td_density.update()
 
         # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
         # and retain the difference for a half-way Hamiltonian dH(t+dt/2).
